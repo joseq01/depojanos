@@ -103,7 +103,8 @@
         </div>
         <div class="col-auto">
           <label for="salonIngreso" class="form-label">Salón Origen</label>
-          <input type="text" id="salonIngreso" class="form-control" style="width: 120px;" />
+          <input type="text" id="salonIngreso" class="form-control" list="listaSalonesIngreso" style="width: 120px;" />
+          <datalist id="listaSalonesIngreso"></datalist>
         </div>
         <div class="col-auto">
           <label for="salonDestino" class="form-label">Salón actual</label>
@@ -116,7 +117,7 @@
         </div>
         <div class="col-auto align-self-end">
           <button class="btn btn-sm btn-primary" onclick="agregarArticulo()">Agregar</button>
-          <button class="btn btn-sm btn-warning" onclick="mostrarFlotante()">Agregar Combos</button>
+          <button id="botonAgregarCombos" class="btn btn-sm btn-warning">Agregar Combos</button>
         </div>
       </div>
     </div>
@@ -274,12 +275,43 @@
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
 
+  async function cargarSalonesEnDatalistIngreso() {
+  const datalist = document.getElementById("listaSalonesIngreso");
+  datalist.innerHTML = "";
+
+  try {
+    const snapshot = await getDocs(collection(db, "salones"));
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      if (data.nombre) {
+        const opcion = document.createElement("option");
+        opcion.value = data.nombre;
+        datalist.appendChild(opcion);
+      }
+    });
+  } catch (error) {
+    console.error("Error cargando salones para ingreso:", error);
+  }
+}
+
+// Llamar al cargar la planilla de ingreso
+cargarSalonesEnDatalistIngreso();
+
   let combos = {}; // fuera de cualquier función, arriba del todo
 
   async function cargarCombosDesdeFirestore() {
+  // Intentamos cargar desde sessionStorage
+  const combosCache = sessionStorage.getItem("combosCache");
+  if (combosCache) {
+    combos = JSON.parse(combosCache);
+    console.log("✅ Combos cargados desde cache");
+    return;
+  }
+
+  // Si no hay cache, consultamos Firestore
   const combosRef = collection(db, "stock-combos");
   const snapshot = await getDocs(combosRef);
-  combos = {}; // objeto global
+  combos = {};
 
   snapshot.forEach((doc) => {
     const nombreCombo = doc.id;
@@ -287,17 +319,33 @@
 
     if (Array.isArray(data.productos)) {
       combos[nombreCombo] = data.productos.map(item => ({
-      articulo: item.articulo || "",
-      unidades: item.unidades ?? 0,
-      "caja-pack": item.cajaPack ?? 0,
-      nota: item.nota || ""  // Solo si querés mantener 'nota'
-    }));
-
+        articulo: item.articulo || "",
+        unidades: item.unidades ?? 0,
+        "caja-pack": item.cajas ?? 0,
+        nota: item.nota || ""
+      }));
     } else {
       combos[nombreCombo] = [];
     }
   });
-} //cambios 11-5
+
+  // Guardamos en sessionStorage
+  sessionStorage.setItem("combosCache", JSON.stringify(combos));
+  console.log("📦 Combos guardados en cache");
+}
+async function abrirModalCombos() {
+  await cargarCombosDesdeFirestore();
+  mostrarFlotante();
+}
+document.addEventListener("DOMContentLoaded", () => {
+  const boton = document.getElementById("botonAgregarCombos");
+  if (boton) {
+    boton.addEventListener("click", abrirModalCombos);
+  } else {
+    console.error("❌ No se encontró el botón #botonAgregarCombos");
+  }
+});
+
 
 function mostrarFlotante() {
   const contenedor = document.getElementById("contenedorCombos");
@@ -322,7 +370,7 @@ function mostrarFlotante() {
           <input class="form-control unidades" type="number" value="${p.unidades}" />
         </div>
         <div class="col">
-          <input class="form-control cajas" type="number" value="${p['caja-pack']}" />
+          <input class="form-control cajas" type="number" value="${p.cajas}" />
         </div>
         <div class="col">
           <input class="form-control notas" placeholder="Notas..." value="${p.nota}" />
@@ -359,7 +407,8 @@ function crearFila(ingreso, fecha, articulo, unidades, cajas, rotas, notas, usua
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  const salonGuardado = localStorage.getItem("salonSeleccionado");
+  const salonGuardado =  sessionStorage.getItem("salon");
+  /*  const salonGuardado = localStorage.getItem("salonSeleccionado"); actual 29/5*/
   if (salonGuardado) {
     document.getElementById("salonDestino").textContent = salonGuardado;
   }
@@ -382,7 +431,7 @@ async function actualizarStockTotal(articulo, unidades, cajas, origen) {
     const pathCajas = `salones.${origen}.cajas`;
 
     await updateDoc(stockTotalRef, {
-      unidades: increment(unidades),
+     
       "caja-pack": increment(cajas),
       [pathUnidades]: increment(unidades),
       [pathCajas]: increment(cajas)
@@ -391,7 +440,7 @@ async function actualizarStockTotal(articulo, unidades, cajas, origen) {
     // Si no existe, lo creamos desde cero
     const nuevoDoc = {
       articulo,
-      unidades,
+      
       "caja-pack": cajas,
       salones: {
         [origen]: {
@@ -406,14 +455,32 @@ async function actualizarStockTotal(articulo, unidades, cajas, origen) {
 }
 
 
-async function existeArticuloEnStockArticulos(nombreArticulo) {
-  const q = query(
-    collection(db, "stock-articulos"),
-    where("articulo", "==", nombreArticulo)
-  );
-  const querySnapshot = await getDocs(q);
-  return !querySnapshot.empty; 
+let articulosCache = []; // cache para astock-articulos
+async function cargarArticulosDesdeFirestore() {
+  const cache = sessionStorage.getItem("articulosCache");
+  if (cache) {
+    articulosCache = JSON.parse(cache);
+    console.log("✅ Artículos cargados desde cache (ingreso)");
+    return;
+  }
+
+  const snapshot = await getDocs(collection(db, "stock-articulos"));
+  articulosCache = snapshot.docs.map(doc => doc.data().articulo.trim().toLowerCase());
+  sessionStorage.setItem("articulosCache", JSON.stringify(articulosCache));
+  console.log("📦 Artículos cargados desde Firestore y cacheados (ingreso)");
 }
+
+async function existeArticuloEnStockArticulos(nombreArticulo) {
+  const nombreNormalizado = nombreArticulo.trim().toLowerCase();
+
+  // Cargamos el cache si aún no está
+  if (articulosCache.length === 0) {
+    await cargarArticulosDesdeFirestore();
+  }
+
+  return articulosCache.includes(nombreNormalizado);
+}
+
  
 async function agregarArticulo() {
   const articulo = document.getElementById("articulo").value.trim();
@@ -424,13 +491,13 @@ async function agregarArticulo() {
   const ingreso = document.getElementById("salonIngreso").value;
   const origen = document.getElementById("salonDestino").textContent;
   const fecha = new Date().toLocaleDateString();
-  const usuario = "UsuarioDemo";
+  const usuario = sessionStorage.getItem("usuario");
 
   if (articulo !== "") {
   const docRef = await addDoc(collection(db, "stock-ingreso"), {
     articulo,
     unidades,
-    "caja-pack": cajas,
+    cajas,
     rotas,
     notas,
     salones: ingreso,
@@ -460,8 +527,8 @@ async function cargarTablaPedidos() {
   const tabla = document.getElementById("tablaArticulos");
   tabla.innerHTML = "";
 
-  const salonSeleccionado = localStorage.getItem("salonSeleccionado");
-
+  const salonSeleccionado = sessionStorage.getItem("salon");
+  
   const pedidosRef = collection(db, "stock-ingreso");
   const q = query(
     pedidosRef,
@@ -474,7 +541,7 @@ async function cargarTablaPedidos() {
   snapshot.forEach((docSnap) => {
     const data = docSnap.data();
     const fecha = data.fecha instanceof Timestamp
-      ? data.fecha.toDate().toLocaleDateString()
+     ? data.fecha.toDate().toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })
       : data.fecha;
 
     const fila = crearFila(
@@ -499,29 +566,34 @@ async function eliminarFila(btn, event) {
   const fila = btn.closest("tr");
   const docId = fila.getAttribute("data-id");
 
-  // Obtener datos desde las celdas
-  const celdas = fila.querySelectorAll("td");
-  const articulo = celdas[3]?.textContent.trim();
-  const unidades = parseInt(celdas[4]?.textContent.trim()) || 0;
-  const cajas = parseInt(celdas[5]?.textContent.trim()) || 0;
-  const origen = celdas[2]?.textContent.trim(); // 👈 asegúrate de que el salón esté en esta posición
-
-  if (docId) {
-    try {
-      await deleteDoc(doc(db, "stock-ingreso", docId));
-    } catch (error) {
-      console.error("Error eliminando documento:", error);
-    }
+  if (!docId) {
+    fila.remove();
+    return;
   }
 
-  fila.remove();
-  mostrarMensajeEliminado();
-  // Descontar del stock-total considerando el salón
-  await restarStockTotal(articulo, unidades, cajas, origen);
+  try {
+    const docRef = doc(db, "stock-ingreso", docId);
+    const docSnap = await getDoc(docRef);
+
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      const { articulo, unidades, cajas, origen } = data;
+
+      await restarStockTotal(articulo, parseInt(unidades) || 0, parseInt(cajas) || 0, origen);
+    }
+
+    await deleteDoc(doc(db, "stock-ingreso", docId));
+    fila.remove();
+    mostrarMensajeEliminado();
+  } catch (error) {
+    console.error("Error eliminando documento:", error);
+  }
 }
+
 
 async function restarStockTotal(articulo, unidades, cajas, origen) {
   const existe = await existeArticuloEnStockArticulos(articulo);
+
   if (!existe) {
     console.warn(`⚠️ El artículo "${articulo}" no existe en stock-articulos. No se descuenta stock-total.`);
     return;
@@ -531,33 +603,79 @@ async function restarStockTotal(articulo, unidades, cajas, origen) {
   const stockSnap = await getDoc(stockTotalRef);
 
   if (stockSnap.exists()) {
-    const data = stockSnap.data();
-    let salones = {};
-if (typeof data.salones === "object" && data.salones !== null) {
-  salones = data.salones;
-}
-
-
-    const salonActual = salones[origen] || { unidades: 0, cajas: 0 };
-    salonActual.unidades -= unidades;
-    salonActual.cajas -= cajas;
-
-    // Evitar números negativos
-    salonActual.unidades = Math.max(0, salonActual.unidades);
-    salonActual.cajas = Math.max(0, salonActual.cajas);
-
-    salones[origen] = salonActual;
+    const pathUnidades = `salones.${origen}.unidades`;
+    const pathCajas = `salones.${origen}.cajas`;
 
     await updateDoc(stockTotalRef, {
-      unidades: increment(-unidades),
       "caja-pack": increment(-cajas),
-      salones
+      [pathUnidades]: increment(-unidades),
+      [pathCajas]: increment(-cajas)
     });
+  } else {
+    console.warn(`⚠️ No se encontró "${articulo}" en stock-total.`);
   }
 }
 
-
 async function guardarSeleccion() {
+  const contenedor = document.getElementById("contenedorCombos");
+  const comboCards = document.querySelectorAll(".combo-card");
+
+  for (let card of comboCards) {
+    const checkbox = card.querySelector(".combo-checkbox");
+    if (!checkbox.checked) continue; // ✅ Solo procesa combos seleccionados
+
+    const comboNombre = checkbox.dataset.nombre;
+    const rows = card.getElementsByClassName("row");
+
+    for (let row of rows) {
+      const articuloInput = row.querySelector(".articulo");
+      const unidadesInput = row.querySelector(".unidades");
+      const cajasInput = row.querySelector(".cajas");
+      const notasInput = row.querySelector(".notas");
+
+      if (articuloInput && unidadesInput && cajasInput && notasInput) {
+        const articulo = articuloInput.value.trim();
+        const unidades = parseInt(unidadesInput.value) || 0;
+        const cajas = parseInt(cajasInput.value) || 0;
+        const notas = notasInput.value.trim();
+        const rotas = 0;
+
+        const fecha = new Date().toLocaleDateString();
+        const usuario = sessionStorage.getItem("usuario");
+        const ingreso = document.getElementById("salonIngreso").value;
+        const origen = document.getElementById("salonDestino").textContent;
+
+        try {
+          const docRef = await addDoc(collection(db, "stock-ingreso"), {
+            combo: comboNombre,
+            articulo,
+            unidades,
+            cajas,
+            rotas,
+            notas,
+            fecha,
+            usuario,
+            salones: ingreso,
+            origen
+          });
+
+          const filaHTML = crearFila(ingreso, fecha, articulo, unidades, cajas, rotas, notas, usuario, docRef.id);
+          document.getElementById("tablaArticulos").insertAdjacentHTML("beforeend", filaHTML);
+
+          mostrarMensajeGuardado();
+          await actualizarStockTotal(articulo, unidades, cajas, origen);
+        } catch (error) {
+          console.error("❌ Error al guardar en Firestore:", error);
+        }
+      }
+    }
+  }
+
+  cerrarFlotante();
+}
+
+
+/* async function guardarSeleccion() {
   const contenedor = document.getElementById("contenedorCombos");
   const comboCards = document.querySelectorAll(".combo-card");
 
@@ -579,7 +697,7 @@ async function guardarSeleccion() {
         const rotas = 0;
 
         const fecha = new Date().toLocaleDateString();
-        const usuario = "UsuarioDemo";
+       const usuario = sessionStorage.getItem("usuario");
         const ingreso = document.getElementById("salonIngreso").value;
         const origen = document.getElementById("salonDestino").textContent;
 
@@ -614,7 +732,7 @@ async function guardarSeleccion() {
 
 
   cerrarFlotante();
-}
+} */
 
  
 window.addEventListener("DOMContentLoaded", async () => {

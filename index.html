@@ -12,6 +12,10 @@
   />
 
   <style>
+      #loginInicial.invisible {
+    visibility: hidden;
+  }
+
     .nav-link:hover {
       color: #ffc107 !important;
     }
@@ -117,10 +121,57 @@ body {
   padding-top: 70px; /* Ajustá este valor si tu navbar es más alto o más bajo */
 }
 
+.modal-login {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.modal-content-login {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  text-align: center;
+  width: 300px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+}
+
+.modal-content-login input {
+  width: 90%;
+  padding: 8px;
+  margin: 10px 0;
+}
   </style>
 
 </head>
 <body class="d-flex flex-column min-vh-100">
+
+
+<div id="loginInicial" class="modal d-flex align-items-center justify-content-center show invisible" tabindex="-1" style="display: flex; background-color: rgba(0,0,0,0.5);">
+
+  <div class="modal-dialog">
+    <div class="modal-content p-4 rounded-4 shadow-lg">
+      <div class="modal-header border-0">
+        <h5 class="modal-title">Acceso a la aplicación</h5>
+      </div>
+      <div class="modal-body">
+        <input type="text" id="usuarioInicio" class="form-control mb-3" placeholder="Usuario" />
+        <input type="password" id="contraseniaInicio" class="form-control mb-3" placeholder="Contraseña" />
+        <button class="btn btn-primary w-100" onclick="validarLoginInicial()">Ingresar</button>
+      </div>
+    </div>
+  </div>
+</div>  <!--clave ingreso -->
+
+
+  <main class="flex-grow-1">
   <!-- Menú de navegación -->
   <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
 
@@ -147,20 +198,41 @@ body {
         </div>
       </div>
 
-      <!-- Derecha: Ajuste con menú hacia la izquierda -->
-      <div class="dropdown-ajuste">
-        <a class="nav-link text-white" href="#" id="ajusteLink">Ajuste</a>
-        <div class="dropdown-menu">
-          <a class="dropdown-item" href="#" onclick="abrirFlotante('modalEditarCombos')">editar combos</a>
-          <a class="dropdown-item" href="#" onclick="abrirFlotante('modalArticulos')">agr/elim articulo</a>
-          <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#modalAgregarSalon">agregar salones</a>
-          <a class="dropdown-item" href="#" onclick="abrirFlotante('modalAmbientacion4')">Ambientación 4</a>
-        </div>
-        
-      </div>
+    <!-- menu AJUSTE Botón Ajuste SIEMPRE visible -->
+<div class="dropdown-ajuste">
+  <a class="nav-link text-white" href="#" id="ajusteLink">Ajuste</a>
+  <div class="dropdown-menu d-none" id="ajusteMenu">
+    <a class="dropdown-item" href="#" onclick="abrirFlotanteProtegido('modalEditarCombos')">editar combos</a>
+    <a class="dropdown-item" href="#" onclick="abrirFlotanteProtegido('modalArticulos')">agr/elim articulo</a>
+    <a class="dropdown-item" href="#" onclick="abrirFlotanteProtegido('modalAgregarSalon')">agregar salones</a>
+    <a class="dropdown-item" href="#" onclick="abrirFlotanteProtegido('modalUsuarios')">agregar usuarios </a>
+  </div>
+</div>
+<div id="loginModal" class="modal-login" style="display: none;">
+  <div class="modal-content-login">
+    <h5>Acceso restringido</h5>
+    <input type="text" id="loginUsuario" placeholder="Usuario" />
+    <input type="password" id="loginContrasenia" placeholder="Contraseña" />
+    <div style="margin-top: 10px;">
+      <button onclick="validarLogin()">Ingresar</button>
+      <button onclick="cerrarLogin()" style="margin-left: 10px;">Cancelar</button>
     </div>
-  </nav>
+  </div>
+</div>
 
+
+
+  </nav>
+ <!-- menu contrasenia ajuste --> 
+<div id="modalLoginAjuste" class="modal-login" style="display: none;">
+  <div class="modal-content-login">
+    <h4>Acceso requerido</h4>
+    <input type="text" id="usuarioAjuste" placeholder="Usuario">
+    <input type="password" id="contrasenaAjuste" placeholder="Contraseña">
+    <button onclick="verificarCredenciales()">Ingresar</button>
+    <button onclick="cerrarModalLogin()">Cancelar</button>
+  </div>
+</div>
   <!-- Contenido -->
   <div id="contenido-imprimir" class="container mt-5 flex-grow-1">
   <h4 class="text-center mb-4">Stock Actual</h4>
@@ -188,11 +260,11 @@ body {
     <tbody id="tablaStockActual"></tbody>
   </table>
 
-  <div class="d-flex justify-content-between bg-white py-2 px-4 border-top" style="position:sticky; bottom:0; z-index:1020;">
+  <!-- <div class="d-flex justify-content-between bg-white py-2 px-4 border-top" style="position:sticky; bottom:0; z-index:1020;">
     <button class="btn btn-success" onclick="guardarCambios()">Guardar Cambios</button>
     <button class="btn btn-secondary no-print" onclick="window.print()">Imprimir</button>
   </div>
-</div>
+</div> -->
 
 <!-- Filtro flotante -->
 <div id="filtroDropdown" style="display:none; position:absolute; z-index:999; background:#fff; border:1px solid #ccc; padding:10px; border-radius:6px; width:220px;">
@@ -211,71 +283,76 @@ body {
 
  
 <!-- Modal para editar combos -->
-<div id="modalEditarCombos" class="pantalla-flotante">
-  <div class="contenido position-relative">
-    <button class="btn-close position-absolute top-0 end-0 m-3" onclick="cerrarFlotante('modalEditarCombos')"></button>
-    <h5 class="mb-3">Editar Combos</h5>
+<div class="modal fade" id="modalEditarCombos" tabindex="-1" aria-labelledby="modalEditarCombosLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content position-relative p-4">
+      <button type="button" class="btn-close position-absolute top-0 end-0 m-3" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      <h5 class="modal-title mb-3" id="modalEditarCombosLabel">Editar Combos</h5>
 
-    <div class="mb-3">
-      <label for="nombreCombo" class="form-label">Nombre del Combo</label>
-      <input type="text" class="form-control w-50" id="nombreCombo" list="listaCombos" placeholder="ingrese nombre del combo">
-      <datalist id="listaCombos"></datalist>
-    </div>
+      <div class="mb-3">
+        <label for="nombreCombo" class="form-label">Nombre del Combo</label>
+        <input type="text" class="form-control w-50" id="nombreCombo" list="listaCombos" placeholder="ingrese nombre del combo">
+        <datalist id="listaCombos"></datalist>
+      </div>
 
-    <div id="contenedorNuevosCombos"></div>
+      <div id="contenedorNuevosCombos"></div>
 
-    <div class="d-flex justify-content-between mt-3">
-      <button class="btn btn-secondary" onclick="agregarFilaCombo()">Agregar artículo</button>
-      <button class="btn btn-primary" onclick="guardarTodoCombo()">Guardar Combo</button>
-      <button class="btn btn-danger" onclick="eliminarComboConConfirmacion()">Eliminar Combo</button>
+      <div class="d-flex justify-content-between mt-3">
+        <button class="btn btn-secondary" onclick="agregarFilaCombo()">Agregar artículo</button>
+        <button class="btn btn-primary" onclick="guardarTodoCombo()">Guardar Combo</button>
+        <button class="btn btn-danger" onclick="eliminarComboConConfirmacion()">Eliminar Combo</button>
+      </div>
     </div>
   </div>
 </div>
-
 
 
 <!-- Modal para agregar/eliminar artículos -->
-<div id="modalArticulos" class="pantalla-flotante">
-  <div class="contenido position-relative">
-    <button class="btn-close position-absolute top-0 end-0 m-3" onclick="cerrarFlotante('modalArticulos')"></button>
-    <h5 class="mb-3">Agregar / Eliminar Artículos</h5>
+<div class="modal fade" id="modalArticulos" tabindex="-1" aria-labelledby="modalArticulosLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content position-relative p-4">
+      <button type="button" class="btn-close position-absolute top-0 end-0 m-3" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      <h5 class="modal-title mb-3" id="modalArticulosLabel">Agregar / Eliminar Artículos</h5>
 
-    <form id="formularioArticulo">
-      <input type="hidden" id="idArticulo">
+      <form id="formularioArticulo">
+        <input type="hidden" id="idArticulo">
 
-      <div class="row mb-3">
-        <div class="col-md-6">
-          <label for="articulo" class="form-label">Artículo</label>
-          <input list="listaArticulos" id="articulo" class="form-control" required>
-          <datalist id="listaArticulos"></datalist>
+        <div class="row mb-3">
+          <div class="col-md-6">
+            <label for="articulo" class="form-label">Artículo</label>
+            <input list="listaArticulos" id="articulo" class="form-control" required>
+            <datalist id="listaArticulos"></datalist>
+          </div>
+
+          <div class="col-md-3">
+            <label for="unidades" class="form-label">Unidades</label>
+            <input type="number" id="unidades" class="form-control" min="0" required>
+          </div>
+
+          <div class="col-md-3">
+            <label for="cajaPack" class="form-label">Caja / Pack</label>
+            <input type="text" id="cajaPack" class="form-control">
+          </div>
         </div>
 
-        <div class="col-md-3">
-          <label for="unidades" class="form-label">Unidades</label>
-          <input type="number" id="unidades" class="form-control" min="0" required>
+        <div class="mb-3">
+          <label for="categoria" class="form-label">Categoría</label>
+          <input type="text" id="categoria" class="form-control" required>
         </div>
 
-        <div class="col-md-3">
-          <label for="cajaPack" class="form-label">Caja / Pack</label>
-          <input type="text" id="cajaPack" class="form-control">
+        <div class="d-flex justify-content-between">
+          <button type="submit" class="btn btn-success">Guardar</button>
+          <button type="button" id="btnEliminarArticulo" class="btn btn-danger">Eliminar</button>
         </div>
-      </div>
 
-      <div class="mb-3">
-        <label for="categoria" class="form-label">Categoría</label>
-        <input type="text" id="categoria" class="form-control" required>
-      </div>
-
-      <div class="d-flex justify-content-between">
-        <button type="submit" class="btn btn-success">Guardar</button>
-        <button type="button" id="btnEliminarArticulo" class="btn btn-danger">Eliminar</button>
         <div id="alertaArticuloExistente" class="alert alert-warning mt-3 d-none rounded-3 shadow-sm" role="alert">
           ⚠️ El artículo ya existe. Se actualizará.
-        </div>   
-      </div>
-    </form>
+        </div>
+      </form>
+    </div>
   </div>
 </div>
+
 
 
 <!-- Modal Agregar Salón -->
@@ -326,14 +403,57 @@ body {
 
 
 
-<!-- Modal para ambientación 4 -->
-<div id="modalAmbientacion4" class="pantalla-flotante">
-  <div class="contenido position-relative">
-    <button class="btn-close position-absolute top-0 end-0 m-3" onclick="cerrarFlotante('modalAmbientacion4')"></button>
-    <h5 class="mb-3">Ambientación 4</h5>
-    <p>Contenido de ambientación 4.</p>
+<!-- Modal para agregar usuarios -->
+<div class="modal fade" id="modalUsuarios" tabindex="-1" aria-labelledby="modalUsuariosLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content position-relative p-4">
+      <button type="button" class="btn-close position-absolute top-0 end-0 m-3" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      <h5 class="modal-title mb-3" id="modalUsuariosLabel">Agregar Usuario</h5>
+
+      <form id="formularioUsuario">
+        <div class="row mb-3">
+          <div class="col-md-6">
+            <label for="nombreApellido" class="form-label">Nombre y Apellido</label>
+<input type="text" id="nombreApellido" class="form-control" list="listaUsuarios" required>
+<datalist id="listaUsuarios"></datalist>
+
+          </div>
+
+          <div class="col-md-6">
+            <label for="usuario" class="form-label">Usuario</label>
+            <input type="text" id="usuario" class="form-control" required>
+          </div>
+        </div>
+
+        <div class="row mb-3">
+          <div class="col-md-6">
+            <label for="contrasenia" class="form-label">Contraseña</label>
+            <input type="password" id="contrasenia" class="form-control" required>
+          </div>
+
+        <div class="col-md-6">
+        <label for="salonesUsuario" class="form-label">Salones</label>
+        <input type="text" id="salonesUsuario" class="form-control" placeholder="Ej: Escobar, Pilar, Tigre"
+         list="listaSalones">
+        <datalist id="listaSalones"></datalist>
+      </div>
+
+
+
+        <div class="d-flex justify-content-between">
+          <button type="submit" class="btn btn-success">Guardar</button>
+          <button type="button" id="btnEliminarUsuario" class="btn btn-danger">Eliminar</button>
+        </div>
+
+        <div id="alertaUsuarioExistente" class="alert alert-warning mt-3 d-none rounded-3 shadow-sm" role="alert">
+          ⚠️ El usuario ya existe. Se actualizará.
+        </div>
+      </form>
+    </div>
   </div>
 </div>
+
+
 
 <div id="mensajeGuardado" style="
   display: none;
@@ -352,6 +472,9 @@ body {
   Guardado correctamente.
 </div>
 
+<div id="mensajeFlotanteUsuario" class="position-fixed bottom-0 end-0 m-4 p-3 bg-light border rounded shadow d-none" style="z-index: 1055;"></div>
+
+</main>
   <!-- Bootstrap JS -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -390,102 +513,197 @@ body {
     const analytics = getAnalytics(app);
     const db = getFirestore(app);
   
-    // Función para cargar salones
-    async function cargarSalones() {
-  const datalist = document.getElementById("listaSalones");
-  datalist.innerHTML = ""; // limpiar antes
+//validar usuario ajuste
+let accesoPermitido = false;
+  document.getElementById("ajusteLink").addEventListener("click", () => {
+    if (!accesoPermitido) {
+      document.getElementById("loginModal").style.display = "flex";
+    } else {
+      document.getElementById("ajusteMenu").classList.toggle("d-none");
+    }
+  });
 
+ async function validarLogin() {
+  const usuario = document.getElementById("loginUsuario").value.trim();
+  const contrasenia = document.getElementById("loginContrasenia").value.trim();
+
+  try {
+    const credRef = doc(db, "ajustepassw", "credenciales");
+    const credSnap = await getDoc(credRef);
+
+    if (credSnap.exists()) {
+      const datos = credSnap.data();
+
+      if (usuario === datos.usuario && contrasenia === datos.contrasenia) {
+        accesoPermitido = true;
+        document.getElementById("loginModal").style.display = "none";
+        document.getElementById("ajusteMenu").classList.remove("d-none");
+
+        // Mensaje de éxito
+        Swal.fire({
+          icon: 'success',
+          title: 'Acceso concedido',
+          text: 'Ahora podés usar el menú de Ajuste',
+          timer: 2000,
+          showConfirmButton: false,
+        });
+
+      } else {
+        // Usuario o contraseña incorrectos
+        Swal.fire({
+          icon: 'error',
+          title: 'Acceso denegado',
+          text: 'Usuario o contraseña incorrectos',
+          timer: 2000,
+          showConfirmButton: false,
+        });
+      }
+    } else {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Error',
+        text: 'No se encontraron credenciales en Firestore',
+        timer: 2000,
+        showConfirmButton: false,
+      });
+    }
+  } catch (error) {
+    console.error("Error al validar acceso:", error);
+    Swal.fire({
+      icon: 'error',
+      title: 'Error de conexión',
+      text: 'No se pudo validar el acceso',
+      timer: 2500,
+      showConfirmButton: false,
+    });
+  }
+}
+
+function cerrarLogin() {
+  document.getElementById("loginModal").style.display = "none";
+}
+
+function abrirFlotanteProtegido(idModal) {
+  if (!accesoPermitido) {
+    document.getElementById("loginModal").style.display = "flex"; // Modal manual
+  } else {
+    const modal = document.getElementById(idModal);
+
+    if (!modal) {
+      console.warn("No se encontró el modal con ID:", idModal);
+      return;
+    }
+
+    // Verificamos si es un modal Bootstrap
+    if (modal.classList.contains("modal")) {
+      const bootstrapModal = new bootstrap.Modal(modal);
+      bootstrapModal.show();
+    } else {
+      // Modal personalizado
+      modal.style.display = "block";
+    }
+  }
+}
+
+// Hacerla accesible desde HTML
+  window.abrirFlotanteProtegido = abrirFlotanteProtegido;
+  window.validarLogin = validarLogin;
+  window.cerrarLogin = cerrarLogin;
+
+
+// Cargar salones y autocompletado
+export async function cargarSalones() {
+  const datalist = document.getElementById("listaSalones");
+  datalist.innerHTML = "";
   const snapshot = await getDocs(collection(db, "salones"));
   snapshot.forEach(doc => {
     const data = doc.data();
     if (data.salones) {
       const option = document.createElement("option");
-      option.value = data.salones;
+      option.value = data.nombre;
       datalist.appendChild(option);
     }
-      });
-    }
-  
-//estructura comparacion ingreso-pedidos
-async function cargarStockActual() {
-  const salon = localStorage.getItem("salonSeleccionado");
-  if (!salon) {
-    alert("No hay salón seleccionado.");
-    return;
-  }
+  });
+}
+
+// Estructura de stock actual por salón
+export async function cargarStockActual() {
+ const selector = document.getElementById("selectorSalon");
+  const salon = selector?.value;
 
   const tabla = document.getElementById("tablaStockActual");
   tabla.innerHTML = "";
 
-  // Mapas para acumular unidades por artículo
   const ingresos = new Map();
   const pedidos = new Map();
+  const articulosOficialesSet = new Set();
 
-  // Cargar stock-ingreso
-  const ingresoRef = collection(db, "stock-ingreso");
-  const ingresoSnap = await getDocs(ingresoRef);
-  ingresoSnap.forEach((doc) => {
+  const articulosSnap = await getDocs(collection(db, "stock-articulos"));
+  articulosSnap.forEach(doc => {
     const data = doc.data();
-    if (data.origen === salon) {
-      const art = data.articulo;
+    if (data.articulo) articulosOficialesSet.add(data.articulo.trim().toLowerCase());
+  });
+
+  const ingresoSnap = await getDocs(collection(db, "stock-ingreso"));
+  ingresoSnap.forEach(doc => {
+    const data = doc.data();
+    const art = data.articulo?.trim().toLowerCase();
+    if (data.origen === salon && articulosOficialesSet.has(art)) {
       const cant = parseInt(data.unidades) || 0;
       ingresos.set(art, (ingresos.get(art) || 0) + cant);
     }
   });
 
-  // Cargar stock-pedidos
-  const pedidosRef = collection(db, "stock-pedidos");
-  const pedidosSnap = await getDocs(pedidosRef);
-  pedidosSnap.forEach((doc) => {
+  const pedidosSnap = await getDocs(collection(db, "stock-pedidos"));
+  pedidosSnap.forEach(doc => {
     const data = doc.data();
-    if (data.origen === salon) {
-      const art = data.articulo;
+    const art = data.articulo?.trim().toLowerCase();
+    if (data.origen === salon && articulosOficialesSet.has(art)) {
       const cant = parseInt(data.unidades) || 0;
       pedidos.set(art, (pedidos.get(art) || 0) + cant);
     }
   });
 
-  // Unir claves de ambos mapas
   const articulos = new Set([...ingresos.keys(), ...pedidos.keys()]);
-  articulos.forEach((articulo) => {
-  const ingreso = ingresos.get(articulo) || 0;
-  const pedido = pedidos.get(articulo) || 0;
-  const stock = ingreso - pedido;
+  articulos.forEach(articulo => {
+    const ingreso = ingresos.get(articulo) || 0;
+    const pedido = pedidos.get(articulo) || 0;
+    const stock = ingreso - pedido;
+    let categoria = "";
 
-  // Buscar la categoría en los ingresos (podés ajustarlo para buscar en pedidos si fuera necesario)
-  let categoria = "";
-  ingresoSnap.forEach((doc) => {
-    const data = doc.data();
-    if (data.articulo === articulo && data.salones === salon && data.categoria) {
-      categoria = data.categoria;
-    }
+    articulosSnap.forEach(doc => {
+      const data = doc.data();
+      if (data.articulo?.trim().toLowerCase() === articulo && data.categoria) {
+        categoria = data.categoria;
+      }
+    });
+
+    const fila = `
+      <tr>
+        <td>${categoria}</td>
+        <td>${articulo}</td>
+        <td contenteditable="true" oninput="actualizarStock(this)">${ingreso}</td>
+        <td contenteditable="true" oninput="actualizarStock(this)">${pedido}</td>
+        <td class="stock-actual">${stock}</td>
+      </tr>
+    `;
+    tabla.insertAdjacentHTML("beforeend", fila);
   });
-
-  const fila = `
-    <tr>
-      <td>${categoria}</td>
-      <td>${articulo}</td>
-      <td contenteditable="true" oninput="actualizarStock(this)">${ingreso}</td>
-      <td contenteditable="true" oninput="actualizarStock(this)">${pedido}</td>
-      <td class="stock-actual">${stock}</td>
-    </tr>
-  `;
-  tabla.insertAdjacentHTML("beforeend", fila);
-});
 }
 
-function actualizarStock(cell) {
+// Actualizar valor en tabla
+export function actualizarStock(cell) {
   const row = cell.parentElement;
   const ingreso = parseInt(row.children[2].innerText) || 0;
   const pedido = parseInt(row.children[3].innerText) || 0;
-  const stock = ingreso - pedido;
-  row.children[4].innerText = stock;
+  row.children[4].innerText = ingreso - pedido;
 }
 
-    // Ejecutar al cargar la página
+// Evento al cargar la página
 window.addEventListener("DOMContentLoaded", async () => {
   await cargarSalones();
 });
+
 
 //cargar articulos
 const articulosRef = collection(db, "stock-articulos");
@@ -985,20 +1203,224 @@ window.eliminarComboConConfirmacion = async function() {
   }
 }
 
-};
-
-//finaliza modal combos
+}; //finaliza modal combos
 
 // Expone funciones al scope global
 window.cargarSalones = cargarSalones;
 window.cargarStockActual = cargarStockActual;
 window.actualizarStock = actualizarStock;
 
+//modal usuarios
+document.getElementById("nombreApellido").addEventListener("change", async (e) => {
+  let nombreSeleccionado = e.target.value.trim().replace(/\s+/g, " ");
+  document.getElementById("nombreApellido").value = nombreSeleccionado;
 
-  </script>
+  if (!nombreSeleccionado) return;
+
+  const docRef = doc(db, "passwordinicio", nombreSeleccionado);
+  const docSnap = await getDoc(docRef);
+
+  if (docSnap.exists()) {
+    const data = docSnap.data();
+    document.getElementById("usuario").value = data.usuario || "";
+    document.getElementById("contrasenia").value = data.contrasenia || "";
+
+    // Manejar array o string en salones
+    let salones = [];
+    if (Array.isArray(data.salones)) {
+      salones = data.salones;
+    } else if (typeof data.salones === "string") {
+      salones = [data.salones]; // lo transformamos en array
+    }
+
+    document.getElementById("salonesUsuario").value = salones.join(", ");
+    mostrarMensajeUsuario("ℹ️ Usuario cargado. Podés actualizarlo o eliminarlo.", "bg-info text-white");
+  } else {
+    // Limpia campos si no se encuentra
+    document.getElementById("usuario").value = "";
+    document.getElementById("contrasenia").value = "";
+    document.getElementById("salonesUsuario").value = "";
+    mostrarMensajeUsuario("⚠️ No se encontró un usuario con ese nombre.", "bg-warning");
+  }
+});
+
+
+// Guardar o actualizar usuario
+document.getElementById("formularioUsuario").addEventListener("submit", async (e) => {
+  e.preventDefault();
+
+  const nombreApellido = document.getElementById("nombreApellido").value.trim();
+  const usuario = document.getElementById("usuario").value.trim();
+  const contrasenia = document.getElementById("contrasenia").value.trim();
+  const salonesRaw = document.getElementById("salonesUsuario").value.trim();
+
+  if (!nombreApellido || !usuario || !contrasenia) {
+    mostrarMensajeUsuario("⚠️ Completá todos los campos obligatorios.", "bg-warning");
+    return;
+  }
+
+  const salones = salonesRaw.split(",").map(s => s.trim()).filter(Boolean);
+
+  const docRef = doc(db, "passwordinicio", nombreApellido);
+  const docSnap = await getDoc(docRef);
+
+  if (docSnap.exists()) {
+    mostrarMensajeUsuario("⚠️ El usuario ya existe. Se actualizará.", "bg-warning");
+  }
+
+  await setDoc(docRef, {
+    usuario,
+    contrasenia,
+    salones
+  });
+
+  mostrarMensajeUsuario("✅ Usuario guardado correctamente.", "bg-success text-white");
+
+  document.getElementById("formularioUsuario").reset();
+  document.getElementById("alertaUsuarioExistente").classList.add("d-none");
+
+  const modal = bootstrap.Modal.getInstance(document.getElementById("modalUsuarios"));
+  modal.hide();
+});
+
+document.getElementById("btnEliminarUsuario").addEventListener("click", async () => {
+  const nombreApellido = document.getElementById("nombreApellido").value.trim().replace(/\s+/g, " ");
+
+  if (!nombreApellido) {
+    mostrarMensajeUsuario("⚠️ Ingresá un nombre para eliminar.", "bg-warning");
+    return;
+  }
+
+  const result = await Swal.fire({
+    title: '¿Eliminar usuario?',
+    text: "Esta acción no se puede deshacer",
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#d33',
+    cancelButtonColor: '#aaa',
+    confirmButtonText: 'Sí, eliminar',
+    cancelButtonText: 'Cancelar'
+  });
+
+  if (!result.isConfirmed) return;
+
+  const docRef = doc(db, "passwordinicio", nombreApellido);
+  const docSnap = await getDoc(docRef);
+
+  if (!docSnap.exists()) {
+    mostrarMensajeUsuario("⚠️ No se encontró ese usuario para eliminar.", "bg-warning");
+    return;
+  }
+
+  await deleteDoc(docRef);
+
+  Swal.fire({
+    icon: 'success',
+    title: 'Eliminado',
+    text: '🗑️ Usuario eliminado correctamente.',
+    showConfirmButton: false,
+    timer: 2000
+  });
+
+  document.getElementById("formularioUsuario").reset();
+});
+
+//fin modal usuarios
+
+//clave acceso
+let usuarioActual = null;
+let salonActual = null;
+
+window.validarLoginInicial = async function () {
+  const usuario = document.getElementById("usuarioInicio").value.trim();
+  const contrasenia = document.getElementById("contraseniaInicio").value.trim();
+
+  try {
+    const q = query(collection(db, "passwordinicio"), where("usuario", "==", usuario));
+    const querySnapshot = await getDocs(q);
+
+    if (!querySnapshot.empty) {
+      const docData = querySnapshot.docs[0].data();
+
+      if (docData.contrasenia === contrasenia) {
+        usuarioActual = usuario;
+        salonActual = docData.salones;
+
+        sessionStorage.setItem("usuario", usuarioActual);
+        sessionStorage.setItem("salon", salonActual);
+
+        document.getElementById("selectorSalon").value = salonActual;
+        await cargarStockActual(); // recargar tabla cuando cambia el salón
+
+        // Ocultar el login correctamente
+        const loginModal = document.getElementById("loginInicial");
+        loginModal.classList.remove("show", "d-flex");
+        loginModal.classList.add("d-none");
+
+        Swal.fire({
+          icon: 'success',
+          title: 'Bienvenido',
+          text: `Hola ${usuarioActual}, salón: ${salonActual}`,
+          timer: 2000,
+          showConfirmButton: false
+        });
+      } else {
+        Swal.fire({
+          icon: 'error',
+          title: 'Contraseña incorrecta',
+          timer: 2000,
+          showConfirmButton: false
+        });
+      }
+    } else {
+      Swal.fire({
+        icon: 'error',
+        title: 'Usuario no encontrado',
+        timer: 2000,
+        showConfirmButton: false
+      });
+    }
+  } catch (error) {
+    console.error("Error al validar login inicial:", error);
+    Swal.fire({
+      icon: 'error',
+      title: 'Error de conexión',
+      text: 'No se pudo validar el acceso',
+      timer: 2500,
+      showConfirmButton: false
+    });
+  }
+};
+
+// 👇 Este bloque es el que debés tener al final de tu script
+window.addEventListener('load', () => {
+  const usuarioGuardado = sessionStorage.getItem("usuario");
+  const salonGuardado = sessionStorage.getItem("salon");
+  const loginModal = document.getElementById("loginInicial");
+
+  if (usuarioGuardado && salonGuardado) {
+    usuarioActual = usuarioGuardado;
+    salonActual = salonGuardado;
+
+    // Ocultar modal
+    loginModal.classList.remove("show", "d-flex");
+    loginModal.classList.add("d-none");
+    loginModal.style.display = "none"; // Lo ocultás completamente
+    console.log(`Usuario restaurado: ${usuarioActual}, salón: ${salonActual}`);
+  } else {
+    // Mostrar modal
+    loginModal.classList.remove("d-none");
+    loginModal.classList.add("show", "d-flex");
+    loginModal.classList.remove("invisible"); // Lo mostrás solo si hace falta
+  }
+});
+
+//clave acceso fin
+
+</script>
   
 <script>
-  function abrirModal(id) {
+ /*  function abrirModal(id) {
   document.getElementById(id).style.display = 'flex';
 }
 
@@ -1006,51 +1428,10 @@ function cerrarModal(id) {
   document.getElementById(id).style.display = 'none';
 }
 
- /* function mostrarFlotante() {
-      const contenedor = document.getElementById("contenedorCombos");
-      contenedor.innerHTML = "";
 
-      Object.entries(combos).forEach(([nombre, productos]) => {
-        const card = document.createElement("div");
-        card.className = "combo-card";
-
-        const encabezado = document.createElement("h6");
-        encabezado.innerHTML = `<input type="checkbox" class="combo-checkbox" data-nombre="${nombre}"> ${nombre}`;
-        card.appendChild(encabezado);
-
-        productos.forEach((p) => {
-          const row = document.createElement("div");
-          row.className = "row mb-2";
-          row.innerHTML = `
-            <div class="col-md-4">
-              <input class="form-control articulo" value="${p.articulo}" />
-            </div>
-            <div class="col">
-              <input class="form-control unidades" type="number" value="${p.unidades}" />
-            </div>
-            <div class="col">
-              <input class="form-control cajas" type="number" value="${p.cajas}" />
-            </div>
-            <div class="col">
-              <input class="form-control pack" type="number" value="${p.pack}" />
-            </div>
-          `;
-          card.appendChild(row);
-        });
-
-        contenedor.appendChild(card);
-      });
-
-      document.getElementById("pantallaFlotante").style.display = "flex";
-    }
-
-    function abrirFlotante(id) {
-  document.getElementById(id).style.display = "flex";
-}
- */
 function cerrarFlotante(id) {
   document.getElementById(id).style.display = "none";
-}
+} por las dudas */ 
 let contadorCombos = 0;
 
 function agregarFilaCombo() {
@@ -1075,60 +1456,6 @@ function eliminarCombo(boton) {
   fila.remove();
 }
 
-/* function guardarTodoCombo() {
-  const nombreCombo = document.getElementById("nombreCombo").value.trim();
-  const filas = document.querySelectorAll("#contenedorNuevosCombos > div");
-
-  if (!nombreCombo) {
-    alert("Por favor ingresá un nombre para el combo.");
-    return;
-  }
-
-  if (filas.length === 0) {
-    alert("Agregá al menos un artículo al combo.");
-    return;
-  }
-
-  const articulos = [];
-  filas.forEach(fila => {
-    const inputs = fila.querySelectorAll("input");
-    const articulo = inputs[0].value.trim();
-    const cantidad = parseInt(inputs[1].value);
-
-    if (articulo && !isNaN(cantidad)) {
-      articulos.push({ articulo, cantidad });
-    }
-  });
-
-  if (articulos.length === 0) {
-    alert("Los campos están vacíos o incompletos.");
-    return;
-  }
-
-  // Aquí podrías guardar en Firestore o localStorage
-  console.log("Combo guardado:", {
-    nombre: nombreCombo,
-    items: articulos
-  });
-
-  alert(`Combo "${nombreCombo}" guardado con ${articulos.length} artículos.`);
-  cerrarFlotante("modalEditarCombos");
-} */
-
-/* function agregarCombo2() {  
-  const contenedor = document.getElementById("contenedorNuevosArticulos");
-  const div = document.createElement("div");
-  div.className = "d-flex align-items-center mb-2 gap-2";
-  div.innerHTML = `
-    <input type="text" class="form-control w-50" placeholder="Nombre del combo" id="combo-${contadorCombos}">
-    <input type="number" class="form-control w-25" placeholder="Caja/Pack" id="combo-${contadorCombos}">
-    <button class="btn btn-primary btn-sm" onclick="guardarCombo2(${contadorCombos})">Guardar</button>
-    <button class="btn btn-danger btn-sm" onclick="eliminarCombo(this)">Eliminar</button>
-  `;
-  contenedor.appendChild(div);
-  contadorCombos++;
-} */
-
 function guardarCombo2(id) {  
   const input = document.getElementById(`combo-${id}`);
   const valor = input.value.trim();
@@ -1140,34 +1467,32 @@ function guardarCombo2(id) {
   }
 }
 document.addEventListener("DOMContentLoaded", async () => {
-  await cargarSalones(); // cargar opciones del datalist
+   const selector = document.getElementById("selectorSalon");
+  const salonLogin = sessionStorage.getItem("salon");
+   await cargarSalones(); // Cargar las opciones del datalist
 
-  const selector = document.getElementById("selectorSalon");
-  const salonGuardado = localStorage.getItem("salonSeleccionado");
-
-  if (selector && salonGuardado) {
-    selector.value = salonGuardado;
-    await cargarStockActual(); // cargar tabla de stock al inicio
+  if (selector && salonLogin) {
+    selector.value = salonLogin; // Mostrar el salón del login
+    await cargarStockActual();   // Cargar stock del salón inicial
   }
 
   selector?.addEventListener("change", async () => {
-    const nuevoSalon = selector.value;
-    localStorage.setItem("salonSeleccionado", nuevoSalon);
-    await cargarStockActual(); // recargar tabla cuando cambia el salón
+    // No guardamos nada. Solo usamos el nuevo valor temporalmente.
+    await cargarStockActual(); // Cargar stock del salón seleccionado manualmente
   });
 });
 
-document.addEventListener("DOMContentLoaded", () => {
+/* document.addEventListener("DOMContentLoaded", () => {
   const salonGuardado = localStorage.getItem("salonSeleccionado");
   if (salonGuardado) {
     document.getElementById("selectorSalon").value = salonGuardado;
   }
-});
+});*/
 
 function guardarSalonSeleccionado() {
     const salon = document.getElementById("selectorSalon").value;
-    localStorage.setItem("salonSeleccionado", salon);
-  }
+   /*  localStorage.setItem("salonSeleccionado", salon); */
+  } 
    document.addEventListener("DOMContentLoaded", guardarSalonSeleccionado);
   let columnaActual = null;
   document.addEventListener("DOMContentLoaded", () => {
@@ -1188,7 +1513,6 @@ function mostrarFiltro(event, columna) {
   const opcionesDiv = document.getElementById("opcionesFiltro");
   const filas = document.querySelectorAll("#tablaStockActual tr");
   const valoresUnicos = new Set();
-
   columnaActual = columna;
 
   filas.forEach(fila => {
@@ -1196,7 +1520,6 @@ function mostrarFiltro(event, columna) {
     if (celda) valoresUnicos.add(celda.textContent.trim());
   });
 
-  // Construir checkboxes
   opcionesDiv.innerHTML = `
     <div class="form-check">
       <input class="form-check-input" type="checkbox" id="seleccionarTodos" onchange="seleccionarTodosCheckboxes(this)">
@@ -1212,14 +1535,25 @@ function mostrarFiltro(event, columna) {
       </div>`;
   });
 
-  // Posicionamiento
   filtro.style.display = "block";
   filtro.style.top = `${event.clientY}px`;
   filtro.style.left = `${event.clientX}px`;
 
   document.getElementById("filtroInput").value = "";
-  filtrarOpciones(); // Aplicar el filtro de texto
+  filtrarOpciones();
+
+  // Ajustar si se sale de pantalla
+  setTimeout(() => {
+    const rect = filtro.getBoundingClientRect();
+    if (rect.right > window.innerWidth) {
+      filtro.style.left = `${window.innerWidth - rect.width - 20}px`;
+    }
+    if (rect.bottom > window.innerHeight) {
+      filtro.style.top = `${window.innerHeight - rect.height - 20}px`;
+    }
+  }, 0);
 }
+
 
 function filtrarOpciones() {
   const filtroTexto = document.getElementById("filtroInput").value.toLowerCase();
@@ -1324,6 +1658,17 @@ function mostrarMensajeGuardado(texto = "Guardado correctamente.") {
   }, 2000);
 }
 
+//mensaje modal usuarios
+function mostrarMensajeUsuario(texto, color = "bg-light") {
+  const mensaje = document.getElementById("mensajeFlotanteUsuario");
+  mensaje.className = `position-fixed bottom-0 end-0 m-4 p-3 border rounded shadow ${color}`;
+  mensaje.textContent = texto;
+  mensaje.classList.remove("d-none");
+
+  setTimeout(() => {
+    mensaje.classList.add("d-none");
+  }, 3000);
+}
 
   </script>
 <!-- Footer al final -->
