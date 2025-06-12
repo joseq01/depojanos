@@ -455,31 +455,44 @@ async function actualizarStockTotal(articulo, unidades, cajas, origen) {
 }
 
 
-let articulosCache = []; // cache para astock-articulos
+let articulosCache = []; // cache para stock-articulos
 async function cargarArticulosDesdeFirestore() {
   const cache = sessionStorage.getItem("articulosCache");
   if (cache) {
     articulosCache = JSON.parse(cache);
     console.log("✅ Artículos cargados desde cache (ingreso)");
+    llenarDatalistArticulos(); // 👈 agregamos esto
     return;
   }
-
   const snapshot = await getDocs(collection(db, "stock-articulos"));
   articulosCache = snapshot.docs.map(doc => doc.data().articulo.trim().toLowerCase());
   sessionStorage.setItem("articulosCache", JSON.stringify(articulosCache));
   console.log("📦 Artículos cargados desde Firestore y cacheados (ingreso)");
+  llenarDatalistArticulos(); // 👈 agregamos esto
 }
-
 async function existeArticuloEnStockArticulos(nombreArticulo) {
   const nombreNormalizado = nombreArticulo.trim().toLowerCase();
-
-  // Cargamos el cache si aún no está
   if (articulosCache.length === 0) {
     await cargarArticulosDesdeFirestore();
   }
-
   return articulosCache.includes(nombreNormalizado);
 }
+// 👇 NUEVA función para llenar el datalist
+function llenarDatalistArticulos() {
+  const datalist = document.getElementById("listaSugerencias");
+  if (!datalist) return;
+
+  datalist.innerHTML = "";
+  articulosCache.forEach(nombre => {
+    const option = document.createElement("option");
+    option.value = nombre;
+    datalist.appendChild(option);
+  });
+}
+// 👇 Llamada al cargar la página
+document.addEventListener("DOMContentLoaded", () => {
+  cargarArticulosDesdeFirestore(); // ya incluye llenar datalist
+});
 
  
 async function agregarArticulo() {
@@ -675,66 +688,6 @@ async function guardarSeleccion() {
 }
 
 
-/* async function guardarSeleccion() {
-  const contenedor = document.getElementById("contenedorCombos");
-  const comboCards = document.querySelectorAll(".combo-card");
-
-  for (let card of comboCards) {
-    const comboNombre = card.querySelector(".combo-checkbox").dataset.nombre;
-    const rows = card.getElementsByClassName("row");
-
-    for (let row of rows) {
-      const articuloInput = row.querySelector(".articulo");
-      const unidadesInput = row.querySelector(".unidades");
-      const cajasInput = row.querySelector(".cajas");
-      const notasInput = row.querySelector(".notas");
-
-      if (articuloInput && unidadesInput && cajasInput && notasInput) {
-        const articulo = articuloInput.value.trim();
-        const unidades = parseInt(unidadesInput.value) || 0;
-        const cajas = parseInt(cajasInput.value) || 0;
-        const notas = notasInput.value.trim();
-        const rotas = 0;
-
-        const fecha = new Date().toLocaleDateString();
-       const usuario = sessionStorage.getItem("usuario");
-        const ingreso = document.getElementById("salonIngreso").value;
-        const origen = document.getElementById("salonDestino").textContent;
-
-        try {
-          // 👉 Guardar en stock-ingreso
-          const docRef = await addDoc(collection(db, "stock-ingreso"), {
-            combo: comboNombre,
-            articulo,
-            unidades,
-            cajas,
-            rotas,
-            notas,
-            fecha,
-            usuario,
-            salones: ingreso,
-            origen
-          });
-
-          const filaHTML = crearFila(ingreso, fecha, articulo, unidades, cajas, rotas, notas, usuario, docRef.id);
-          document.getElementById("tablaArticulos").insertAdjacentHTML("beforeend", filaHTML);
-
-          mostrarMensajeGuardado();
-
-          await actualizarStockTotal(articulo, unidades, cajas, origen);
-
-        } catch (error) {
-          console.error("❌ Error al guardar en Firestore:", error);
-        }
-      }
-    }
-  }
-
-
-  cerrarFlotante();
-} */
-
- 
 window.addEventListener("DOMContentLoaded", async () => {
   await cargarTablaPedidos();
   await cargarCombosDesdeFirestore();

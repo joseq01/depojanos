@@ -443,7 +443,6 @@ async function obtenerStockDisponible() {
 
   return stock;
 }
-
 let articulosCache = []; // arreglo global
 
 async function cargarArticulosDesdeFirestore() {
@@ -451,6 +450,7 @@ async function cargarArticulosDesdeFirestore() {
   if (cache) {
     articulosCache = JSON.parse(cache);
     console.log("✅ Artículos cargados desde cache");
+    llenarDatalistArticulos();
     return;
   }
 
@@ -458,17 +458,34 @@ async function cargarArticulosDesdeFirestore() {
   articulosCache = snapshot.docs.map(doc => doc.data().articulo);
   sessionStorage.setItem("articulosCache", JSON.stringify(articulosCache));
   console.log("📦 Artículos cargados desde Firestore y cacheados");
+  llenarDatalistArticulos();
 }
 
+// ✅ Esta función llena el <datalist> para autocompletar
+function llenarDatalistArticulos() {
+  const datalist = document.getElementById("listaSugerencias");
+  if (!datalist) return;
+
+  datalist.innerHTML = ""; // limpia por si ya había opciones
+  articulosCache.forEach(nombre => {
+    const option = document.createElement("option");
+    option.value = nombre;
+    datalist.appendChild(option);
+  });
+}
+
+// Función que usa el cache
 async function existeArticulo(nombreArticulo) {
-  // Si el cache aún no está cargado, lo cargamos
   if (articulosCache.length === 0) {
     await cargarArticulosDesdeFirestore();
   }
-
-  // Buscamos el artículo en el array cacheado
   return articulosCache.includes(nombreArticulo);
-} //genera cache de articulos
+}
+
+// Ejecutar al cargar la página
+document.addEventListener("DOMContentLoaded", () => {
+  cargarArticulosDesdeFirestore();
+});
 
 
 // ✅ modificacion 17-5
