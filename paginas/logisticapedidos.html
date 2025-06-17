@@ -883,7 +883,6 @@ async function confirmarYImprimirDesdeResumen() {
   const seleccionados = document.querySelectorAll('tbody tr.seleccionado');
   if (seleccionados.length === 0) return;
 
-  // Tomar valores desde inputs del modal
   const chofer = document.getElementById("nombreChofer").value || "";
   const dni = document.getElementById("dniChofer").value || "";
   const marca = document.getElementById("marcaVehiculo").value || "";
@@ -897,7 +896,6 @@ async function confirmarYImprimirDesdeResumen() {
 
   let direccion = "", localidad = "", provincia = "", cp = "";
 
-  // Guardar chofer en localStorage
   if (chofer && dni && marca && modelo && patente) {
     choferesGuardados[chofer] = { dni, marca, modelo, patente };
     localStorage.setItem("choferes", JSON.stringify(choferesGuardados));
@@ -917,7 +915,6 @@ async function confirmarYImprimirDesdeResumen() {
     console.error("Error obteniendo salón:", error);
   }
 
-  // 🔁 Actualizar notas en Firestore
   for (let fila of seleccionados) {
     const docId = fila.getAttribute("data-id");
     const celdas = fila.querySelectorAll("td");
@@ -933,7 +930,6 @@ async function confirmarYImprimirDesdeResumen() {
 
   await cargarTablaPedidos();
 
-  // ✅ Mensaje visual
   const alerta = document.createElement("div");
   alerta.className = "alert alert-success position-fixed top-0 start-50 translate-middle-x mt-3 shadow rounded-3";
   alerta.style.zIndex = 1050;
@@ -942,69 +938,79 @@ async function confirmarYImprimirDesdeResumen() {
   document.body.appendChild(alerta);
   setTimeout(() => alerta.remove(), 3000);
 
-  // 🖨️ Generar contenido paginado
   const itemsPorPagina = 14;
-  const paginas = [];
   const seleccionadosArray = Array.from(seleccionados);
+  const paginas = [];
+
   for (let i = 0; i < seleccionadosArray.length; i += itemsPorPagina) {
     paginas.push(seleccionadosArray.slice(i, i + itemsPorPagina));
   }
 
-  let contenido = "";
-  paginas.forEach((paginaItems, index) => {
-    contenido += `
+  for (let paginaItems of paginas) {
+    while (paginaItems.length < itemsPorPagina) {
+      const filaFalsa = document.createElement("tr");
+      for (let j = 0; j < 7; j++) {
+        const td = document.createElement("td");
+        td.innerText = "";
+        filaFalsa.appendChild(td);
+      }
+      paginaItems.push(filaFalsa);
+    }
+
+    const contenidoPagina = `
       <div style="font-family: Arial, sans-serif; padding: 60px 40px; position: relative; min-height: 100vh;">
-        <div style="position: absolute; top: 140px; right: 40px; font-size: 14px;">${fecha}</div>
-        <div style="margin-top: 160px; font-size: 16px;">${salonNombre}</div>
-        <div style="margin-bottom: 60px; font-size: 14px;">
+        <div style="position: absolute; top: 180px; right: 40px; font-size: 14px;">${fecha}</div>
+        <div style="margin-top: 200px; font-size: 16px; margin-left: 80px;">${salonNombre}</div>
+        <div style="height: 32px;"></div>
+        <div style="margin-bottom: 60px; font-size: 14px; margin-left: 80px;">
           ${direccion}, ${localidad}, ${provincia} (${cp})
         </div>
-        <ul style="list-style: none; padding-left: 0; margin-top: 120px;">
+        <ul style="list-style: none; padding-left: 0; margin-top: 140px;">
+          ${paginaItems.map(fila => {
+            const celdas = fila.querySelectorAll('td');
+            const articulo = celdas[3]?.innerText || "";
+            const unidades = celdas[4]?.innerText || "";
+            const cajas = celdas[5]?.innerText || "";
+            return `
+              <li style="margin-bottom: 8px; display: flex; gap: 40px;">
+                <span style="min-width: 250px;">${articulo}</span>
+                <span><strong>${unidades}</strong> unid.</span>
+                <span><strong>${cajas}</strong> cajas</span>
+              </li>`;
+          }).join('')}
+        </ul>
+        <div style="margin-top: 60px; padding-top: 12px; border-top: 1px solid #ccc; max-width: 100%; display: flex; justify-content: space-between; font-size: 14px;">
+          <div style="text-align: left; line-height: 2;">
+            <div>${marca}</div>
+            <div>${modelo}</div>
+            <div>${patente}</div>
+          </div>
+          <div style="text-align: right; line-height: 2;">
+            <div>${chofer}</div>
+            <div>${dni}</div>
+          </div>
+        </div>
+      </div>
     `;
 
-    paginaItems.forEach(fila => {
-      const celdas = fila.querySelectorAll('td');
-      const articulo = celdas[3]?.innerText || "";
-      const unidades = celdas[4]?.innerText || "";
-      const cajas = celdas[5]?.innerText || "";
+    for (let i = 0; i < copias; i++) {
+      const win = window.open('', '_blank');
+      if (win) {
+        win.document.write(`<html><head><title>Impresión</title></head><body onload="window.print(); window.close();">${contenidoPagina}</body></html>`);
+        win.document.close();
+      } else {
+  const alertaPopup = document.createElement("div");
+  alertaPopup.className = "alert alert-danger position-fixed top-0 start-50 translate-middle-x mt-3 shadow rounded-3";
+  alertaPopup.style.zIndex = 1050;
+  alertaPopup.style.maxWidth = "350px";
+  alertaPopup.textContent = "⚠️ El navegador bloqueó una ventana emergente. Permití popups para este sitio.";
+  document.body.appendChild(alertaPopup);
+  setTimeout(() => alertaPopup.remove(), 6000);
+}
 
-      contenido += `
-        <li style="margin-bottom: 8px; display: flex; gap: 40px;">
-          <span style="min-width: 250px;">${articulo}</span>
-          <span><strong>${unidades}</strong> unid.</span>
-          <span><strong>${cajas}</strong> cajas</span>
-        </li>
-      `;
-    });
-
-    contenido += `</ul>`;
-
-    if (chofer || dni || marca || modelo || patente) {
-      contenido += `
-        <div style="position: absolute; bottom: 40px; left: 60px; padding: 16px; max-width: 400px;">
-          <div>${chofer}</div>
-          <div>${dni}</div>
-          <div>${marca} ${modelo}</div>
-          <div>${patente}</div>
-        </div>
-      `;
     }
-
-    contenido += `</div>`;
-
-    // Corte de página
-    if (index < paginas.length - 1) {
-      contenido += `<div style="page-break-after: always;"></div>`;
-    }
-  });
-
-  // 👇 ABRIR ventanas antes de perder la cadena del click
-  const ventanas = [];
-  for (let i = 0; i < copias; i++) {
-    ventanas.push(window.open('', '_blank'));
   }
 
-  // Cerrar modal resumen y limpiar campos
   setTimeout(() => {
     const modalEl = document.getElementById("modalResumenImpresion");
     const modalInstance = bootstrap.Modal.getInstance(modalEl);
@@ -1017,17 +1023,6 @@ async function confirmarYImprimirDesdeResumen() {
     document.getElementById("patenteVehiculo").value = "";
     document.getElementById("cantidadCopias").value = "2";
   }, 300);
-
-  // Escribir contenido en las ventanas
-  ventanas.forEach((ventana, i) => {
-    if (ventana) {
-      ventana.document.write(`<html><head><title>Impresión</title></head><body>${contenido}</body></html>`);
-      ventana.document.close();
-      ventana.onload = () => ventana.print();
-    } else {
-      alert("⚠️ El navegador bloqueó una ventana emergente. Permití popups para este sitio.");
-    }
-  });
 }
 
 // Exponer
@@ -1092,16 +1087,6 @@ function abrirResumenImpresion() {
 
 window.abrirResumenImpresion = abrirResumenImpresion;
 
-//print preliminar modal
-
-// Ya imprimís desde ahí
-/* function confirmarYImprimirDesdeResumen() {
-  const modal = bootstrap.Modal.getInstance(document.getElementById("modalResumenImpresion"));
-  modal.hide();
-
-  confirmarImpresion(); 
-} */
-// Ya imprimís desde ahí
 
 
   //
