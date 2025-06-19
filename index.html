@@ -1087,8 +1087,14 @@ document.getElementById("btnEliminarSalon").addEventListener("click", async () =
 window.abrirFlotante = async function(id) {
   await obtenerNombresCombosDesdeFirestore();
 
-  const datalist = document.getElementById("listaCombos");
-  datalist.innerHTML = listaCombosFirestore.map(c => `<option value="${c.combo}">`).join("");
+ const datalist = document.getElementById("listaCombos");
+datalist.innerHTML = ""; // Limpia primero
+listaCombosFirestore.forEach(c => {
+  const option = document.createElement("option");
+  option.value = c.combo;
+  datalist.appendChild(option);
+});
+
 
   document.getElementById(id).style.display = "flex";
 };
