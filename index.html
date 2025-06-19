@@ -415,8 +415,8 @@ body {
         <div class="row mb-3">
           <div class="col-md-6">
             <label for="nombreApellido" class="form-label">Nombre y Apellido</label>
-<input type="text" id="nombreApellido" class="form-control" list="listaUsuarios" required>
-<datalist id="listaUsuarios"></datalist>
+      <input type="text" id="nombreApellido" class="form-control" list="listaUsuarios" required>
+      <datalist id="listaUsuarios"></datalist>
 
           </div>
 
@@ -610,6 +610,65 @@ function abrirFlotanteProtegido(idModal) {
   window.abrirFlotanteProtegido = abrirFlotanteProtegido;
   window.validarLogin = validarLogin;
   window.cerrarLogin = cerrarLogin;
+
+//autocompleta usuarios
+async function cargarUsuariosParaAutocomplete() {
+  const listaUsuarios = document.getElementById("listaUsuarios");
+  listaUsuarios.innerHTML = "";
+
+  const snapshot = await getDocs(collection(db, "passwordinicio"));
+  snapshot.forEach((docSnap) => {
+    const option = document.createElement("option");
+    option.value = docSnap.id; // El nombre y apellido está como ID del documento
+    listaUsuarios.appendChild(option);
+  });
+}
+
+// 🔽 Manejar selección del input
+document.getElementById("nombreApellido").addEventListener("change", async (e) => {
+  const nombreSeleccionado = e.target.value.trim().replace(/\s+/g, " ");
+  const campoNombre = document.getElementById("nombreApellido");
+  campoNombre.value = nombreSeleccionado;
+
+  // Si el campo quedó vacío, limpiamos todo
+  if (!nombreSeleccionado) {
+    limpiarCamposUsuario();
+    return;
+  }
+
+  const docRef = doc(db, "passwordinicio", nombreSeleccionado);
+  const docSnap = await getDoc(docRef);
+
+  if (docSnap.exists()) {
+    const data = docSnap.data();
+    document.getElementById("usuario").value = data.usuario || "";
+    document.getElementById("contrasenia").value = data.contrasenia || "";
+
+    let salones = [];
+    if (Array.isArray(data.salones)) {
+      salones = data.salones;
+    } else if (typeof data.salones === "string") {
+      salones = [data.salones];
+    }
+
+    document.getElementById("salonesUsuario").value = salones.join(", ");
+    mostrarMensajeUsuario("ℹ️ Usuario cargado. Podés actualizarlo o eliminarlo.", "bg-info text-white");
+  } else {
+    // Si se escribió algo pero no existe en la base
+    limpiarCamposUsuario();
+    mostrarMensajeUsuario("⚠️ No se encontró un usuario con ese nombre.", "bg-warning");
+  }
+});
+
+// 🔽 Función reutilizable para limpiar campos
+function limpiarCamposUsuario() {
+  document.getElementById("usuario").value = "";
+  document.getElementById("contrasenia").value = "";
+  document.getElementById("salonesUsuario").value = "";
+}
+
+// 🔽 Llamar al cargar la página
+cargarUsuariosParaAutocomplete();
 
 
 // Cargar salones y autocompletado
@@ -1075,6 +1134,7 @@ async function cargarNombresCombos() {
     lista.appendChild(option);
   });
 }
+cargarNombresCombos();
 
 // ✅ Si el nombre coincide con uno existente, cargar artículos
 document.getElementById('nombreCombo').addEventListener('change', async (e) => {
@@ -1098,7 +1158,6 @@ document.getElementById('nombreCombo').addEventListener('change', async (e) => {
     });
   }
 });
-
 
 // ✅ Guardar combo (crear o sobrescribir)
 async function guardarComboEnFirestore(nombre, productos) {
@@ -1450,18 +1509,7 @@ window.addEventListener('load', () => {
 </script>
   
 <script>
- /*  function abrirModal(id) {
-  document.getElementById(id).style.display = 'flex';
-}
-
-function cerrarModal(id) {
-  document.getElementById(id).style.display = 'none';
-}
-
-
-function cerrarFlotante(id) {
-  document.getElementById(id).style.display = "none";
-} por las dudas */ 
+ 
 let contadorCombos = 0;
 
 function agregarFilaCombo() {
@@ -1512,12 +1560,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 });
 
-/* document.addEventListener("DOMContentLoaded", () => {
-  const salonGuardado = localStorage.getItem("salonSeleccionado");
-  if (salonGuardado) {
-    document.getElementById("selectorSalon").value = salonGuardado;
-  }
-});*/
 
 function guardarSalonSeleccionado() {
     const salon = document.getElementById("selectorSalon").value;

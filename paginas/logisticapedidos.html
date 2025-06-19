@@ -952,18 +952,20 @@ for (let copia = 0; copia < copias; copia++) {
   paginas.forEach((paginaItems, index) => {
     let contenido = `
     <div style="font-family: Arial, sans-serif; padding: 60px 40px; position: relative; min-height: 100vh; box-sizing: border-box;">
-      <!-- Fecha -->
-      <div style="position: absolute; top: 230px; right: 120px; font-size: 14px;">${fecha}</div>
+      <!-- Fecha (1 línea más abajo, 4 caracteres a la izquierda) -->
+      <div style="position: absolute; top: 240px; right: 124px; font-size: 14px;">${fecha}</div>
 
-      <!-- Salón y Dirección -->
-      <div style="margin-top: 200px; font-size: 16px; margin-left: 80px;">${salonNombre}</div>
+      <!-- Salón (1 línea más abajo) -->
+      <div style="margin-top: 208px; font-size: 16px; margin-left: 80px;">${salonNombre}</div>
+
+      <!-- Dirección -->
       <div style="height: 32px;"></div>
       <div style="margin-bottom: 60px; font-size: 14px; margin-left: 80px;">
         ${direccion}, ${localidad}, ${provincia} (${cp})
       </div>
 
-      <!-- Lista de artículos -->
-      <ul style="list-style: none; padding-left: 0; margin-top: 120px; margin-bottom: 140px;">
+      <!-- Lista de artículos (1 línea más arriba) -->
+      <ul style="list-style: none; padding-left: 0; margin-top: 112px; margin-bottom: 140px;">
     `;
 
     const maxArticulos = 10;
@@ -976,11 +978,12 @@ for (let copia = 0; copia < copias; copia++) {
         const cajas = celdas[5]?.innerText || "";
 
         contenido += `
-        <li style="margin-bottom: 8px; display: flex; gap: 80px;">
-          <span style="min-width: 250px;">${articulo}</span>
-          <span style="margin-left: auto;"><strong>${unidades}</strong> unid.</span>
-          <span><strong>${cajas}</strong> cajas</span>
-        </li>`;
+  <li style="margin-bottom: 8px; display: flex; gap: 40px;">
+    <span style="min-width: 250px;">${articulo}</span>
+    <span style="margin-left: auto; margin-right: 64px;"><strong>${unidades}</strong> unid.</span>
+    <span style="margin-right: 64px;"><strong>${cajas}</strong> cajas</span>
+  </li>`;
+
       } else {
         contenido += `
         <li style="margin-bottom: 8px; display: flex; gap: 80px;">
@@ -991,24 +994,26 @@ for (let copia = 0; copia < copias; copia++) {
       }
     }
 
-    contenido += `
-      </ul>
+   contenido += `
+  </ul>
 
-      <!-- Pie chofer/vehículo -->
-      <div style="position: absolute; bottom: 120px; left: 40px; right: 40px; border-top: 1px solid #ccc; padding-top: 12px; font-size: 14px; display: flex; justify-content: space-between;">
-        <div style="text-align: right; line-height: 2; margin-left: 100px;">
-          <div>${chofer || "&nbsp;"}</div>
-          <div style="margin-top: 16px;">${dni || "&nbsp;"}</div>
-        </div>
-        <div style="text-align: left; line-height: 2; margin-right: 100px;">
-          <div>${marca || "&nbsp;"}</div>
-          <div>${modelo || "&nbsp;"}</div>
-          <div>${patente || "&nbsp;"}</div>
-        </div>
-      </div>
-    </div>`;
+  <!-- Pie reorganizado -->
+  <div style="position: absolute; bottom: 120px; left: 40px; right: 40px; border-top: 1px solid #ccc; padding-top: 12px; font-size: 14px; display: flex; justify-content: space-between;">
+    <!-- A la derecha: modelo, marca, patente -->
+    <div style="text-align: right; line-height: 2; margin-left: 100px;">
+      <div>${modelo || "&nbsp;"}</div>
+      <div>${marca || "&nbsp;"}</div>
+      <div>${patente || "&nbsp;"}</div>
+    </div>
+    <!-- A la izquierda: chofer y dni -->
+    <div style="text-align: left; line-height: 2; margin-right: 100px;">
+      <div>${chofer || "&nbsp;"}</div>
+      <div style="margin-top: 16px;">${dni || "&nbsp;"}</div>
+    </div>
+  </div>
+</div>`;
 
-    // Agregar salto solo si NO es la última página
+
     if (index < paginas.length - 1) {
       contenido += `<div style="page-break-after: always;"></div>`;
     }
@@ -1016,7 +1021,6 @@ for (let copia = 0; copia < copias; copia++) {
     contenidoFinal += contenido;
   });
 
-  // Abrir ventana por copia
   const win = window.open('', '_blank');
   if (win) {
     win.document.write(`
