@@ -938,92 +938,122 @@ async function confirmarYImprimirDesdeResumen() {
   document.body.appendChild(alerta);
   setTimeout(() => alerta.remove(), 3000);
 
-  const itemsPorPagina = 14;
+  const itemsPorPagina = 10;
   const seleccionadosArray = Array.from(seleccionados);
   const paginas = [];
-
   for (let i = 0; i < seleccionadosArray.length; i += itemsPorPagina) {
     paginas.push(seleccionadosArray.slice(i, i + itemsPorPagina));
   }
 
-  for (let paginaItems of paginas) {
-    while (paginaItems.length < itemsPorPagina) {
-      const filaFalsa = document.createElement("tr");
-      for (let j = 0; j < 7; j++) {
-        const td = document.createElement("td");
-        td.innerText = "";
-        filaFalsa.appendChild(td);
-      }
-      paginaItems.push(filaFalsa);
-    }
+ // ✨ Imprimir la cantidad de copias por cada página completa
+for (let copia = 0; copia < copias; copia++) {
+  let contenidoFinal = "";
 
-    const contenidoPagina = `
-      <div style="font-family: Arial, sans-serif; padding: 60px 40px; position: relative; min-height: 100vh;">
-        <div style="position: absolute; top: 180px; right: 40px; font-size: 14px;">${fecha}</div>
-        <div style="margin-top: 200px; font-size: 16px; margin-left: 80px;">${salonNombre}</div>
-        <div style="height: 32px;"></div>
-        <div style="margin-bottom: 60px; font-size: 14px; margin-left: 80px;">
-          ${direccion}, ${localidad}, ${provincia} (${cp})
-        </div>
-        <ul style="list-style: none; padding-left: 0; margin-top: 140px;">
-          ${paginaItems.map(fila => {
-            const celdas = fila.querySelectorAll('td');
-            const articulo = celdas[3]?.innerText || "";
-            const unidades = celdas[4]?.innerText || "";
-            const cajas = celdas[5]?.innerText || "";
-            return `
-              <li style="margin-bottom: 8px; display: flex; gap: 40px;">
-                <span style="min-width: 250px;">${articulo}</span>
-                <span><strong>${unidades}</strong> unid.</span>
-                <span><strong>${cajas}</strong> cajas</span>
-              </li>`;
-          }).join('')}
-        </ul>
-        <div style="margin-top: 60px; padding-top: 12px; border-top: 1px solid #ccc; max-width: 100%; display: flex; justify-content: space-between; font-size: 14px;">
-          <div style="text-align: left; line-height: 2;">
-            <div>${marca}</div>
-            <div>${modelo}</div>
-            <div>${patente}</div>
-          </div>
-          <div style="text-align: right; line-height: 2;">
-            <div>${chofer}</div>
-            <div>${dni}</div>
-          </div>
-        </div>
+  paginas.forEach((paginaItems, index) => {
+    let contenido = `
+    <div style="font-family: Arial, sans-serif; padding: 60px 40px; position: relative; min-height: 100vh; box-sizing: border-box;">
+      <!-- Fecha -->
+      <div style="position: absolute; top: 230px; right: 120px; font-size: 14px;">${fecha}</div>
+
+      <!-- Salón y Dirección -->
+      <div style="margin-top: 200px; font-size: 16px; margin-left: 80px;">${salonNombre}</div>
+      <div style="height: 32px;"></div>
+      <div style="margin-bottom: 60px; font-size: 14px; margin-left: 80px;">
+        ${direccion}, ${localidad}, ${provincia} (${cp})
       </div>
+
+      <!-- Lista de artículos -->
+      <ul style="list-style: none; padding-left: 0; margin-top: 120px; margin-bottom: 140px;">
     `;
 
-    for (let i = 0; i < copias; i++) {
-      const win = window.open('', '_blank');
-      if (win) {
-        win.document.write(`<html><head><title>Impresión</title></head><body onload="window.print(); window.close();">${contenidoPagina}</body></html>`);
-        win.document.close();
+    const maxArticulos = 10;
+    for (let i = 0; i < maxArticulos; i++) {
+      const fila = paginaItems[i];
+      if (fila) {
+        const celdas = fila.querySelectorAll("td");
+        const articulo = celdas[3]?.innerText || "";
+        const unidades = celdas[4]?.innerText || "";
+        const cajas = celdas[5]?.innerText || "";
+
+        contenido += `
+        <li style="margin-bottom: 8px; display: flex; gap: 80px;">
+          <span style="min-width: 250px;">${articulo}</span>
+          <span style="margin-left: auto;"><strong>${unidades}</strong> unid.</span>
+          <span><strong>${cajas}</strong> cajas</span>
+        </li>`;
       } else {
-  const alertaPopup = document.createElement("div");
-  alertaPopup.className = "alert alert-danger position-fixed top-0 start-50 translate-middle-x mt-3 shadow rounded-3";
-  alertaPopup.style.zIndex = 1050;
-  alertaPopup.style.maxWidth = "350px";
-  alertaPopup.textContent = "⚠️ El navegador bloqueó una ventana emergente. Permití popups para este sitio.";
-  document.body.appendChild(alertaPopup);
-  setTimeout(() => alertaPopup.remove(), 6000);
-}
-
+        contenido += `
+        <li style="margin-bottom: 8px; display: flex; gap: 80px;">
+          <span style="min-width: 250px;">&nbsp;</span>
+          <span>&nbsp;</span>
+          <span>&nbsp;</span>
+        </li>`;
+      }
     }
+
+    contenido += `
+      </ul>
+
+      <!-- Pie chofer/vehículo -->
+      <div style="position: absolute; bottom: 120px; left: 40px; right: 40px; border-top: 1px solid #ccc; padding-top: 12px; font-size: 14px; display: flex; justify-content: space-between;">
+        <div style="text-align: right; line-height: 2; margin-left: 100px;">
+          <div>${chofer || "&nbsp;"}</div>
+          <div style="margin-top: 16px;">${dni || "&nbsp;"}</div>
+        </div>
+        <div style="text-align: left; line-height: 2; margin-right: 100px;">
+          <div>${marca || "&nbsp;"}</div>
+          <div>${modelo || "&nbsp;"}</div>
+          <div>${patente || "&nbsp;"}</div>
+        </div>
+      </div>
+    </div>`;
+
+    // Agregar salto solo si NO es la última página
+    if (index < paginas.length - 1) {
+      contenido += `<div style="page-break-after: always;"></div>`;
+    }
+
+    contenidoFinal += contenido;
+  });
+
+  // Abrir ventana por copia
+  const win = window.open('', '_blank');
+  if (win) {
+    win.document.write(`
+      <html>
+        <head><title>Impresión</title></head>
+        <body style="margin: 0;">${contenidoFinal.trim()}</body>
+      </html>
+    `);
+    win.document.close();
+    win.onload = () => win.print();
+  } else {
+    const alertaPopup = document.createElement("div");
+    alertaPopup.className = "alert alert-danger position-fixed top-0 start-50 translate-middle-x mt-3 shadow rounded-3";
+    alertaPopup.style.zIndex = 1050;
+    alertaPopup.style.maxWidth = "350px";
+    alertaPopup.textContent = "⚠️ El navegador bloqueó una ventana emergente. Permití popups para este sitio.";
+    document.body.appendChild(alertaPopup);
+    setTimeout(() => alertaPopup.remove(), 6000);
   }
-
-  setTimeout(() => {
-    const modalEl = document.getElementById("modalResumenImpresion");
-    const modalInstance = bootstrap.Modal.getInstance(modalEl);
-    if (modalInstance) modalInstance.hide();
-
-    document.getElementById("nombreChofer").value = "";
-    document.getElementById("dniChofer").value = "";
-    document.getElementById("marcaVehiculo").value = "";
-    document.getElementById("modeloVehiculo").value = "";
-    document.getElementById("patenteVehiculo").value = "";
-    document.getElementById("cantidadCopias").value = "2";
-  }, 300);
 }
+
+// 🔒 Cerrar modal y limpiar campos
+setTimeout(() => {
+  const modalEl = document.getElementById("modalResumenImpresion");
+  const modalInstance = bootstrap.Modal.getInstance(modalEl);
+  if (modalInstance) modalInstance.hide();
+
+  document.getElementById("nombreChofer").value = "";
+  document.getElementById("dniChofer").value = "";
+  document.getElementById("marcaVehiculo").value = "";
+  document.getElementById("modeloVehiculo").value = "";
+  document.getElementById("patenteVehiculo").value = "";
+  document.getElementById("cantidadCopias").value = "2";
+}, 300);
+
+}
+
 
 // Exponer
 window.confirmarYImprimirDesdeResumen = confirmarYImprimirDesdeResumen;
