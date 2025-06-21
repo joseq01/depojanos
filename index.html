@@ -198,6 +198,14 @@ body {
         </div>
       </div>
 
+<button id="btnImprimirStock" onclick="imprimirStockActual()" class="btn btn-outline-light btn-sm me-3" style="
+  opacity: 0.15;
+  transition: opacity 0.4s;
+  pointer-events: none;
+">
+  🖨️ Imprimir
+</button>
+
     <!-- menu AJUSTE Botón Ajuste SIEMPRE visible -->
 <div class="dropdown-ajuste">
   <a class="nav-link text-white" href="#" id="ajusteLink">Ajuste</a>
@@ -247,25 +255,22 @@ body {
   </div>
 
   <!-- Tabla -->
-  <table class="table table-bordered" id="tablaStock">
-    <thead>
-      <tr>
-        <th>Categoria</th>
-        <th>Artículo</th>
-        <th>Ingresos </th>
-        <th>Pedidos </th>
-        <th>Stock Actual</th>
-      </tr>
-    </thead>
-    <tbody id="tablaStockActual"></tbody>
-  </table>
+ <table class="table table-bordered align-middle" id="tablaStock">
+  <thead>
+    <tr>
+      <th style="width: 28%;">Categoria</th>
+      <th style="width: 40%;">Artículo</th>
+      <th class="text-center" style="width: 8%;">Ingresos</th>
+      <th class="text-center" style="width: 8%;">Pedidos</th>
+      <th class="text-center" style="width: 8%;">Disponible</th>
+      <th class="text-center" style="width: 8%;">Rotas</th>
+    </tr>
+  </thead>
+  <tbody id="tablaStockActual"></tbody>
+</table>
 
-  <!-- <div class="d-flex justify-content-between bg-white py-2 px-4 border-top" style="position:sticky; bottom:0; z-index:1020;">
-    <button class="btn btn-success" onclick="guardarCambios()">Guardar Cambios</button>
-    <button class="btn btn-secondary no-print" onclick="window.print()">Imprimir</button>
-  </div>
-</div> -->
 
+ 
 <!-- Filtro flotante -->
 <div id="filtroDropdown" style="display:none; position:absolute; z-index:999; background:#fff; border:1px solid #ccc; padding:10px; border-radius:6px; width:220px;">
   <input type="text" id="filtroInput" placeholder="Buscar..." oninput="filtrarOpciones()" class="form-control mb-2">
@@ -695,6 +700,7 @@ export async function cargarStockActual() {
   tabla.innerHTML = "";
 
   const ingresos = new Map();
+  const rotas = new Map(); //agregado 21/6
   const pedidos = new Map();
   const articulosOficialesSet = new Set();
 
@@ -710,7 +716,9 @@ export async function cargarStockActual() {
     const art = data.articulo?.trim().toLowerCase();
     if (data.origen === salon && articulosOficialesSet.has(art)) {
       const cant = parseInt(data.unidades) || 0;
+      const cantRotas = parseInt(data.rotas) || 0;
       ingresos.set(art, (ingresos.get(art) || 0) + cant);
+      rotas.set(art, (rotas.get(art) || 0) + cantRotas); // ← acá se suman rotas
     }
   });
 
@@ -729,6 +737,7 @@ export async function cargarStockActual() {
     const ingreso = ingresos.get(articulo) || 0;
     const pedido = pedidos.get(articulo) || 0;
     const stock = ingreso - pedido;
+    const rota = rotas.get(articulo) || 0;
     let categoria = "";
 
     articulosSnap.forEach(doc => {
@@ -742,9 +751,10 @@ export async function cargarStockActual() {
       <tr>
         <td>${categoria}</td>
         <td>${articulo}</td>
-        <td contenteditable="true" oninput="actualizarStock(this)">${ingreso}</td>
-        <td contenteditable="true" oninput="actualizarStock(this)">${pedido}</td>
-        <td class="stock-actual">${stock}</td>
+        <td contenteditable="true"  class="text-center" oninput="actualizarStock(this)">${ingreso}</td>
+        <td contenteditable="true"  class="text-center" oninput="actualizarStock(this)">${pedido}</td>
+        <td class="stock-actual text-center">${stock}</td>
+        <td class="text-center">${rota}</td>
       </tr>
     `;
     tabla.insertAdjacentHTML("beforeend", fila);
@@ -1747,6 +1757,64 @@ function mostrarMensajeUsuario(texto, color = "bg-light") {
     mensaje.classList.add("d-none");
   }, 3000);
 }
+
+// Mostrar botón de imprimir al hacer clic en la tabla
+  document.addEventListener("DOMContentLoaded", () => {
+    const tabla = document.getElementById("tablaStock");
+    const boton = document.getElementById("btnImprimirStock");
+
+    if (tabla && boton) {
+      tabla.addEventListener("click", () => {
+        boton.style.opacity = "1";
+        boton.style.pointerEvents = "auto";
+      });
+    }
+  });
+
+  function imprimirStockActual() {
+    const salon = sessionStorage.getItem("salonSeleccionado") || '';
+    const nombreSalon = document.getElementById("nombreSalonImpresion");
+    if (nombreSalon && salon) {
+      nombreSalon.innerText = `Salón: ${salon}`;
+    }
+
+    const originalContents = document.body.innerHTML;
+    const contenidoAImprimir = document.getElementById("contenido-imprimir").innerHTML;
+
+    const estiloImpresion = `
+      <style>
+        @media print {
+          body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12pt;
+          }
+          th, td {
+            border: 1px solid #000;
+            padding: 6px 10px;
+            text-align: left;
+          }
+          h4, h5 {
+            margin: 0 0 12px 0;
+            text-align: center;
+          }
+        }
+      </style>
+    `;
+
+    document.body.innerHTML = estiloImpresion + contenidoAImprimir;
+
+    window.print();
+
+    setTimeout(() => {
+      document.body.innerHTML = originalContents;
+      location.reload();
+    }, 500);
+  }
 
   </script>
 <!-- Footer al final -->

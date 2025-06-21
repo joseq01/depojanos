@@ -141,7 +141,7 @@
             <tr>
               <th></th> <!-- checkbox -->
               <th>Salón Origen</th>
-              <th>Fecha</th>
+              <th class="text-center">Fecha</th>
               <th>Artículo</th>
               <th>Unid.</th>
               <th>Caj./Pack</th>
@@ -394,11 +394,11 @@ function crearFila(ingreso, fecha, articulo, unidades, cajas, rotas, notas, usua
     <tr data-id="${docId}" onclick="toggleSeleccion(this)">
       <td><input type="checkbox" onchange="toggleSeleccion(this.parentElement.parentElement, true)"></td>
       <td contenteditable="true">${ingreso}</td>
-      <td contenteditable="true">${fecha}</td>
+      <td contenteditable="true" class="text-center">${fecha}</td>
       <td contenteditable="true">${articulo}</td>
-      <td contenteditable="true">${unidades}</td>
-      <td contenteditable="true">${cajas}</td>
-      <td contenteditable="true">${rotas}</td>
+      <td contenteditable="true" class="text-center">${unidades}</td>
+      <td contenteditable="true" class="text-center">${cajas}</td>
+      <td contenteditable="true" class="text-center">${rotas}</td>
       <td contenteditable="true">${notas}</td>
       <td><button class="btn btn-sm btn-danger" onclick="eliminarFila(this, event)">✕</button></td>
       <td contenteditable="true">${usuario}</td>
@@ -503,7 +503,7 @@ async function agregarArticulo() {
   const notas = document.getElementById("notas").value.trim();
   const ingreso = document.getElementById("salonIngreso").value;
   const origen = document.getElementById("salonDestino").textContent;
-  const fecha = new Date().toLocaleDateString();
+  const fecha = Timestamp.fromDate(new Date());
   const usuario = sessionStorage.getItem("usuario");
 
   if (articulo !== "") {
@@ -521,7 +521,14 @@ async function agregarArticulo() {
 
   await actualizarStockTotal(articulo, unidades, cajas, origen);
 
-  const fila = crearFila(ingreso, fecha, articulo, unidades, cajas, rotas, notas, usuario, docRef.id);
+  const fechaFormateada = fecha.toDate().toLocaleDateString('es-AR', {
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric'
+});
+
+const fila = crearFila(ingreso, fechaFormateada, articulo, unidades, cajas, rotas, notas, usuario, docRef.id);
+
   document.getElementById("tablaArticulos").insertAdjacentHTML("beforeend", fila);
 
   mostrarMensajeGuardado();
@@ -653,7 +660,7 @@ async function guardarSeleccion() {
         const notas = notasInput.value.trim();
         const rotas = 0;
 
-        const fecha = new Date().toLocaleDateString();
+        const fecha = Timestamp.fromDate(new Date()); //cambio 21/6
         const usuario = sessionStorage.getItem("usuario");
         const ingreso = document.getElementById("salonIngreso").value;
         const origen = document.getElementById("salonDestino").textContent;
@@ -666,13 +673,19 @@ async function guardarSeleccion() {
             cajas,
             rotas,
             notas,
-            fecha,
+            fecha: fecha,
             usuario,
             salones: ingreso,
             origen
           });
 
-          const filaHTML = crearFila(ingreso, fecha, articulo, unidades, cajas, rotas, notas, usuario, docRef.id);
+          const fechaFormateada = fecha.toDate().toLocaleDateString('es-AR', {
+          day: '2-digit',
+         month: '2-digit',
+         year: 'numeric'
+        });
+
+          const filaHTML = crearFila(ingreso, fechaFormateada, articulo, unidades, cajas, rotas, notas, usuario, docRef.id);
           document.getElementById("tablaArticulos").insertAdjacentHTML("beforeend", filaHTML);
 
           mostrarMensajeGuardado();

@@ -130,7 +130,7 @@
         <tr >
           <th></th>
           <th>Salón Destino</th>
-          <th>Fecha</th>
+          <th class="text-center">Fecha</th>
           <th>Artículo</th>
           <th>Unidades</th>
           <th>Caja/Pack</th>
@@ -397,11 +397,11 @@ function crearFila(articulo, unidades, cajas, notas, destino, fecha, usuario, do
    <tr data-id="${docId}" onclick="toggleSeleccion(this)">
       <td><input type="checkbox" onchange="toggleSeleccion(this.parentElement.parentElement, true)"></td>
       <td contenteditable="true">${destino}</td>
-      <td contenteditable="true">${fecha}</td>
+      <td contenteditable="true" class="text-center">${fecha}</td>
       <td contenteditable="true">${articulo}</td>
-      <td contenteditable="true">${unidades}</td>
-      <td contenteditable="true">${cajas}</td>
-      <td contenteditable="true">${notas}</td>
+      <td contenteditable="true" class="text-center" >${unidades}</td>
+      <td contenteditable="true" class="text-center">${cajas}</td>
+      <td contenteditable="true" class="text-center">${notas}</td>
       <td><button class="btn btn-sm btn-danger" onclick="eliminarFila(this, event)">✕</button></td>
       <td contenteditable="true">${usuario}</td>
     </tr>
@@ -496,7 +496,7 @@ async function agregarArticulo() {
   const notas = document.getElementById("notas").value.trim();
   const destino = document.getElementById("salonDestino").value;
   const origen = sessionStorage.getItem("salon") || "";
-  const fecha = new Date().toLocaleDateString();
+  const fecha = Timestamp.fromDate(new Date());
  const usuario = sessionStorage.getItem("usuario");
 
   if (articulo === "" || destino.trim() === "") {
@@ -750,7 +750,7 @@ async function guardarSeleccion() {
     return;
   }
 
-  const fecha = new Date().toLocaleDateString();
+  const fecha = Timestamp.fromDate(new Date()); //cambio 21/6
   const usuario = sessionStorage.getItem("usuario");
   const destino = document.getElementById("salonDestino").value;
   const origen = sessionStorage.getItem("salon") || "";
@@ -808,7 +808,7 @@ async function guardarSeleccion() {
             notas,
             salones: destino,
             usuario,
-            fecha,
+            fecha: fecha,
             origen,
             combo: comboNombre
           });
@@ -825,7 +825,7 @@ async function guardarSeleccion() {
             notas,
             salones: destino,
             usuario,
-            fecha,
+            fecha: fecha,
             origen,
             combo: comboNombre
           });
@@ -949,13 +949,13 @@ async function confirmarYImprimirDesdeResumen() {
 for (let copia = 0; copia < copias; copia++) {
   let contenidoFinal = "";
 
-  paginas.forEach((paginaItems, index) => {
-    let contenido = `
+paginas.forEach((paginaItems, index) => {
+  let contenido = `
     <div style="font-family: Arial, sans-serif; padding: 60px 40px; position: relative; min-height: 100vh; box-sizing: border-box;">
-      <!-- Fecha (1 línea más abajo, 4 caracteres a la izquierda) -->
-      <div style="position: absolute; top: 240px; right: 124px; font-size: 14px;">${fecha}</div>
+      <!-- Fecha (2 líneas más abajo) -->
+      <div style="position: absolute; top: 272px; right: 124px; font-size: 14px;">${fecha}</div>
 
-      <!-- Salón (1 línea más abajo) -->
+      <!-- Salón -->
       <div style="margin-top: 208px; font-size: 16px; margin-left: 80px;">${salonNombre}</div>
 
       <!-- Dirección -->
@@ -964,62 +964,63 @@ for (let copia = 0; copia < copias; copia++) {
         ${direccion}, ${localidad}, ${provincia} (${cp})
       </div>
 
-      <!-- Lista de artículos (1 línea más arriba) -->
-      <ul style="list-style: none; padding-left: 0; margin-top: 112px; margin-bottom: 140px;">
-    `;
+      <!-- Lista de artículos (1 línea más arriba y desplazada 2 caracteres a la derecha) -->
+      <ul style="list-style: none; padding-left: 0; margin-top: 88px; margin-bottom: 140px;">
+  `;
 
-    const maxArticulos = 10;
-    for (let i = 0; i < maxArticulos; i++) {
-      const fila = paginaItems[i];
-      if (fila) {
-        const celdas = fila.querySelectorAll("td");
-        const articulo = celdas[3]?.innerText || "";
-        const unidades = celdas[4]?.innerText || "";
-        const cajas = celdas[5]?.innerText || "";
+  const maxArticulos = 10;
+  for (let i = 0; i < maxArticulos; i++) {
+    const fila = paginaItems[i];
+    if (fila) {
+      const celdas = fila.querySelectorAll("td");
+      const articulo = celdas[3]?.innerText || "";
+      const unidades = celdas[4]?.innerText || "";
+      const cajas = celdas[5]?.innerText || "";
 
-        contenido += `
-  <li style="margin-bottom: 8px; display: flex; gap: 40px;">
-    <span style="min-width: 250px;">${articulo}</span>
-    <span style="margin-left: auto; margin-right: 64px;"><strong>${unidades}</strong> unid.</span>
-    <span style="margin-right: 64px;"><strong>${cajas}</strong> cajas</span>
-  </li>`;
-
-      } else {
-        contenido += `
+      contenido += `
+        <li style="margin-bottom: 8px; display: flex; gap: 40px;">
+          <span style="min-width: 250px; margin-left: 10px;">${articulo}</span>
+          <span style="margin-left: auto; margin-right: 74px;"><strong>${unidades}</strong> unid.</span>
+          <span style="margin-right: 74px;"><strong>${cajas}</strong> cajas</span>
+        </li>`;
+    } else {
+      contenido += `
         <li style="margin-bottom: 8px; display: flex; gap: 80px;">
           <span style="min-width: 250px;">&nbsp;</span>
           <span>&nbsp;</span>
           <span>&nbsp;</span>
         </li>`;
-      }
     }
+  }
 
-   contenido += `
-  </ul>
+  contenido += `
+      </ul>
 
-  <!-- Pie reorganizado -->
-  <div style="position: absolute; bottom: 120px; left: 40px; right: 40px; border-top: 1px solid #ccc; padding-top: 12px; font-size: 14px; display: flex; justify-content: space-between;">
+      <!-- Pie reorganizado -->
+    <div style="position: absolute; bottom: 152px; left: 40px; right: 40px; border-top: 1px solid #ccc; padding-top: 12px; font-size: 14px; display: flex; justify-content: space-between;">
     <!-- A la derecha: modelo, marca, patente -->
     <div style="text-align: right; line-height: 2; margin-left: 100px;">
       <div>${modelo || "&nbsp;"}</div>
       <div>${marca || "&nbsp;"}</div>
       <div>${patente || "&nbsp;"}</div>
     </div>
-    <!-- A la izquierda: chofer y dni -->
+    <!-- A la izquierda: chofer (al nivel de marca), dni (una línea más abajo) -->
     <div style="text-align: left; line-height: 2; margin-right: 100px;">
       <div>${chofer || "&nbsp;"}</div>
-      <div style="margin-top: 16px;">${dni || "&nbsp;"}</div>
+      <div>&nbsp;</div>   <!-- Línea vacía para bajar dni -->
+      <div>${dni || "&nbsp;"}</div>
+      <div>&nbsp;</div>   <!-- Opcional: mantiene espacio final -->
     </div>
   </div>
-</div>`;
+`;
 
+  if (index < paginas.length - 1) {
+    contenido += `<div style="page-break-after: always;"></div>`;
+  }
 
-    if (index < paginas.length - 1) {
-      contenido += `<div style="page-break-after: always;"></div>`;
-    }
+  contenidoFinal += contenido;
+});
 
-    contenidoFinal += contenido;
-  });
 
   const win = window.open('', '_blank');
   if (win) {
