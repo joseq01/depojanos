@@ -262,7 +262,8 @@ body {
       <th style="width: 40%;">Artículo</th>
       <th class="text-center" style="width: 8%;">Ingresos</th>
       <th class="text-center" style="width: 8%;">Pedidos</th>
-      <th class="text-center" style="width: 8%;">Disponible</th>
+      <th class="text-center" style="width: 8%;">Stock unid</th>
+      <th class="text-center" style="width: 8%;">Stock C/Pack</th>
       <th class="text-center" style="width: 8%;">Rotas</th>
     </tr>
   </thead>
@@ -329,10 +330,10 @@ body {
             <datalist id="listaArticulos"></datalist>
           </div>
 
-          <div class="col-md-3">
+         <!--  <div class="col-md-3">
             <label for="unidades" class="form-label">Unidades</label>
             <input type="number" id="unidades" class="form-control" min="0" required>
-          </div>
+          </div> -->
 
           <div class="col-md-3">
             <label for="cajaPack" class="form-label">Caja / Pack</label>
@@ -693,15 +694,17 @@ export async function cargarSalones() {
 
 // Estructura de stock actual por salón
 export async function cargarStockActual() {
- const selector = document.getElementById("selectorSalon");
+  const selector = document.getElementById("selectorSalon");
   const salon = selector?.value;
 
   const tabla = document.getElementById("tablaStockActual");
   tabla.innerHTML = "";
 
   const ingresos = new Map();
-  const rotas = new Map(); //agregado 21/6
+  const cajasIngresadas = new Map();
+  const rotas = new Map();
   const pedidos = new Map();
+  const cajasPedidas = new Map();
   const articulosOficialesSet = new Set();
 
   const articulosSnap = await getDocs(collection(db, "stock-articulos"));
@@ -715,10 +718,13 @@ export async function cargarStockActual() {
     const data = doc.data();
     const art = data.articulo?.trim().toLowerCase();
     if (data.origen === salon && articulosOficialesSet.has(art)) {
-      const cant = parseInt(data.unidades) || 0;
+      const cantUnidades = parseInt(data.unidades) || 0;
+      const cantCajas = parseInt(data.cajas) || 0;
       const cantRotas = parseInt(data.rotas) || 0;
-      ingresos.set(art, (ingresos.get(art) || 0) + cant);
-      rotas.set(art, (rotas.get(art) || 0) + cantRotas); // ← acá se suman rotas
+
+      ingresos.set(art, (ingresos.get(art) || 0) + cantUnidades);
+      cajasIngresadas.set(art, (cajasIngresadas.get(art) || 0) + cantCajas);
+      rotas.set(art, (rotas.get(art) || 0) + cantRotas);
     }
   });
 
@@ -727,8 +733,11 @@ export async function cargarStockActual() {
     const data = doc.data();
     const art = data.articulo?.trim().toLowerCase();
     if (data.origen === salon && articulosOficialesSet.has(art)) {
-      const cant = parseInt(data.unidades) || 0;
-      pedidos.set(art, (pedidos.get(art) || 0) + cant);
+      const cantUnidades = parseInt(data.unidades) || 0;
+      const cantCajas = parseInt(data.cajas) || 0;
+
+      pedidos.set(art, (pedidos.get(art) || 0) + cantUnidades);
+      cajasPedidas.set(art, (cajasPedidas.get(art) || 0) + cantCajas);
     }
   });
 
@@ -737,6 +746,11 @@ export async function cargarStockActual() {
     const ingreso = ingresos.get(articulo) || 0;
     const pedido = pedidos.get(articulo) || 0;
     const stock = ingreso - pedido;
+
+    const ingresoCajas = cajasIngresadas.get(articulo) || 0;
+    const pedidoCajas = cajasPedidas.get(articulo) || 0;
+    const stockCajas = ingresoCajas - pedidoCajas;
+
     const rota = rotas.get(articulo) || 0;
     let categoria = "";
 
@@ -751,16 +765,16 @@ export async function cargarStockActual() {
       <tr>
         <td>${categoria}</td>
         <td>${articulo}</td>
-        <td contenteditable="true"  class="text-center" oninput="actualizarStock(this)">${ingreso}</td>
-        <td contenteditable="true"  class="text-center" oninput="actualizarStock(this)">${pedido}</td>
+        <td contenteditable="true" class="text-center" oninput="actualizarStock(this)">${ingreso}</td>
+        <td contenteditable="true" class="text-center" oninput="actualizarStock(this)">${pedido}</td>
         <td class="stock-actual text-center">${stock}</td>
+        <td class="text-center">${stockCajas}</td> <!-- ✅ Columna caja/pack -->
         <td class="text-center">${rota}</td>
       </tr>
     `;
     tabla.insertAdjacentHTML("beforeend", fila);
   });
 }
-
 
 // Actualizar valor en tabla
 export function actualizarStock(cell) {
@@ -804,17 +818,19 @@ async function cargarCategorias() {  //autocompletar categorias
 
 //cargar articulos
 const articulosRef = collection(db, "stock-articulos");
+
 // Guardar o actualizar artículo
 document.getElementById("formularioArticulo").addEventListener("submit", async (e) => {
   e.preventDefault();
   const idArticulo = document.getElementById("idArticulo").value;
   const nombreArticulo = document.getElementById("articulo").value.trim().toLowerCase();
+
   const articuloData = {
     articulo: nombreArticulo,
     categoria: document.getElementById("categoria").value.trim(),
-    unidades: parseInt(document.getElementById("unidades").value, 10) || 0,
-    cajaPack: document.getElementById("cajaPack").value.trim()
+    unixcajapack: Number(document.getElementById("cajaPack").value.trim()) || 0
   };
+
   try {
     const snapshot = await getDocs(articulosRef);
     let articuloExistente = null;
@@ -828,24 +844,24 @@ document.getElementById("formularioArticulo").addEventListener("submit", async (
 
     // Si ya existe y es una edición
     if (idArticulo || articuloExistente) {
-  if (!idArticulo && articuloExistente) {
-    const alerta = document.getElementById("alertaArticuloExistente");
-    alerta.classList.remove("d-none");
+      if (!idArticulo && articuloExistente) {
+        const alerta = document.getElementById("alertaArticuloExistente");
+        alerta.classList.remove("d-none");
 
-    setTimeout(() => {
-      alerta.classList.add("d-none");
-    }, 4000);
+        setTimeout(() => {
+          alerta.classList.add("d-none");
+        }, 4000);
 
-    return; // ❌ Detener aquí si ya existe y no es una edición
-  }
+        return; // ❌ Detener aquí si ya existe y no es una edición
+      }
 
-  const ref = doc(db, "stock-articulos", idArticulo || articuloExistente.id);
-  await updateDoc(ref, articuloData);
-  mostrarMensaje("✅ Artículo actualizado");
-} else {
-  await addDoc(articulosRef, articuloData);
-  mostrarMensaje("✅ Artículo guardado");
-}
+      const ref = doc(db, "stock-articulos", idArticulo || articuloExistente.id);
+      await updateDoc(ref, articuloData);
+      mostrarMensaje("✅ Artículo actualizado");
+    } else {
+      await addDoc(articulosRef, articuloData);
+      mostrarMensaje("✅ Artículo guardado");
+    }
 
     document.getElementById("formularioArticulo").reset();
     document.getElementById("idArticulo").value = "";
@@ -855,6 +871,7 @@ document.getElementById("formularioArticulo").addEventListener("submit", async (
     mostrarMensaje("❌ Error al guardar el artículo");
   }
 });
+
 // Autocompletar lista de artículos
 window.cargarListaArticulos = async function () {
   const snapshot = await getDocs(articulosRef);
@@ -888,8 +905,7 @@ document.getElementById("articulo").addEventListener("change", async () => {
     const datos = docSnap.data();
     if (datos.articulo.toLowerCase() === nombre.toLowerCase()) {
       document.getElementById("categoria").value = datos.categoria || '';
-      document.getElementById("unidades").value = datos.unidades || 0;
-      document.getElementById("cajaPack").value = datos.cajaPack || '';
+      document.getElementById("cajaPack").value = datos.unixcajapack || ''; // 🔁 actualizamos aquí
       document.getElementById("idArticulo").value = docSnap.id;
       encontrado = true;
       break;
@@ -898,7 +914,6 @@ document.getElementById("articulo").addEventListener("change", async () => {
 
   if (!encontrado) {
     document.getElementById("categoria").value = '';
-    document.getElementById("unidades").value = '';
     document.getElementById("cajaPack").value = '';
     document.getElementById("idArticulo").value = '';
   }
@@ -933,19 +948,26 @@ document.getElementById("btnEliminarArticulo").addEventListener("click", async (
 
   if (!result.isConfirmed) return;
 
-  try {
-    await deleteDoc(doc(db, "stock-articulos", id));
-    mostrarMensaje("🗑️ Artículo eliminado correctamente");
-    document.getElementById("formularioArticulo").reset();
-    document.getElementById("idArticulo").value = "";
-    cargarListaArticulos();
+ try {
+  await deleteDoc(doc(db, "stock-articulos", id));
+  mostrarMensaje("🗑️ Artículo eliminado correctamente");
+  document.getElementById("formularioArticulo").reset();
+  document.getElementById("idArticulo").value = "";
+  cargarListaArticulos();
 
-    cerrarFlotante('modalArticulos');
+  // 🔴 Cerrar modal de forma segura
+  const modal = bootstrap.Modal.getInstance(document.getElementById("modalArticulos"));
+  if (modal) modal.hide();
 
-  } catch (error) {
-    console.error("Error al eliminar:", error);
-    mostrarMensaje("❌ Error al eliminar el artículo");
-  }
+  // 🔴 Eliminar fondo gris si quedó
+  document.body.classList.remove('modal-open');
+  document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+
+} catch (error) {
+  console.error("Error al eliminar:", error);
+  mostrarMensaje("❌ Error al eliminar el artículo");
+}
+
 });
 
 // Cargar lista al iniciar

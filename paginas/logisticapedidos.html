@@ -48,6 +48,80 @@
   padding-top: 70px; /* Ajustá este valor si tu navbar es más alto o más bajo */
 }
 
+/* Proyector PEDIDOS */
+.proyector-box {
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #ccc;
+  box-shadow: 0 5px 6px rgba(0,0,0,0.15);
+  position: relative;
+  z-index: 2;
+  transition: all 0.3s ease;
+  padding-bottom: 20px;
+}
+
+/* Formulario oculto */
+#formularioPedidos.oculto {
+  height: 0;
+  opacity: 0;
+  overflow: hidden;
+  padding: 0 !important;
+  margin: 0 !important;
+  transition: all 0.4s ease;
+}
+
+/* Formulario visible */
+#formularioPedidos.visible {
+  opacity: 1;
+  height: auto;
+  padding-top: 20px;
+  padding-bottom: 50px; /* espacio para flecha colgando */
+}
+
+/* Flecha tipo triángulo */
+.proyector-arrow {
+  width: 0;
+  height: 0;
+  border-left: 30px solid transparent;
+  border-right: 30px solid transparent;
+  border-top: 30px solid #333;
+  margin: 0 auto;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+/* Flecha apuntando arriba */
+.proyector-arrow.up {
+  transform: rotate(180deg);
+}
+
+/* Hover efecto */
+.proyector-arrow:hover {
+  transform: scale(1.1) translateY(-2px);
+}
+
+/* Texto indicación */
+.proyector-text {
+  font-size: 0.85rem;
+  color: #444;
+  transition: all 0.3s ease;
+  margin-top: 5px;
+}
+
+/* Encabezado visible debajo del proyector */
+thead th {
+  position: sticky;
+  top: 110px;
+  background-color: white;
+  z-index: 1;
+}
+
+/* General */
+body {
+  padding-top: 70px;
+  overflow-x: hidden;
+}
+
+
   </style>
 </head>
 <body class="d-flex flex-column min-vh-100">
@@ -78,9 +152,10 @@
 
   <!-- Formulario -->
     
-  <div class="container mt-5">
-    <h6 class="mt-4">Pedidos:</h6>
-    <!-- <h5 class="text-center">Agregar Artículos</h5> -->
+ <!-- Pantalla proyector desplegable para PEDIDOS -->
+<div class="proyector-box text-center" id="proyectorBoxPedidos">
+  <div id="formularioPedidos" class="oculto container mt-3">
+    <h6 class="mt-2 text-start">Pedidos:</h6>
     <div class="card p-3">
       <div class="row align-items-end">
         <div class="col-md-4">
@@ -100,10 +175,9 @@
           <label for="salonDestino" class="form-label">Salón Destino</label>
           <input type="text" id="salonDestino" class="form-control" list="listaSalones" style="width: 120px;" />
           <datalist id="listaSalones"></datalist>
-
         </div>
         <div class="col-auto">
-          <label for="pack" class="form-label"></label>
+          <label for="notas" class="form-label"> </label>
           <input type="text" id="notas" class="form-control" placeholder="Observaciones..." style="width: 450px;" />
         </div>
         <div class="col-auto align-self-end">
@@ -112,37 +186,44 @@
         </div>
       </div>
     </div>
-
-    <!-- <h5 class="mt-4">Pedidos:</h5> -->
-    <table class="table table-striped mt-2"  >
-        <colgroup>
-            <col style="width: 30px;">   <!-- Checkbox -->
-            <col style="width: 100px;">  <!-- Salón Destino -->
-            <col style="width: 30px;">  <!-- Fecha -->
-            <col style="width: 300px;">  <!-- Artículo -->
-            <col style="width: 30px;">   <!-- Unidades -->
-            <col style="width: 30px;">   <!-- Cajas -->
-            <col style="width: 100px;">   <!-- Pack / observaciones -->
-            <col style="width: 60px;">   <!-- Acción -->
-            <col style="width: 120px;">  <!-- Usuario -->
-          </colgroup>
-      <thead>
-        <tr >
-          <th></th>
-          <th>Salón Destino</th>
-          <th class="text-center">Fecha</th>
-          <th>Artículo</th>
-          <th>Unidades</th>
-          <th>Caja/Pack</th>
-          <th>Notas</th>
-          <th>Acción</th>
-          <th>Usuario</th>
-         
-        </tr>
-      </thead>
-      <tbody id="tablaArticulos"></tbody>
-    </table>
   </div>
+
+  <!-- Flecha colgando abajo -->
+  <div class="proyector-arrow" id="proyectorFlechaPedidos"></div>
+  <div class="proyector-text" id="proyectorMensajePedidos">deslice hacia abajo</div>
+</div>
+
+<!-- 📌 Tabla pedidos -->
+<div class="container">
+  <table class="table table-striped table-bordered mt-2">
+    <colgroup>
+      <col style="width: 30px;">
+      <col style="width: 100px;">
+      <col style="width: 30px;">
+      <col style="width: 300px;">
+      <col style="width: 30px;">
+      <col style="width: 30px;">
+      <col style="width: 100px;">
+      <col style="width: 60px;">
+      <col style="width: 120px;">
+    </colgroup>
+    <thead>
+      <tr>
+        <th></th>
+        <th>Salón Destino</th>
+        <th class="text-center">Fecha</th>
+        <th>Artículo</th>
+        <th>Unidades</th>
+        <th>Caja/Pack</th>
+        <th>Notas</th>
+        <th>Acción</th>
+        <th>Usuario</th>
+      </tr>
+    </thead>
+    <tbody id="tablaArticulos"></tbody>
+  </table>
+</div>
+
 
   <div id="filtroDropdown" class="card p-2 position-absolute shadow" style="display: none; z-index: 1000; width: 200px;">
     <input type="text" id="filtroInput" class="form-control mb-2" placeholder="Buscar...">
@@ -516,26 +597,42 @@ async function agregarArticulo() {
   const existeEnStock = await existeArticulo(articulo);
 
   if (existeEnStock) {
-    const stockDisponible = await obtenerStockTotal();
-    const stockSalones = stockDisponible[articulo]?.salones ?? {};
-    const stockEnSalonUnidades = stockSalones[origen]?.unidades ?? 0;
-    const stockEnSalonCajas = stockSalones[origen]?.cajas ?? 0; //no es cajas?
+  const stockDisponible = await obtenerStockTotal();
+  const stockSalones = stockDisponible[articulo]?.salones ?? {};
+  let stockUnidades = stockSalones[origen]?.unidades ?? 0;
+  let stockCajas = stockSalones[origen]?.cajas ?? 0;
 
-    if (unidades > stockEnSalonUnidades || cajas > stockEnSalonCajas) {
-      await Swal.fire({
-        icon: 'info',
-        title: 'Stock insuficiente',
-        text: `articulo "${articulo}"  unidades disponibles: ${stockEnSalonUnidades}.
-        Cajas disponibles: ${stockEnSalonCajas}.`,
-        confirmButtonText: 'Entendido',
-        confirmButtonColor: '#3085d6'
-      });
-      return;
+  // ⚠️ Validación con conversión anticipada si hace falta
+  if (unidades > stockUnidades && stockCajas > 0) {
+    // Buscar unixcajapack del artículo
+    const artSnap = await getDocs(query(collection(db, "stock-articulos"), where("articulo", "==", articulo)));
+    if (!artSnap.empty) {
+      const artData = artSnap.docs[0].data();
+      const unidadesPorCaja = parseInt(artData.unixcajapack, 10) || 0;
+
+      if (unidadesPorCaja > 0) {
+        stockUnidades += unidadesPorCaja;
+        stockCajas -= 1;
+      }
     }
-
-    // 🟡 Descontar stock del salón de origen
-    await descontarStock(articulo, unidades, cajas, origen);
   }
+
+  // 🔴 Si aún así no alcanza el stock, mostrar mensaje
+  if (unidades > stockUnidades || cajas > stockCajas) {
+    await Swal.fire({
+      icon: 'info',
+      title: 'Stock insuficiente',
+      text: `artículo "${articulo}"\nUnidades disponibles: ${stockUnidades}.\nCajas disponibles: ${stockCajas}.`,
+      confirmButtonText: 'Entendido',
+      confirmButtonColor: '#3085d6'
+    });
+    return;
+  }
+
+  // ✅ Si pasa la validación, descontar stock real
+  await descontarStock(articulo, unidades, cajas, origen);
+}
+
 
   // ✅ Registrar el pedido (siempre, exista o no el artículo)
   await addDoc(collection(db, "stock-pedidos"), {
@@ -655,22 +752,43 @@ async function restaurarStockTotal(articulo, unidades, cajas, salon) {
 
   const totalRef = doc(db, "stock-total", articulo);
   const totalSnap = await getDoc(totalRef);
-
-  if (totalSnap.exists()) {
-    // Usar increment para actualizar en forma segura
-    const pathUnidadesSalon = `salones.${salon}.unidades`;
-    const pathCajasSalon = `salones.${salon}.cajas`;
-
-    await updateDoc(totalRef, {
-     
-      "caja-pack": increment(cajas),
-      [pathUnidadesSalon]: increment(unidades),
-      [pathCajasSalon]: increment(cajas)
-    });
-  } else {
+  if (!totalSnap.exists()) {
     console.warn(`⚠️ No se encontró "${articulo}" en stock-total y no se crea porque no debería.`);
+    return;
   }
+
+  // Obtener unidades por caja del artículo
+  const artSnap = await getDocs(query(collection(db, "stock-articulos"), where("articulo", "==", articulo)));
+  const unixCajaPack = (!artSnap.empty && parseInt(artSnap.docs[0].data().unixcajapack, 10)) || 0;
+
+  // Obtener stock actual del salón
+  const data = totalSnap.data();
+  const stockSalones = data.salones || {};
+  const stockActual = stockSalones[salon] || { unidades: 0, cajas: 0 };
+
+  // Sumar unidades y cajas que se están restaurando
+  let totalUnidades = (stockActual.unidades || 0) + unidades;
+  let totalCajas = (stockActual.cajas || 0) + cajas;
+
+  // Convertir unidades a cajas si corresponde
+  if (unixCajaPack > 0 && totalUnidades >= unixCajaPack) {
+    const cajasExtra = Math.floor(totalUnidades / unixCajaPack);
+    totalUnidades = totalUnidades % unixCajaPack;
+    totalCajas += cajasExtra;
+  }
+
+  // Actualizar Firestore con los valores finales
+  const pathUnidades = `salones.${salon}.unidades`;
+  const pathCajas = `salones.${salon}.cajas`;
+
+  await updateDoc(totalRef, {
+    [pathUnidades]: totalUnidades,
+    [pathCajas]: totalCajas
+  });
+
+  console.log(`✅ Restaurado "${articulo}" → ${salon}: ${totalCajas} cajas, ${totalUnidades} unidades`);
 }
+
 
 
 async function existeArticuloEnStockArticulos(articuloBuscado) {
@@ -683,16 +801,31 @@ async function existeArticuloEnStockArticulos(articuloBuscado) {
 async function descontarStock(articulo, unidades, cajas, origen) {
   const docRef = doc(db, "stock-total", articulo);
   const docSnap = await getDoc(docRef);
-
   if (!docSnap.exists()) return;
 
   const data = docSnap.data();
   const stockSalones = data.salones || {};
-
   const stockEnSalon = stockSalones[origen] || { unidades: 0, cajas: 0 };
 
-  const nuevasUnidades = (stockEnSalon.unidades || 0) - unidades;
-  const nuevasCajas = (stockEnSalon.cajas || 0) - cajas;
+  let unidadesDisponibles = stockEnSalon.unidades || 0;
+  let cajasDisponibles = stockEnSalon.cajas || 0;
+
+  // 🔁 Si no hay suficientes unidades pero sí hay cajas, reponer desde caja
+  if (unidadesDisponibles < unidades && cajasDisponibles > 0) {
+    const artSnap = await getDocs(query(collection(db, "stock-articulos"), where("articulo", "==", articulo)));
+    if (!artSnap.empty) {
+      const artData = artSnap.docs[0].data();
+      const unidadesPorCaja = parseInt(artData.unixcajapack, 10) || 0;
+
+      if (unidadesPorCaja > 0) {
+        cajasDisponibles -= 1;
+        unidadesDisponibles += unidadesPorCaja;
+      }
+    }
+  }
+
+  const nuevasUnidades = unidadesDisponibles - unidades;
+  const nuevasCajas = cajasDisponibles - cajas;
 
   stockSalones[origen] = {
     unidades: Math.max(nuevasUnidades, 0),
@@ -701,6 +834,7 @@ async function descontarStock(articulo, unidades, cajas, origen) {
 
   await updateDoc(docRef, { salones: stockSalones });
 }
+
 
 
 // ✅ Eliminar fila
@@ -1302,7 +1436,7 @@ function limpiarCamposChofer() {
       let valorFiltroActual = "";
        
       document.querySelectorAll("thead th").forEach((th, index) => {
-        if (index === 0 || index === 7 || index === 8) return; 
+        if (index === 0 || index === 7 ) return; 
         th.style.cursor = "pointer";
         th.addEventListener("click", (e) => {
           columnaActualIndex = index;
@@ -1428,6 +1562,49 @@ function limpiarCamposChofer() {
     }, 500);
   }, 2000);
 }
+
+const proyectorBoxPedidos = document.getElementById("proyectorBoxPedidos");
+const formularioPedidos = document.getElementById("formularioPedidos");
+const flechaPedidos = document.getElementById("proyectorFlechaPedidos");
+const mensajePedidos = document.getElementById("proyectorMensajePedidos");
+
+// Al pasar el mouse por el box, mostrar el formulario (si está oculto)
+proyectorBoxPedidos.addEventListener("mouseenter", () => {
+  if (!formularioPedidos.classList.contains("visible")) {
+    formularioPedidos.classList.remove("oculto");
+    formularioPedidos.classList.add("visible");
+    flechaPedidos.classList.add("up");
+    mensajePedidos.textContent = "deslice hacia arriba";
+  }
+});
+
+// Al hacer clic en la flecha, alternar mostrar/ocultar
+flechaPedidos.addEventListener("click", () => {
+  const abierto = formularioPedidos.classList.contains("visible");
+
+  if (abierto) {
+    formularioPedidos.classList.remove("visible");
+    formularioPedidos.classList.add("oculto");
+    flechaPedidos.classList.remove("up");
+    mensajePedidos.textContent = "deslice hacia abajo";
+  } else {
+    formularioPedidos.classList.remove("oculto");
+    formularioPedidos.classList.add("visible");
+    flechaPedidos.classList.add("up");
+    mensajePedidos.textContent = "deslice hacia arriba";
+  }
+});
+
+// 🔴 Al pasar el mouse por la flecha, cerrar si está abierto
+flechaPedidos.addEventListener("mouseenter", () => {
+  if (formularioPedidos.classList.contains("visible")) {
+    formularioPedidos.classList.remove("visible");
+    formularioPedidos.classList.add("oculto");
+    flechaPedidos.classList.remove("up");
+    mensajePedidos.textContent = "deslice hacia abajo";
+  }
+});
+
 
       </script>
 <!-- Footer al final -->

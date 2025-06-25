@@ -54,7 +54,89 @@
   padding-top: 70px; /* Ajustá este valor si tu navbar es más alto o más bajo */
 }
 
+table {
+  table-layout: fixed;
+}
+
+/* Proyector simulando pantalla */
+
+.proyector-box {
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #ccc;
+  box-shadow: 0 5px 6px rgba(0,0,0,0.15);
+  position: relative;
+  z-index: 2;
+  transition: all 0.3s ease;
+  padding-bottom: 20px; /* la mitad de alto cuando está cerrado */
+}
+
+
+/* Formulario oculto */
+#formularioIngreso.oculto {
+  height: 0;
+  opacity: 0;
+  overflow: hidden;
+  padding: 0 !important;
+  margin: 0 !important;
+  transition: all 0.4s ease;
+}
+
+/* Formulario visible */
+#formularioIngreso.visible {
+  opacity: 1;
+  height: auto;
+  padding-top: 20px;
+  padding-bottom: 50px; /* espacio para flecha colgando */
+}
+
+
+/* Flecha tipo triángulo */
+.proyector-arrow {
+  width: 0;
+  height: 0;
+  border-left: 30px solid transparent;
+  border-right: 30px solid transparent;
+  border-top: 30px solid #333;
+  margin: 10px auto 0 auto;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+/* Flecha apuntando arriba */
+.proyector-arrow.up {
+  transform: rotate(180deg);
+}
+
+/* Hover efecto */
+.proyector-arrow:hover {
+  transform: scale(1.1) translateY(-2px);
+}
+
+/* Texto indicación */
+.proyector-text {
+  font-size: 0.85rem;
+  color: #444;
+  transition: all 0.3s ease;
+  margin-top: 5px;
+}
+
+/* Encabezado siempre visible debajo del proyector */
+thead th {
+  position: sticky;
+  top: 110px; /* nav + proyector abierto */
+  background-color: white;
+  z-index: 1;
+}
+
+/* General */
+body {
+  padding-top: 70px;
+  overflow-x: hidden;
+}
+
+
   </style>
+
 </head>
 <body class="d-flex flex-column min-vh-100">
 
@@ -78,10 +160,12 @@
     </div>
   </nav>
 
+
+<!-- Proyector + Formulario -->
+<div class="proyector-box text-center" id="proyectorBox">
   <!-- Formulario -->
-  <div class="container mt-5">
-    <h6 class="mt-4">Ingresos</h6>
-    <!-- <h5 class="text-center">Agregar Artículos</h5> -->
+  <div id="formularioIngreso" class="oculto container mt-0">
+    <h6 class="mt-2 text-start">Ingresos</h6>
     <div class="card p-3">
       <div class="row align-items-end">
         <div class="col-md-4">
@@ -108,9 +192,8 @@
         </div>
         <div class="col-auto">
           <label for="salonDestino" class="form-label">Salón actual</label>
-          <div id="salonDestino" class="form-control bg-light" style="width: 120px; pointer-events: none;"></div>
+          <div id="salonDestino" class="form-control bg-light" style="width: 120px; pointer-events: none;">Deposito Janos</div>
         </div>
-        
         <div class="col-auto">
           <label for="notas" class="form-label"> </label>
           <input type="text" id="notas" class="form-control" placeholder="Observaciones..." style="width: 450px;" />
@@ -121,39 +204,49 @@
         </div>
       </div>
     </div>
-
-    
-    <table class="table table-striped mt-2">
-        <colgroup>
-            <col style="width: 30px;">   <!-- Checkbox -->
-            <col style="width: 100px;">  <!-- Salón Ingreso -->
-            <col style="width: 30px;">  <!-- Fecha -->
-            <col style="width: 300px;">  <!-- Artículo -->
-            <col style="width: 30px;">   <!-- Unidades -->
-            <col style="width: 30px;">   <!-- Cajas/Pack -->
-            <col style="width: 30px;">   <!-- rotas -->
-            <col style="width: 100px;">  <!-- observaciones -->
-            <col style="width: 60px;">   <!-- Acción -->
-            <col style="width: 120px;">  <!-- Usuario -->
-          </colgroup>
-
-          <thead>
-            <tr>
-              <th></th> <!-- checkbox -->
-              <th>Salón Origen</th>
-              <th class="text-center">Fecha</th>
-              <th>Artículo</th>
-              <th>Unid.</th>
-              <th>Caj./Pack</th>
-              <th>Unid. Rotas</th>
-              <th>Notas</th>
-              <th>Acción</th>
-              <th>Usuario</th>
-            </tr>
-          </thead>
-      <tbody id="tablaArticulos"></tbody>
-    </table>
   </div>
+
+ <div id="proyectorFlecha" class="proyector-arrow"></div>
+
+
+
+  <!-- Mensaje final -->
+  <div class="proyector-text" id="proyectorMensaje">deslice hacia abajo</div>
+</div>
+
+<!-- Tabla con encabezado sticky -->
+<div class="container">
+  <table class="table table-striped table-bordered mt-2">
+    <colgroup>
+      <col style="width: 15px;">
+      <col style="width: 40px;">
+      <col style="width: 40px;">
+      <col style="width: 80px;">
+      <col style="width: 25px;">
+      <col style="width: 25px;">
+      <col style="width: 25px;">
+      <col style="width: 50px;">
+      <col style="width: 30px;">
+      <col style="width: 40px;">
+    </colgroup>
+    <thead class="sticky-top">
+      <tr>
+        <th></th>
+        <th>Salón Origen</th>
+        <th class="text-center">Fecha</th>
+        <th>Artículo</th>
+        <th class="text-center">Unid.</th>
+        <th class="text-center">Caj./Pack</th>
+        <th class="text-center">Unid. Rotas</th>
+        <th>Notas</th>
+        <th>Acción</th>
+        <th>Usuario</th>
+      </tr>
+    </thead>
+    <tbody id="tablaArticulos"></tbody>
+  </table>
+</div>
+
 
  <!-- aplicar filtros -->
   <div id="filtroDropdown" class="card p-2 position-absolute shadow" style="display: none; z-index: 1000; width: 200px;">
@@ -974,6 +1067,51 @@ function mostrarMensajeGuardado() {
     }
   });
 }
+
+//oculta formulario
+const proyectorBox = document.getElementById("proyectorBox");
+const formulario = document.getElementById("formularioIngreso");
+const mensaje = document.getElementById("proyectorMensaje");
+const flecha = document.getElementById("proyectorFlecha");
+
+// Mostrar al pasar el mouse (solo si está oculto)
+proyectorBox.addEventListener("mouseenter", () => {
+  if (!formulario.classList.contains("visible")) {
+    formulario.classList.remove("oculto");
+    formulario.classList.add("visible");
+    mensaje.textContent = "deslice hacia arriba";
+    flecha.classList.add("up");
+  }
+});
+
+// Mostrar/Ocultar al hacer clic en la flecha
+flecha.addEventListener("click", () => {
+  const abierto = formulario.classList.contains("visible");
+
+  if (abierto) {
+    formulario.classList.remove("visible");
+    formulario.classList.add("oculto");
+    mensaje.textContent = "deslice hacia abajo";
+    flecha.classList.remove("up");
+  } else {
+    formulario.classList.remove("oculto");
+    formulario.classList.add("visible");
+    mensaje.textContent = "deslice hacia arriba";
+    flecha.classList.add("up");
+  }
+});
+
+// 🔴 Cerrar al pasar el mouse por la flecha si está abierto
+flecha.addEventListener("mouseenter", () => {
+  if (formulario.classList.contains("visible")) {
+    formulario.classList.remove("visible");
+    formulario.classList.add("oculto");
+    mensaje.textContent = "deslice hacia abajo";
+    flecha.classList.remove("up");
+  }
+});
+
+
   </script>
 
 <!-- Footer al final -->
