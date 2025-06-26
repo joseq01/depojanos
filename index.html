@@ -706,13 +706,22 @@ export async function cargarStockActual() {
   const pedidos = new Map();
   const cajasPedidas = new Map();
   const articulosOficialesSet = new Set();
+  const unidadesPorCajaMap = new Map(); // 🔹 Nuevo: almacena unixcajapack
 
+  // Artículos oficiales
   const articulosSnap = await getDocs(collection(db, "stock-articulos"));
   articulosSnap.forEach(doc => {
     const data = doc.data();
-    if (data.articulo) articulosOficialesSet.add(data.articulo.trim().toLowerCase());
+    if (data.articulo) {
+      const nombre = data.articulo.trim().toLowerCase();
+      articulosOficialesSet.add(nombre);
+      if (data["unixcajapack"]) {
+        unidadesPorCajaMap.set(nombre, parseInt(data["unixcajapack"]) || 0);
+      }
+    }
   });
 
+  // Ingresos
   const ingresoSnap = await getDocs(collection(db, "stock-ingreso"));
   ingresoSnap.forEach(doc => {
     const data = doc.data();
@@ -722,12 +731,16 @@ export async function cargarStockActual() {
       const cantCajas = parseInt(data.cajas) || 0;
       const cantRotas = parseInt(data.rotas) || 0;
 
-      ingresos.set(art, (ingresos.get(art) || 0) + cantUnidades);
+      const unidadesPorCaja = unidadesPorCajaMap.get(art) || 0;
+      const totalUnidades = cantUnidades + (cantCajas * unidadesPorCaja);
+
+      ingresos.set(art, (ingresos.get(art) || 0) + totalUnidades);
       cajasIngresadas.set(art, (cajasIngresadas.get(art) || 0) + cantCajas);
       rotas.set(art, (rotas.get(art) || 0) + cantRotas);
     }
   });
 
+  // Pedidos
   const pedidosSnap = await getDocs(collection(db, "stock-pedidos"));
   pedidosSnap.forEach(doc => {
     const data = doc.data();
@@ -736,20 +749,38 @@ export async function cargarStockActual() {
       const cantUnidades = parseInt(data.unidades) || 0;
       const cantCajas = parseInt(data.cajas) || 0;
 
-      pedidos.set(art, (pedidos.get(art) || 0) + cantUnidades);
+      const unidadesPorCaja = unidadesPorCajaMap.get(art) || 0;
+      const totalUnidades = cantUnidades + (cantCajas * unidadesPorCaja);
+
+      pedidos.set(art, (pedidos.get(art) || 0) + totalUnidades);
       cajasPedidas.set(art, (cajasPedidas.get(art) || 0) + cantCajas);
     }
   });
 
+  // 🔄 Stock real desde stock-total
+  const stockTotalSnap = await getDocs(collection(db, "stock-total"));
+  const stockTotalMap = new Map();
+  stockTotalSnap.forEach(doc => {
+    const data = doc.data();
+    const art = doc.id?.trim().toLowerCase();
+    if (data.salones && data.salones[salon]) {
+      stockTotalMap.set(art, {
+        unidades: parseInt(data.salones[salon].unidades) || 0,
+        cajas: parseInt(data.salones[salon].cajas) || 0
+      });
+    }
+  });
+
+  // Artículos combinados entre ingresos y pedidos
   const articulos = new Set([...ingresos.keys(), ...pedidos.keys()]);
   articulos.forEach(articulo => {
     const ingreso = ingresos.get(articulo) || 0;
     const pedido = pedidos.get(articulo) || 0;
-    const stock = ingreso - pedido;
 
-    const ingresoCajas = cajasIngresadas.get(articulo) || 0;
-    const pedidoCajas = cajasPedidas.get(articulo) || 0;
-    const stockCajas = ingresoCajas - pedidoCajas;
+    // ✅ Tomamos stock real desde stock-total
+    const stockData = stockTotalMap.get(articulo) || { unidades: 0, cajas: 0 };
+    const stock = stockData.unidades;
+    const stockCajas = stockData.cajas;
 
     const rota = rotas.get(articulo) || 0;
     let categoria = "";
@@ -767,8 +798,8 @@ export async function cargarStockActual() {
         <td>${articulo}</td>
         <td contenteditable="true" class="text-center" oninput="actualizarStock(this)">${ingreso}</td>
         <td contenteditable="true" class="text-center" oninput="actualizarStock(this)">${pedido}</td>
-        <td class="stock-actual text-center">${stock}</td>
-        <td class="text-center">${stockCajas}</td> <!-- ✅ Columna caja/pack -->
+        <td class="stock-actual text-center">${stock}</td> <!-- ✅ STOCK desde stock-total -->
+        <td class="text-center">${stockCajas}</td>         <!-- ✅ CAJAS desde stock-total -->
         <td class="text-center">${rota}</td>
       </tr>
     `;
@@ -776,7 +807,7 @@ export async function cargarStockActual() {
   });
 }
 
-// Actualizar valor en tabla
+// Actualiza solo la diferencia ingreso - pedido en la tabla (visual)
 export function actualizarStock(cell) {
   const row = cell.parentElement;
   const ingreso = parseInt(row.children[2].innerText) || 0;
