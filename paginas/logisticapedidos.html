@@ -1127,26 +1127,33 @@ paginas.forEach((paginaItems, index) => {
     }
   }
 
-  contenido += `
+    contenido += `
       </ul>
 
       <!-- Pie reorganizado -->
-    <div style="position: absolute; bottom: 152px; left: 40px; right: 40px; border-top: 1px solid #ccc; padding-top: 12px; font-size: 14px; display: flex; justify-content: space-between;">
-    <!-- A la derecha: modelo, marca, patente -->
-    <div style="text-align: right; line-height: 2; margin-left: 100px;">
-      <div>${modelo || "&nbsp;"}</div>
-      <div>${marca || "&nbsp;"}</div>
-      <div>${patente || "&nbsp;"}</div>
-    </div>
-    <!-- A la izquierda: chofer (al nivel de marca), dni (una línea más abajo) -->
-    <div style="text-align: left; line-height: 2; margin-right: 100px;">
-      <div>${chofer || "&nbsp;"}</div>
-      <div>&nbsp;</div>   <!-- Línea vacía para bajar dni -->
-      <div>${dni || "&nbsp;"}</div>
-      <div>&nbsp;</div>   <!-- Opcional: mantiene espacio final -->
-    </div>
-  </div>
-`;
+      <div style="position: absolute; bottom: 152px; left: 40px; right: 40px; border-top: 1px solid #ccc; padding-top: 12px; font-size: 14px; display: flex; justify-content: space-between;">
+
+        <!-- A la derecha: modelo, marca, patente -->
+        <div style="text-align: right; line-height: 2; margin-left: 100px;">
+          <div>&nbsp;</div> <!-- Línea 1 -->
+          <div>&nbsp;</div> <!-- Línea 2 -->
+          <div>${modelo || "&nbsp;"}</div>
+          <div>${marca || "&nbsp;"}</div>
+          <div>${patente || "&nbsp;"}</div>
+        </div>
+
+        <!-- A la izquierda: chofer, dni -->
+        <div style="text-align: left; line-height: 2; margin-right: 100px;">
+          <div>&nbsp;</div> <!-- Línea 1 -->
+          <div>&nbsp;</div> <!-- Línea 2 -->
+          <div>${chofer || "&nbsp;"}</div>
+          <div>&nbsp;</div> <!-- Línea intermedia como en original -->
+          <div>${dni || "&nbsp;"}</div>
+          <div>&nbsp;</div> <!-- Opcional: mantiene espacio final -->
+        </div>
+      </div>
+  `;
+
 
   if (index < paginas.length - 1) {
     contenido += `<div style="page-break-after: always;"></div>`;
