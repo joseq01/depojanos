@@ -899,40 +899,57 @@ async function guardarSeleccion() {
     const rows = card.getElementsByClassName("row");
 
     for (let row of rows) {
-      const articuloInput = row.querySelector(".articulo");
-      const unidadesInput = row.querySelector(".unidades");
-      const cajasInput = row.querySelector(".cajas");
-      const notasInput = row.querySelector(".notas");
+  const articuloInput = row.querySelector(".articulo");
+  const unidadesInput = row.querySelector(".unidades");
+  const cajasInput = row.querySelector(".cajas");
+  const notasInput = row.querySelector(".notas");
 
-      if (articuloInput && unidadesInput && cajasInput && notasInput) {
-        const articulo = articuloInput.value.trim();
-        const unidades = parseInt(unidadesInput.value) || 0;
-        const cajas = parseInt(cajasInput.value) || 0;
-        const notas = notasInput.value.trim();
+  if (articuloInput && unidadesInput && cajasInput && notasInput) {
+    const articulo = articuloInput.value.trim();
+    const unidades = parseInt(unidadesInput.value) || 0;
+    const cajas = parseInt(cajasInput.value) || 0;
+    const notas = notasInput.value.trim();
 
-        if (!articulo || (unidades <= 0 && cajas <= 0)) continue;
+    if (!articulo || (unidades <= 0 && cajas <= 0)) continue;
 
-        const existe = await existeArticulo(articulo);
+    const existe = await existeArticulo(articulo);
 
-        if (existe) {
-          const stockSalones = stockDisponible[articulo]?.salones ?? {};
-          const stockEnSalonUnidades = stockSalones[origen]?.unidades ?? 0;
-          const stockEnSalonCajas = stockSalones[origen]?.cajas ?? 0;
+    if (existe) {
+      const stockSalones = stockDisponible[articulo]?.salones ?? {};
+      let stockEnSalonUnidades = stockSalones[origen]?.unidades ?? 0;
+      let stockEnSalonCajas = stockSalones[origen]?.cajas ?? 0;
 
-          if (unidades > stockEnSalonUnidades || cajas > stockEnSalonCajas) {
-            await Swal.fire({
-              icon: 'info',
-              title: 'Stock insuficiente',
-              html: `
-                <strong>${articulo}</strong> en salón <strong>${origen}</strong><br><br>
-                <u>Unidades</u>: Pedido ${unidades}, disponibles ${stockEnSalonUnidades}<br>
-                <u>Cajas</u>: Pedido ${cajas}, disponibles ${stockEnSalonCajas}
-              `,
-              confirmButtonText: 'Entendido',
-              confirmButtonColor: '#3085d6'
-            });
-            continue;
+      // 🧠 Intentar convertir 1 caja a unidades si hay faltante
+      if (unidades > stockEnSalonUnidades && stockEnSalonCajas > 0) {
+        const artSnap = await getDocs(
+          query(collection(db, "stock-articulos"), where("articulo", "==", articulo))
+        );
+        if (!artSnap.empty) {
+          const artData = artSnap.docs[0].data();
+          const unidadesPorCaja = parseInt(artData.unixcajapack, 10) || 0;
+
+          if (unidadesPorCaja > 0 && unidadesPorCaja >= (unidades - stockEnSalonUnidades)) {
+            stockEnSalonUnidades += unidadesPorCaja;
+            stockEnSalonCajas -= 1;
           }
+        }
+      }
+
+      if (unidades > stockEnSalonUnidades || cajas > stockEnSalonCajas) {
+        await Swal.fire({
+          icon: 'info',
+          title: 'Stock insuficiente',
+          html: `
+            <strong>${articulo}</strong> en salón <strong>${origen}</strong><br><br>
+            <u>Unidades</u>: Pedido ${unidades}, disponibles ${stockEnSalonUnidades}<br>
+            <u>Cajas</u>: Pedido ${cajas}, disponibles ${stockEnSalonCajas}
+          `,
+          confirmButtonText: 'Entendido',
+          confirmButtonColor: '#3085d6'
+        });
+        continue;
+      }
+
 
           // ✅ Registrar el pedido con artículo válido y stock disponible
           await addDoc(collection(db, "stock-pedidos"), {

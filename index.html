@@ -1150,17 +1150,23 @@ document.getElementById("btnEliminarSalon").addEventListener("click", async () =
 window.abrirFlotante = async function(id) {
   await obtenerNombresCombosDesdeFirestore();
 
- const datalist = document.getElementById("listaCombos");
-datalist.innerHTML = ""; // Limpia primero
-listaCombosFirestore.forEach(c => {
-  const option = document.createElement("option");
-  option.value = c.combo;
-  datalist.appendChild(option);
-});
+  const datalist = document.getElementById("listaCombos");
+  datalist.innerHTML = ""; // Limpia primero
+  listaCombosFirestore.forEach(c => {
+    const option = document.createElement("option");
+    option.value = c.combo;
+    datalist.appendChild(option);
+  });
 
+  // Abrir modal con Bootstrap
+  const modalEl = document.getElementById(id);
+  const modal = new bootstrap.Modal(modalEl);
+  modal.show();
 
-  document.getElementById(id).style.display = "flex";
+  // Guardamos la instancia si luego la queremos cerrar
+  window.modalInstance = modal;
 };
+
 document.getElementById("nombreCombo").addEventListener("change", () => {
   const nombre = document.getElementById("nombreCombo").value.trim();
   const comboEncontrado = listaCombosFirestore.find(c => c.combo === nombre);
@@ -1326,10 +1332,16 @@ window.agregarFilaCombo = async function(data = {}) {
   contenedor.appendChild(fila);
 };
 window.cerrarFlotante = function(id) {
-  document.getElementById(id).style.display = "none";
-  document.getElementById("nombreCombo").value = ""; // Limpiar nombre del combo
-  document.getElementById("contenedorNuevosCombos").innerHTML = ""; // Limpiar artículos
+  if (window.modalInstance) {
+    window.modalInstance.hide();
+    window.modalInstance = null;
+  }
+
+  // Limpiar campos igual
+  document.getElementById("nombreCombo").value = "";
+  document.getElementById("contenedorNuevosCombos").innerHTML = "";
 };
+
 window.eliminarComboConConfirmacion = async function() {
   const nombre = document.getElementById("nombreCombo").value.trim();
   if (!nombre) {
