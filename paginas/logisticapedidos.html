@@ -121,6 +121,16 @@ body {
   overflow-x: hidden;
 }
 
+/* boton bandeja */
+.parpadea {
+  animation: parpadeo 1s infinite;
+}
+
+@keyframes parpadeo {
+  0%, 100% { box-shadow: 0 0 10px #0dcaf0; }
+  50% { box-shadow: 0 0 20px #0dcaf0; }
+}
+
 
   </style>
 </head>
@@ -140,15 +150,37 @@ body {
             <li class="nav-item"><a class="nav-link" href="../index.html">Stock</a></li>
             <li class="nav-item"><a class="nav-link" href="../paginas/logiticaingreso.html">Ingresos</a></li>
           </ul>
+             <!-- Dentro del navbar -->
+<li class="nav-item">
+ <button id="botonToggleBandeja" class="btn btn-outline-info btn-sm mx-4 d-none" onclick="toggleBandeja()">
+  Pendientes 🧺
+</button>
+</li>
+
+ <!-- Botón Guardar Cambios -->
+  <li class="nav-item">
+    <button id="btnGuardarCambios" class="btn btn-warning btn-sm mx-2 d-none" onclick="guardarCambiosFilaSeleccionada()">
+      Guardar
+    </button>
+  </li>
+</div>
+
         </div>
       </div>
     <button id="btnImprimir" class="btn btn-success btn-sm me-2 d-none" onclick="abrirResumenImpresion()">
   Imprimir
 </button>
 
-
     </div>
   </nav>
+
+  <!-- Contenedor bandeja -->
+<div id="bandejaFlotante" class="position-absolute bg-white border rounded shadow p-3"
+     style="top: 60px; left: 50%; transform: translateX(-50%); min-width: 420px; max-width: 520px; display: none; z-index: 1050;">
+  <h6 class="text-center mb-2">Pendientes de Envios</h6>
+  <div id="contenedorBandeja" class="d-flex flex-column gap-2"></div>
+</div>
+
 
   <!-- Formulario -->
     
@@ -848,13 +880,31 @@ async function eliminarFila(btn, event) {
     return;
   }
 
+  const confirmacion = await Swal.fire({
+    title: '¿Eliminar pedido?',
+    text: 'Esta acción no se puede deshacer.',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#d33',
+    cancelButtonColor: '#6c757d',
+    confirmButtonText: 'Sí, eliminar',
+    cancelButtonText: 'Cancelar'
+  });
+
+  if (!confirmacion.isConfirmed) return;
+
   try {
     const data = await obtenerDatosPedido(docId);
     if (data) {
-      const { articulo, unidades, cajas, origen } = data; //esto al final del 1/6
-await restaurarStockTotal(articulo, parseInt(unidades) || 0, parseInt(cajas) || 0, origen);
+      const { articulo, unidades, cajas, origen } = data;
 
+      // Solo restaurar stock si el artículo existe en stock-articulos
+      const artSnap = await getDocs(query(collection(db, "stock-articulos"), where("articulo", "==", articulo)));
+      if (!artSnap.empty) {
+        await restaurarStockTotal(articulo, parseInt(unidades) || 0, parseInt(cajas) || 0, origen);
+      }
     }
+
     await eliminarPedido(docId, fila);
   } catch (error) {
     console.error("Error eliminando documento:", error);
@@ -1027,6 +1077,278 @@ window.addEventListener("DOMContentLoaded", async () => {
     fila.classList.toggle('seleccionado');
     toggleBotonImprimir();
   }
+
+//editar datos
+window.devolverStock = async function (articulo, unidades, cajas, salon) {
+  if (unidades === 0 && cajas === 0) return;
+
+  const docRef = doc(db, "stock-total", articulo);
+  const snap = await getDoc(docRef);
+  let data = snap.exists() ? snap.data() : {};
+
+  if (!data.salones) data.salones = {};
+  if (!data.salones[salon]) data.salones[salon] = { unidades: 0, cajas: 0 };
+
+  data.salones[salon].unidades = (data.salones[salon].unidades || 0) + unidades;
+  data.salones[salon].cajas = (data.salones[salon].cajas || 0) + cajas;
+
+  await setDoc(docRef, data, { merge: true });
+};
+
+
+window.guardarCambiosFilaSeleccionada = async function () {
+  const filaSeleccionada = document.querySelector("tr.bg-warning");
+  if (!filaSeleccionada) return;
+
+  const id = filaSeleccionada.dataset.id;
+  if (!id) return;
+
+  const celdas = filaSeleccionada.children;
+  const articulo = celdas[3].textContent.trim();
+  const nuevasUnidades = parseInt(celdas[4].textContent.trim()) || 0;
+  const nuevasCajas = parseInt(celdas[5].textContent.trim()) || 0;
+  const nuevasNotas = celdas[6].textContent.trim();
+  const origen = sessionStorage.getItem("salon");
+  const usuarioLogueado = sessionStorage.getItem("usuario");
+  const usuarioActual = celdas[8]?.textContent.trim();
+
+  // 🧠 1. Consultar si el artículo existe en stock-articulos
+  const artSnap = await getDocs(query(collection(db, "stock-articulos"), where("articulo", "==", articulo)));
+  const articuloExiste = !artSnap.empty;
+
+  if (articuloExiste) {
+    // 🔁 2. Traer stock actual
+    const stockDisponible = await obtenerStockTotal();
+    const stockSalones = stockDisponible[articulo]?.salones ?? {};
+    let stockUnidades = stockSalones[origen]?.unidades ?? 0;
+    let stockCajas = stockSalones[origen]?.cajas ?? 0;
+
+    // 🔁 3. Traer el pedido anterior y devolverlo al stock en Firestore
+    const pedidoDoc = await getDoc(doc(db, "stock-pedidos", id));
+    if (!pedidoDoc.exists()) return;
+
+    const pedidoAnterior = pedidoDoc.data();
+    const prevUnidades = pedidoAnterior.unidades || 0;
+    const prevCajas = pedidoAnterior.cajas || 0;
+
+    await devolverStock(articulo, prevUnidades, prevCajas, origen); // ✅ devolución real
+
+    // 🔄 4. Obtener stock actualizado luego de devolver
+    const stockActualizado = await obtenerStockTotal();
+    const stockRecalculado = stockActualizado[articulo]?.salones ?? {};
+    let stockUnidadesActual = stockRecalculado[origen]?.unidades ?? 0;
+    let stockCajasActual = stockRecalculado[origen]?.cajas ?? 0;
+
+    // 📦 5. Buscar unidades por caja
+    let unidadesPorCaja = parseInt(artSnap.docs[0].data().unixcajapack) || 0;
+
+    // 🔄 6. Simular conversión si faltan unidades
+    let unidadesTemp = stockUnidadesActual;
+    let cajasTemp = stockCajasActual;
+
+    while (nuevasUnidades > unidadesTemp && cajasTemp > 0 && unidadesPorCaja > 0) {
+      unidadesTemp += unidadesPorCaja;
+      cajasTemp--;
+    }
+
+    // ❌ 7. Verificación final
+    if (nuevasUnidades > unidadesTemp || nuevasCajas > cajasTemp) {
+      await Swal.fire({
+        icon: 'info',
+        title: 'Stock insuficiente',
+        text: `Artículo "${articulo}"\nUnidades disponibles: ${unidadesTemp}\nCajas disponibles: ${cajasTemp}`,
+        confirmButtonText: 'Entendido',
+        confirmButtonColor: '#3085d6'
+      });
+      return;
+    }
+
+    // ✅ 8. Descontar nuevas cantidades (unidades + cajas)
+    await descontarStock(articulo, nuevasUnidades, nuevasCajas, origen);
+  }
+
+  // 📝 9. Actualizar documento del pedido
+  const updateData = {
+    unidades: nuevasUnidades,
+    cajas: nuevasCajas,
+    notas: nuevasNotas
+  };
+
+  if (usuarioActual !== usuarioLogueado) {
+    updateData.usuario = usuarioLogueado;
+    celdas[8].textContent = usuarioLogueado;
+  }
+
+  await updateDoc(doc(db, "stock-pedidos", id), updateData);
+
+ // 🧺 ✅ Refrescar visual de bandeja si corresponde
+  if (typeof actualizarBandejaVisual === "function") {
+    actualizarBandejaVisual();
+  }
+
+  // 🎯 10. Quitar selección y ocultar botón
+  filaSeleccionada.classList.remove("bg-warning");
+  document.getElementById("btnGuardarCambios")?.classList.add("d-none");
+
+  Swal.fire({
+    icon: "success",
+    title: "Cambios guardados",
+    timer: 1000,
+    showConfirmButton: false
+  });
+};
+
+
+document.addEventListener("click", function (e) {
+  const celda = e.target;
+  const esCeldaEditable = celda.hasAttribute("contenteditable");
+  const fila = celda.closest("tr");
+  const btnGuardar = document.getElementById("btnGuardarCambios");
+
+  // Verifica si está haciendo clic dentro de una celda editable de la tabla
+  if (
+    fila &&
+    fila.parentElement?.tagName === "TBODY" &&
+    esCeldaEditable
+  ) {
+    // Quitar selección de otras filas
+    document.querySelectorAll("tr").forEach(tr => tr.classList.remove("bg-warning"));
+    // Marcar fila activa
+    fila.classList.add("bg-warning");
+    // Mostrar botón guardar
+    btnGuardar?.classList.remove("d-none");
+  } else {
+    // Si hace clic fuera de una celda editable, ocultar botón y deseleccionar filas
+    document.querySelectorAll("tr").forEach(tr => tr.classList.remove("bg-warning"));
+    btnGuardar?.classList.add("d-none");
+  }
+});
+
+
+//finaliza editar datos
+
+//bandeja
+let bandejaArticulos = [];
+
+window.cargarBandejaDesdeFirestore = async function () {
+  try {
+    const snapshot = await getDocs(collection(db, "bandeja"));
+    bandejaArticulos = [];
+
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      bandejaArticulos.push({
+        id: doc.id,
+        articulo: data.articulo,
+        unidades: data.unidades,
+        cajas: data.cajas,
+        salon: data.salon,
+        notas: data.notas
+      });
+    });
+
+    if (bandejaArticulos.length > 0) {
+      actualizarBandejaVisual();
+      document.getElementById("botonToggleBandeja").classList.remove("d-none");
+    }
+  } catch (e) {
+    console.error("Error al cargar bandeja:", e);
+  }
+};
+
+window.eliminarDeBandeja = async function (index) {
+  const item = bandejaArticulos[index];
+
+  const result = await Swal.fire({
+    title: '¿Eliminar tarea?',
+    html: `<strong>${item.articulo}</strong><br>
+           ${item.unidades ? `Unid: ${item.unidades}` : ''} 
+           ${item.cajas ? `Cajas: ${item.cajas}` : ''} 
+           ${item.salon ? `<br>Salón: ${item.salon}` : ''}
+           ${item.notas ? `<br><em>📝 ${item.notas}</em>` : ''}`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Sí, eliminar',
+    cancelButtonText: 'Cancelar',
+    confirmButtonColor: '#d33',
+    cancelButtonColor: '#aaa'
+  });
+
+  if (result.isConfirmed) {
+    try {
+      const id = item.id;
+      if (id) {
+        await deleteDoc(doc(db, "bandeja", id));
+      }
+      bandejaArticulos.splice(index, 1);
+      actualizarBandejaVisual();
+
+      if (bandejaArticulos.length === 0) {
+        document.getElementById("bandejaFlotante").style.display = "none";
+        document.getElementById("botonToggleBandeja").classList.add("d-none");
+      }
+    } catch (e) {
+      console.error("Error al eliminar de bandeja:", e);
+      Swal.fire('Error', 'No se pudo eliminar el artículo.', 'error');
+    }
+  }
+};
+
+window.actualizarBandejaVisual = function () {
+  const contenedor = document.getElementById("contenedorBandeja");
+  contenedor.innerHTML = "";
+
+  bandejaArticulos.forEach((item, i) => {
+    const div = document.createElement("div");
+    div.className = "bg-light border rounded p-2 shadow-sm";
+
+    div.innerHTML = `
+      <div class="fw-bold">${item.articulo}</div>
+      <div class="small text-muted">
+        ${item.unidades ? `Unid: ${item.unidades}` : ""} 
+        ${item.cajas ? `Cajas: ${item.cajas}` : ""} 
+        ${item.salon ? `→ ${item.salon}` : ""}
+      </div>
+      ${item.notas ? `<div class="text-muted fst-italic">${item.notas}</div>` : ""}
+      <div class="text-end mt-1">
+        <button class="btn btn-sm btn-outline-danger" onclick="eliminarDeBandeja(${i})">❌</button>
+      </div>
+    `;
+
+    contenedor.appendChild(div);
+  });
+
+  document.getElementById("botonToggleBandeja").classList.toggle("parpadea", bandejaArticulos.length > 0);
+};
+
+window.verificarBandeja = function () {
+  const contenedor = document.getElementById("contenedorBandeja");
+  const btn = document.getElementById("botonToggleBandeja");
+
+  if (contenedor.children.length === 0) {
+    document.getElementById("bandejaFlotante").style.display = "none";
+    btn.classList.add("d-none");
+  } else {
+    btn.classList.remove("d-none");
+  }
+};
+
+window.toggleBandeja = function () {
+  const bandeja = document.getElementById("bandejaFlotante");
+  if (!bandeja || bandejaArticulos.length === 0) return;
+
+  // Alternar visibilidad
+  bandeja.style.display = bandeja.style.display === "none" ? "block" : "none";
+};
+
+
+// Ejecutar al cargar
+document.addEventListener("DOMContentLoaded", () => {
+  cargarBandejaDesdeFirestore();
+});
+
+
+//fin bandeja
 
   // modal para agregar datos del chofer
 async function confirmarYImprimirDesdeResumen() {
@@ -1629,8 +1951,12 @@ flechaPedidos.addEventListener("mouseenter", () => {
   }
 });
 
+//bandeja temporal
+
+//fina bandeja
 
       </script>
+
 <!-- Footer al final -->
 <footer class="bg-dark text-white text-center py-3 mt-auto">
   <small>© 2025 Janos Logística. desarrollador Jose Quin.</small>

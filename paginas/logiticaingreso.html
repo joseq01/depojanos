@@ -134,6 +134,16 @@ body {
   overflow-x: hidden;
 }
 
+/* boton bandeja */
+.parpadea {
+  animation: parpadeo 1s infinite;
+}
+
+@keyframes parpadeo {
+  0%, 100% { box-shadow: 0 0 10px #0dcaf0; }
+  50% { box-shadow: 0 0 20px #0dcaf0; }
+}
+
 
   </style>
 
@@ -154,11 +164,27 @@ body {
             <li class="nav-item"><a class="nav-link" href="../index.html">Stock</a></li>
             <li class="nav-item"><a class="nav-link" href="../paginas/logisticapedidos.html">Pedidos</a></li>
           </ul>
+         <!-- Dentro del navbar -->
+<li class="nav-item">
+  <button id="botonToggleBandeja" class="btn btn-outline-info btn-sm ms-3 d-none" onclick="toggleBandeja()">
+    Pendientes  🧺
+  </button>
+</li>
+
         </div>
       </div>
       <button id="btnImprimir" class="btn btn-success btn-sm me-2 d-none" onclick="imprimirSeleccion()">Imprimir</button>
     </div>
   </nav>
+
+
+<!-- Contenedor bandeja -->
+<div id="bandejaFlotante" class="position-absolute bg-white border rounded shadow p-3"
+     style="top: 60px; left: 50%; transform: translateX(-50%); min-width: 420px; max-width: 520px; display: none; z-index: 1050;">
+  <h6 class="text-center mb-2">Pendientes de Envio</h6>
+  <div id="contenedorBandeja" class="d-flex flex-column gap-2"></div>
+</div>
+
 
 
 <!-- Proyector + Formulario -->
@@ -188,6 +214,11 @@ body {
         <div class="col-auto">
           <label for="salonIngreso" class="form-label">Salón Origen</label>
           <input type="text" id="salonIngreso" class="form-control" list="listaSalonesIngreso" style="width: 120px;" />
+          <datalist id="listaSalonesIngreso"></datalist>
+        </div>
+         <div class="col-auto">
+          <label for="salonEnviar" class="form-label">Salón a Enviar</label>
+          <input type="text" id="salonEnviar" class="form-control" list="listaSalonesIngreso" style="width: 100px;" />
           <datalist id="listaSalonesIngreso"></datalist>
         </div>
         <div class="col-auto">
@@ -625,6 +656,14 @@ const fila = crearFila(ingreso, fechaFormateada, articulo, unidades, cajas, rota
   document.getElementById("tablaArticulos").insertAdjacentHTML("beforeend", fila);
 
   mostrarMensajeGuardado();
+
+ const salonEnviar = document.getElementById("salonEnviar").value.trim();
+
+  // ✅ GUARDAR EN BANDEJA (acá lo llamás)
+   guardarEnBandeja({  articulo,   unidades,   cajas,   salon: salonEnviar,
+  notas
+});
+
 }
 
   // Limpiar inputs
@@ -684,6 +723,20 @@ async function eliminarFila(btn, event) {
     return;
   }
 
+  // 🔒 Confirmar antes de modificar stock o eliminar
+  const confirmacion = await Swal.fire({
+    title: '¿Eliminar ingreso?',
+    text: 'Esta acción no se puede deshacer.',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#d33',
+    cancelButtonColor: '#6c757d',
+    confirmButtonText: 'Sí, eliminar',
+    cancelButtonText: 'Cancelar'
+  });
+
+  if (!confirmacion.isConfirmed) return;
+
   try {
     const docRef = doc(db, "stock-ingreso", docId);
     const docSnap = await getDoc(docRef);
@@ -692,17 +745,20 @@ async function eliminarFila(btn, event) {
       const data = docSnap.data();
       const { articulo, unidades, cajas, origen } = data;
 
-      await restarStockTotal(articulo, parseInt(unidades) || 0, parseInt(cajas) || 0, origen);
+      // Solo restar si el artículo existe en stock-articulos
+      const artSnap = await getDocs(query(collection(db, "stock-articulos"), where("articulo", "==", articulo)));
+      if (!artSnap.empty) {
+        await restarStockTotal(articulo, parseInt(unidades) || 0, parseInt(cajas) || 0, origen);
+      }
     }
 
-    await deleteDoc(doc(db, "stock-ingreso", docId));
+    await deleteDoc(docRef);
     fila.remove();
     mostrarMensajeEliminado();
   } catch (error) {
     console.error("Error eliminando documento:", error);
   }
 }
-
 
 async function restarStockTotal(articulo, unidades, cajas, origen) {
   const existe = await existeArticuloEnStockArticulos(articulo);
@@ -810,6 +866,96 @@ window.agregarArticulo = agregarArticulo;
 window.eliminarFila = eliminarFila;
 window.crearFila = crearFila;
 window.toggleSeleccion = toggleSeleccion;
+
+//bandeja
+window.guardarEnBandeja = async function ({ articulo, unidades, cajas, salon, notas }) {
+  try {
+    if (!salon || salon.trim() === "") return; // 🚫 No guardar si no hay salón
+
+    const docRef = await addDoc(collection(db, "bandeja"), {
+      articulo,
+      unidades,
+      cajas,
+      salon,
+      notas
+    });
+
+    bandejaArticulos.push({ id: docRef.id, articulo, unidades, cajas, salon, notas });
+    actualizarBandejaVisual();
+    verificarBandeja();
+  } catch (e) {
+    console.error("Error al guardar en bandeja:", e);
+  }
+};
+
+window.eliminarDeBandeja = async function (index) {
+  const item = bandejaArticulos[index];
+
+  const result = await Swal.fire({
+    title: '¿Eliminar artículo?',
+    html: `<strong>${item.articulo}</strong><br>
+           ${item.unidades ? `Unid: ${item.unidades}` : ''} 
+           ${item.cajas ? `Cajas: ${item.cajas}` : ''} 
+           ${item.salon ? `<br>Salón: ${item.salon}` : ''}
+           ${item.notas ? `<br><em>📝 ${item.notas}</em>` : ''}`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Sí, eliminar',
+    cancelButtonText: 'Cancelar',
+    confirmButtonColor: '#d33',
+    cancelButtonColor: '#aaa'
+  });
+
+  if (result.isConfirmed) {
+    try {
+      const id = item?.id;
+      if (id) {
+        await deleteDoc(doc(db, "bandeja", id));
+      }
+      bandejaArticulos.splice(index, 1);
+      actualizarBandejaVisual();
+      verificarBandeja();
+
+      Swal.fire({
+        icon: 'success',
+        title: 'Eliminado',
+        text: 'El artículo fue eliminado de la bandeja.',
+        timer: 1500,
+        showConfirmButton: false
+      });
+
+    } catch (e) {
+      console.error("Error al eliminar de bandeja:", e);
+      Swal.fire('Error', 'No se pudo eliminar el artículo.', 'error');
+    }
+  }
+};
+
+// ✅ Primero definís la función
+async function cargarBandejaDesdeFirestore() {
+  const snapshot = await getDocs(collection(db, "bandeja"));
+  bandejaArticulos = [];
+  snapshot.forEach(doc => {
+    const data = doc.data();
+    bandejaArticulos.push({
+      id: doc.id,
+      articulo: data.articulo,
+      unidades: data.unidades,
+      cajas: data.cajas,
+      salon: data.salon,
+      notas: data.notas
+    });
+  });
+  actualizarBandejaVisual();
+  verificarBandeja();
+}
+
+// ✅ Luego hacés que se ejecute cuando la página cargue
+document.addEventListener("DOMContentLoaded", () => {
+  cargarBandejaDesdeFirestore();
+});
+
+//fin bandeja
 
 </script>
 
@@ -1068,6 +1214,80 @@ function mostrarMensajeGuardado() {
   });
 }
 
+//mostrar bandeja temporal
+let bandejaArticulos = [];
+
+function guardarEnBandeja({ articulo, unidades, cajas, salon, notas }) {
+  const contenedor = document.getElementById("contenedorBandeja");
+
+  const item = document.createElement("div");
+  item.className = "d-flex justify-content-between align-items-start bg-light border rounded px-2 py-1";
+
+  const contenido = `
+    <div class="small">
+      <strong>${articulo}</strong><br>
+      ${unidades ? `Uni: ${unidades} ` : ""} ${cajas ? `Cajas: ${cajas}` : ""}<br>
+      <em>Salón: ${salon || "-"}</em><br>
+      ${notas ? `📝 ${notas}` : ""}
+    </div>
+    <button class="btn btn-sm btn-danger ms-2" onclick="this.parentElement.remove(); verificarBandeja();">x</button>
+  `;
+
+  item.innerHTML = contenido;
+  contenedor.appendChild(item);
+
+  document.getElementById("botonToggleBandeja").classList.remove("d-none");
+}
+
+
+function verificarBandeja() {
+  const contenedor = document.getElementById("contenedorBandeja");
+  const btn = document.getElementById("botonToggleBandeja");
+
+  if (contenedor.children.length === 0) {
+    document.getElementById("bandejaFlotante").style.display = "none";
+    btn.classList.add("d-none");
+  } else {
+    btn.classList.remove("d-none");
+  }
+}
+
+
+function actualizarBandejaVisual() {
+  const contenedor = document.getElementById("contenedorBandeja");
+  contenedor.innerHTML = "";
+
+  bandejaArticulos.forEach((item, i) => {
+    const div = document.createElement("div");
+    div.className = "bg-light border rounded p-2 shadow-sm";
+
+    div.innerHTML = `
+      <div class="fw-bold">${item.articulo}</div>
+      <div class="small text-muted">
+        ${item.unidades ? `Unid: ${item.unidades}` : ""} 
+        ${item.cajas ? `Cajas: ${item.cajas}` : ""} 
+        ${item.salon ? `→ ${item.salon}` : ""}
+      </div>
+      ${item.notas ? `<div class="text-muted fst-italic">${item.notas}</div>` : ""}
+      <div class="text-end mt-1">
+        <button class="btn btn-sm btn-outline-danger" onclick="eliminarDeBandeja(${i})">❌</button>
+      </div>
+    `;
+
+    contenedor.appendChild(div);
+  });
+
+  // Mostrar botón parpadeando si hay elementos
+  document.getElementById("botonToggleBandeja").classList.toggle("parpadea", bandejaArticulos.length > 0);
+}
+
+function toggleBandeja() {
+  const bandeja = document.getElementById("bandejaFlotante");
+  bandeja.style.display = bandeja.style.display === "none" ? "block" : "none";
+}
+
+//fina bandeja
+
 //oculta formulario
 const proyectorBox = document.getElementById("proyectorBox");
 const formulario = document.getElementById("formularioIngreso");
@@ -1110,7 +1330,6 @@ flecha.addEventListener("mouseenter", () => {
     flecha.classList.remove("up");
   }
 });
-
 
   </script>
 
