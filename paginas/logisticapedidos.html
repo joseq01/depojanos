@@ -679,7 +679,7 @@ async function agregarArticulo() {
   });
 
   // ✅ Si todo está bien, recargar tabla y limpiar formulario
-  await cargarTablaPedidos();
+  await cargarTablaPedidos(true); // soloHoy = true
 
   document.getElementById("articulo").value = "";
   document.getElementById("unidades").value = "";
@@ -722,12 +722,11 @@ async function cargarSalonesEnDatalist() {
 // Ejecutar al cargar la página
 cargarSalonesEnDatalist();
 
-async function cargarTablaPedidos() {
+async function cargarTablaPedidos(soloHoy = false) {
   const tabla = document.getElementById("tablaArticulos");
   tabla.innerHTML = "";
 
   const salonSeleccionado = sessionStorage.getItem("salon");
-    /* const salonSeleccionado = localStorage.getItem("salonSeleccionado"); actual 29/5 */
   if (!salonSeleccionado) {
     console.warn("No hay salón seleccionado");
     return;
@@ -735,11 +734,25 @@ async function cargarTablaPedidos() {
 
   const pedidosRef = collection(db, "stock-pedidos");
 
-  const q = query(
-    pedidosRef,
-    where("origen", "==", salonSeleccionado), 
-    orderBy("fecha")
-  );
+  let q;
+  if (soloHoy) {
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0); // Inicio del día
+    const timestampHoy = Timestamp.fromDate(hoy);
+
+    q = query(
+      pedidosRef,
+      where("origen", "==", salonSeleccionado),
+      where("fecha", ">=", timestampHoy),
+      orderBy("fecha")
+    );
+  } else {
+    q = query(
+      pedidosRef,
+      where("origen", "==", salonSeleccionado),
+      orderBy("fecha")
+    );
+  }
 
   const snapshot = await getDocs(q);
 
@@ -752,17 +765,18 @@ async function cargarTablaPedidos() {
     const fila = crearFila(
       data.articulo,
       data.unidades,
-       data.cajas,       
+      data.cajas,
       data.notas,
       data.salones,
       fecha,
       data.usuario,
-      docSnap.id 
+      docSnap.id
     );
 
     tabla.insertAdjacentHTML("beforeend", fila);
   });
 }
+window.cargarTablaPedidos = cargarTablaPedidos;
 
 function eliminarFilaSinId(fila) {
   fila.remove();
@@ -1037,7 +1051,8 @@ async function guardarSeleccion() {
 
   mostrarMensajeGuardado();
   cerrarFlotante(); // ✅ Cierra el modal flotante de combos
-  await cargarTablaPedidos(); // ✅ Recarga la tabla
+ await cargarTablaPedidos(true); // soloHoy = true ✅ Recarga la tabla
+
 }
 
 
@@ -1401,7 +1416,7 @@ async function confirmarYImprimirDesdeResumen() {
     }
   }
 
-  await cargarTablaPedidos();
+  cargarTablaPedidos(true); // filtra por la fecha de hoy
 
   const alerta = document.createElement("div");
   alerta.className = "alert alert-success position-fixed top-0 start-50 translate-middle-x mt-3 shadow rounded-3";
@@ -1820,28 +1835,38 @@ function limpiarCamposChofer() {
       }
     
       // Aplicar filtro seleccionado queda
-      function aplicarFiltro() {
-      const seleccionado = document.querySelector('input[name="filtroOpcion"]:checked');
-      if (!seleccionado || columnaActualIndex === null) return;
-    
-      valorFiltroActual = seleccionado.value;
-    
-      document.querySelectorAll("#tablaArticulos tr").forEach(tr => {
-        const celda = tr.cells[columnaActualIndex];
-    
-        if (valorFiltroActual === "__TODOS__") {
-          tr.style.display = "";
-        } else {
-          if (!celda || celda.textContent.trim() !== valorFiltroActual) {
-            tr.style.display = "none";
-          } else {
-            tr.style.display = "";
-          }
-        }
-      });
-    
-      document.getElementById("filtroDropdown").style.display = "none";
+   function aplicarFiltro() {
+  const seleccionado = document.querySelector('input[name="filtroOpcion"]:checked');
+  if (!seleccionado || columnaActualIndex === null) return;
+
+  valorFiltroActual = seleccionado.value;
+
+  // ✅ Si el filtro es de la columna FECHA (índice 2) y elegiste "Ver todos"
+  if (columnaActualIndex === 2 && valorFiltroActual === "__TODOS__") {
+    cargarTablaPedidos(); // 👈 Recargar desde Firestore
+    document.getElementById("filtroDropdown").style.display = "none";
+    return;
+  }
+
+  // 🔁 Filtrar sobre los datos ya cargados
+  document.querySelectorAll("#tablaArticulos tr").forEach(tr => {
+    const celda = tr.cells[columnaActualIndex];
+
+    if (valorFiltroActual === "__TODOS__") {
+      tr.style.display = "";
+    } else {
+      if (!celda || celda.textContent.trim() !== valorFiltroActual) {
+        tr.style.display = "none";
+      } else {
+        tr.style.display = "";
+      }
     }
+  });
+
+  document.getElementById("filtroDropdown").style.display = "none";
+}
+
+
     
     // Ocultar menú de filtro al hacer clic fuera
    document.addEventListener("click", (e) => {
