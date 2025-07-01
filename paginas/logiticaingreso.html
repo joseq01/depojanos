@@ -663,7 +663,8 @@ const fila = crearFila(ingreso, fechaFormateada, articulo, unidades, cajas, rota
    guardarEnBandeja({  articulo,   unidades,   cajas,   salon: salonEnviar,
   notas
 });
-
+// ✅ VOLVER A CARGAR LA TABLA SOLO CON LOS ÚLTIMOS 5 DÍAS
+    await cargarTablaPedidos(true);
 }
 
   // Limpiar inputs
@@ -675,42 +676,69 @@ const fila = crearFila(ingreso, fechaFormateada, articulo, unidades, cajas, rota
   document.getElementById("rotas").value = ""; // Limpiar "Uni. Rotas"
 }
 
-async function cargarTablaPedidos() {
+async function cargarTablaPedidos(soloUltimosDias = true) {
   const tabla = document.getElementById("tablaArticulos");
   tabla.innerHTML = "";
 
   const salonSeleccionado = sessionStorage.getItem("salon");
-  
+  if (!salonSeleccionado) {
+    console.warn("No hay salón seleccionado");
+    return;
+  }
+
   const pedidosRef = collection(db, "stock-ingreso");
-  const q = query(
-    pedidosRef,
-    where("origen", "==", salonSeleccionado),
-    orderBy("fecha")
-  );
+
+  let q;
+  if (soloUltimosDias) {
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const haceDosDias = new Date(hoy);
+    haceDosDias.setDate(hoy.getDate() - 4); // Incluye hoy y 4 días atrás
+
+    const timestampDesde = Timestamp.fromDate(haceDosDias);
+
+    q = query(
+      pedidosRef,
+      where("origen", "==", salonSeleccionado),
+      where("fecha", ">=", timestampDesde),
+      orderBy("fecha")
+    );
+  } else {
+    q = query(
+      pedidosRef,
+      where("origen", "==", salonSeleccionado),
+      orderBy("fecha")
+    );
+  }
 
   const snapshot = await getDocs(q);
 
   snapshot.forEach((docSnap) => {
     const data = docSnap.data();
     const fecha = data.fecha instanceof Timestamp
-     ? data.fecha.toDate().toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+      ? data.fecha.toDate().toLocaleDateString('es-AR', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric'
+        })
       : data.fecha;
 
-    const fila = crearFila(
-      data.ingreso || "",              // 👈 ahora muestra el origen como salón
-      fecha,
-      data.articulo || "",
-      data.unidades ?? 0,
-      data["caja-pack"] ?? data.cajas ?? 0,
-      data.rotas ?? 0,
-      data.notas || "",
-      data.usuario || "",
-      docSnap.id
-    );
+   const fila = crearFila(
+     data.salones || "", // ← Salón origen correcto
+     fecha,              // ← Fecha formateada
+     data.articulo || "",
+     data.unidades ?? 0,
+     data["caja-pack"] ?? data.cajas ?? 0,
+     data.rotas ?? 0,
+     data.notas || "",
+     data.usuario || "",
+     docSnap.id
+   );
 
     tabla.insertAdjacentHTML("beforeend", fila);
   });
 }
+window.cargarTablaPedidos = cargarTablaPedidos;
 
 
 async function eliminarFila(btn, event) {
@@ -803,11 +831,14 @@ async function guardarSeleccion() {
       const notasInput = row.querySelector(".notas");
 
       if (articuloInput && unidadesInput && cajasInput && notasInput) {
-        const articulo = articuloInput.value.trim();
-        const unidades = parseInt(unidadesInput.value) || 0;
-        const cajas = parseInt(cajasInput.value) || 0;
-        const notas = notasInput.value.trim();
-        const rotas = 0;
+       const articulo = articuloInput.value.trim();
+       const unidades = parseInt(unidadesInput.value) || 0;
+       const cajas = parseInt(cajasInput.value) || 0;
+       const notas = notasInput.value.trim();
+       const rotas = 0; // ✅ ← agregado
+
+    // 🚫 No registrar si no hay nada cargado
+    if (!articulo || (unidades <= 0 && cajas <= 0 && !notas)) continue;
 
         const fecha = Timestamp.fromDate(new Date()); //cambio 21/6
         const usuario = sessionStorage.getItem("usuario");
@@ -851,7 +882,7 @@ async function guardarSeleccion() {
 
 
 window.addEventListener("DOMContentLoaded", async () => {
-  await cargarTablaPedidos();
+  await cargarTablaPedidos(true);
   await cargarCombosDesdeFirestore();
  /*  await cargarArticulosParaAutocomplete();  */
 });
@@ -1016,7 +1047,8 @@ function toggleSeleccion(fila, desdeCheckbox = false) {
       ventana.document.close();
       ventana.print();
     }
-// de aca arrancamos//
+
+// filtrado de tabla//
 let columnaFiltrando = null;
 
 // Detectar clic en encabezado de tabla
@@ -1044,11 +1076,12 @@ function mostrarFiltro(event, colIndex) {
   [...valores].sort().forEach(v => {
     const opcion = document.createElement("div");
     opcion.className = "form-check";
-    opcion.innerHTML = `
-      <input class="form-check-input" type="checkbox" value="${v}" id="check-${v}">
-      <label class="form-check-label" for="check-${v}">${v}</label>
-    `;
-    opciones.appendChild(opcion);
+   opcion.innerHTML = `
+  <input class="form-check-input filtroCheck" type="checkbox" value="${v}" id="check-${v}">
+  <label class="form-check-label" for="check-${v}">${v}</label>
+  `;
+   opciones.appendChild(opcion);
+
   });
 
   const { left, bottom } = event.target.getBoundingClientRect();
@@ -1058,24 +1091,6 @@ function mostrarFiltro(event, colIndex) {
 }
 
 // Aplicar filtro al hacer clic en el botón
-function aplicarFiltro() {
-  const filtro = filtroSeleccionado.trim().toLowerCase();
-  const columnaIndex = indiceColumnaSeleccionada;
-
-  const filas = document.querySelectorAll("#tablaArticulos tr");
-  filas.forEach((fila, i) => {
-    if (i === 0) return; // Saltear encabezado si aplica
-    const celda = fila.cells[columnaIndex];
-    if (!filtro || celda.textContent.toLowerCase().includes(filtro)) {
-      fila.style.display = "";
-    } else {
-      fila.style.display = "none";
-    }
-  });
-
-  document.getElementById("filtroDropdown").style.display = "none";
-}
-
 window.addEventListener("click", e => {
   const dropdown = document.getElementById("filtroDropdown");
   if (!dropdown.contains(e.target) && !e.target.closest("th")) {
@@ -1126,64 +1141,71 @@ function llenarOpcionesFiltro(index) {
   }
 
   // Aplicar filtro seleccionado
-  function aplicarFiltro() {
-  const seleccionado = document.querySelector('input[name="filtroOpcion"]:checked');
-  if (!seleccionado || columnaActualIndex === null) return;
+function aplicarFiltro() {
+  if (columnaActualIndex === null) return;
 
-  valorFiltroActual = seleccionado.value;
+  const seleccionados = Array.from(
+    document.querySelectorAll('#opcionesFiltro input[type="checkbox"]:checked')
+  ).map(input => input.value);
+
+  const verTodos = seleccionados.includes("__TODOS__");
+
+  // Si es la columna FECHA (índice 2) y se eligió "ver todos", recarga desde Firestore
+  if (columnaActualIndex === 2 && verTodos) {
+    cargarTablaPedidos(false); // ❗Mostrá todos los días
+    document.getElementById("filtroDropdown").style.display = "none";
+    return;
+  }
 
   document.querySelectorAll("#tablaArticulos tr").forEach(tr => {
     const celda = tr.cells[columnaActualIndex];
+    const valorCelda = celda?.textContent.trim();
 
-    if (valorFiltroActual === "__TODOS__") {
+    if (verTodos || (valorCelda && seleccionados.includes(valorCelda))) {
       tr.style.display = "";
     } else {
-      if (!celda || celda.textContent.trim() !== valorFiltroActual) {
-        tr.style.display = "none";
-      } else {
-        tr.style.display = "";
-      }
+      tr.style.display = "none";
     }
   });
 
   document.getElementById("filtroDropdown").style.display = "none";
 }
+  
 
-  // Ocultar menú de filtro al hacer clic fuera
-  document.addEventListener("click", (e) => {
-    const dropdown = document.getElementById("filtroDropdown");
-    if (!dropdown.contains(e.target) && !e.target.closest("thead th")) {
-      dropdown.style.display = "none";
-    }
-  });
-  function limpiarFiltro() {
+function limpiarFiltro() {
   document.querySelectorAll("#tablaArticulos tr").forEach(tr => tr.style.display = "");
   document.getElementById("filtroDropdown").style.display = "none";
   valorFiltroActual = "";
 }
-function mostrarOpcionesFiltradas() {
-   
+window.limpiarFiltro = limpiarFiltro;
 
+
+function mostrarOpcionesFiltradas() {
   const filtroTexto = document.getElementById("filtroInput").value.toLowerCase();
-  document.getElementById("filtroInput").addEventListener("input", mostrarOpcionesFiltradas);
   const opcionesDiv = document.getElementById("opcionesFiltro");
   opcionesDiv.innerHTML = "";
 
   // Opción "Ver todos"
   const todosLabel = document.createElement("label");
   todosLabel.className = "d-block fw-bold";
-  todosLabel.innerHTML = `<input type="radio" name="filtroOpcion" value="__TODOS__"> Ver todos`;
+  todosLabel.innerHTML = `<input type="checkbox" class="filtroCheck" value="__TODOS__"> Ver todos`;
   opcionesDiv.appendChild(todosLabel);
 
+  // Opciones individuales con checkbox
   todasOpcionesFiltro.forEach(valor => {
     if (valor.toLowerCase().includes(filtroTexto)) {
       const label = document.createElement("label");
       label.className = "d-block";
-      label.innerHTML = `<input type="radio" name="filtroOpcion" value="${valor}"> ${valor}`;
+      label.innerHTML = `<input type="checkbox" class="filtroCheck" value="${valor}"> ${valor}`;
       opcionesDiv.appendChild(label);
     }
   });
 }
+
+document.addEventListener("DOMContentLoaded", () => {
+  document.getElementById("filtroInput").addEventListener("input", mostrarOpcionesFiltradas);
+});
+
 //termina el filtrado
 
 function mostrarMensajeEliminado() {
