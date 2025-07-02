@@ -1085,9 +1085,9 @@ document.addEventListener("DOMContentLoaded", async () => {  //salon actual guar
 
 // ✅ Cargar combos y tabla al iniciar
 window.addEventListener("DOMContentLoaded", async () => {
-  await cargarTablaPedidos();
+  await cargarTablaPedidos("ultimos2"); // o el filtro que uses por defecto
   await cargarCombosDesdeFirestore();
- /*  await cargarArticulosParaAutocomplete();  */
+ 
 });
 
  function toggleBotonImprimir() {
@@ -1851,14 +1851,20 @@ document.addEventListener("change", (e) => {
     }
     
       // Buscar dentro de las opciones del dropdown
-      function filtrarOpcionesDropdown(valor) {
-        document.querySelectorAll("#opcionesFiltro label").forEach(label => {
-          const visible = label.textContent.toLowerCase().includes(valor.toLowerCase());
-          label.style.display = visible ? "" : "none";
-        });
-      }
+    function filtrarOpcionesDropdown(valor) {
+  document.querySelectorAll("#opcionesFiltro .form-check").forEach(div => {
+    const label = div.querySelector("label");
+    const visible = label?.textContent.toLowerCase().includes(valor.toLowerCase());
+    div.style.display = visible ? "" : "none";
+  });
+}
+
+    document.getElementById("filtroInput").addEventListener("input", (e) => {
+  filtrarOpcionesDropdown(e.target.value);
+});
+
     
-      // Aplicar filtro seleccionado queda
+      // este carga todos los articulos
   function aplicarFiltro() {
   if (columnaActualIndex === null) return;
 
@@ -1932,11 +1938,6 @@ document.addEventListener("change", (e) => {
     }
   });
 }
-
-//carga 2 dias
-document.addEventListener("DOMContentLoaded", () => {
-  cargarTablaPedidos("ultimos2");
-});
 
     //termina el filtrado
     
