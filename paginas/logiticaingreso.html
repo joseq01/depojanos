@@ -144,6 +144,22 @@ body {
   50% { box-shadow: 0 0 20px #0dcaf0; }
 }
 
+#contenedorBandeja {
+  max-height: 50vh; /* no pasa de la mitad de pantalla */
+  overflow-y: auto;
+}
+ .bandeja-llena {
+    animation: parpadeoRojo 1s infinite;
+    background-color: #dc3545 !important; /* rojo Bootstrap */
+    color: white !important;
+    border-color: #dc3545 !important;
+  }
+
+  @keyframes parpadeoRojo {
+    0%   { opacity: 1; }
+    50%  { opacity: 0.3; }
+    100% { opacity: 1; }
+  }
 
   </style>
 
@@ -899,19 +915,31 @@ window.crearFila = crearFila;
 window.toggleSeleccion = toggleSeleccion;
 
 //bandeja
-window.guardarEnBandeja = async function ({ articulo, unidades, cajas, salon, notas }) {
+window.guardarEnBandeja = async function ({ articulo, unidades, cajas, salon: salonenviar, notas }) {
   try {
-    if (!salon || salon.trim() === "") return; // 🚫 No guardar si no hay salón
+    const salonActual = sessionStorage.getItem("salon"); // Salón del usuario logueado
+    if (!salonActual || !salonenviar || salonenviar.trim() === "") return;
 
-    const docRef = await addDoc(collection(db, "bandeja"), {
+  if (bandejaArticulos.length >= 20) { //limite de registros
+      await Swal.fire({
+        icon: 'warning',
+        title: 'Bandeja llena',
+        text: 'La bandeja esta llena. Eliminá alguno para seguir agregando.',
+        timer: 2500,
+        showConfirmButton: false
+      });
+      return;
+    }
+
+    const docRef = await addDoc(collection(db, "bandeja", salonActual, "items"), {
       articulo,
       unidades,
       cajas,
-      salon,
+      salonenviar, // Guardamos a qué salón se va a enviar
       notas
     });
 
-    bandejaArticulos.push({ id: docRef.id, articulo, unidades, cajas, salon, notas });
+    bandejaArticulos.push({ id: docRef.id, articulo, unidades, cajas, salonenviar, notas });
     actualizarBandejaVisual();
     verificarBandeja();
   } catch (e) {
@@ -921,13 +949,14 @@ window.guardarEnBandeja = async function ({ articulo, unidades, cajas, salon, no
 
 window.eliminarDeBandeja = async function (index) {
   const item = bandejaArticulos[index];
+  const salonActual = sessionStorage.getItem("salon");
 
   const result = await Swal.fire({
     title: '¿Eliminar artículo?',
     html: `<strong>${item.articulo}</strong><br>
            ${item.unidades ? `Unid: ${item.unidades}` : ''} 
            ${item.cajas ? `Cajas: ${item.cajas}` : ''} 
-           ${item.salon ? `<br>Salón: ${item.salon}` : ''}
+           ${item.salonenviar ? `<br>Destino: ${item.salonenviar}` : ''} 
            ${item.notas ? `<br><em>📝 ${item.notas}</em>` : ''}`,
     icon: 'warning',
     showCancelButton: true,
@@ -941,7 +970,7 @@ window.eliminarDeBandeja = async function (index) {
     try {
       const id = item?.id;
       if (id) {
-        await deleteDoc(doc(db, "bandeja", id));
+        await deleteDoc(doc(db, "bandeja", salonActual, "items", id));
       }
       bandejaArticulos.splice(index, 1);
       actualizarBandejaVisual();
@@ -962,10 +991,15 @@ window.eliminarDeBandeja = async function (index) {
   }
 };
 
+
 // ✅ Primero definís la función
 async function cargarBandejaDesdeFirestore() {
-  const snapshot = await getDocs(collection(db, "bandeja"));
+  const salonActual = sessionStorage.getItem("salon");
+  if (!salonActual) return;
+
+  const snapshot = await getDocs(collection(db, "bandeja", salonActual, "items"));
   bandejaArticulos = [];
+
   snapshot.forEach(doc => {
     const data = doc.data();
     bandejaArticulos.push({
@@ -973,13 +1007,16 @@ async function cargarBandejaDesdeFirestore() {
       articulo: data.articulo,
       unidades: data.unidades,
       cajas: data.cajas,
-      salon: data.salon,
+      salonenviar: data.salonenviar, // ← mostrás esto en la UI
       notas: data.notas
     });
   });
+
   actualizarBandejaVisual();
   verificarBandeja();
 }
+
+
 
 // ✅ Luego hacés que se ejecute cuando la página cargue
 document.addEventListener("DOMContentLoaded", () => {
@@ -1239,7 +1276,7 @@ function mostrarMensajeGuardado() {
 //mostrar bandeja temporal
 let bandejaArticulos = [];
 
-function guardarEnBandeja({ articulo, unidades, cajas, salon, notas }) {
+function guardarEnBandeja({ articulo, unidades, cajas, salonenviar, notas }) {
   const contenedor = document.getElementById("contenedorBandeja");
 
   const item = document.createElement("div");
@@ -1249,7 +1286,7 @@ function guardarEnBandeja({ articulo, unidades, cajas, salon, notas }) {
     <div class="small">
       <strong>${articulo}</strong><br>
       ${unidades ? `Uni: ${unidades} ` : ""} ${cajas ? `Cajas: ${cajas}` : ""}<br>
-      <em>Salón: ${salon || "-"}</em><br>
+      <em>Destino: ${salonenviar || "-"}</em><br>
       ${notas ? `📝 ${notas}` : ""}
     </div>
     <button class="btn btn-sm btn-danger ms-2" onclick="this.parentElement.remove(); verificarBandeja();">x</button>
@@ -1288,7 +1325,7 @@ function actualizarBandejaVisual() {
       <div class="small text-muted">
         ${item.unidades ? `Unid: ${item.unidades}` : ""} 
         ${item.cajas ? `Cajas: ${item.cajas}` : ""} 
-        ${item.salon ? `→ ${item.salon}` : ""}
+        ${item.salonenviar ? `→ ${item.salonenviar}` : ""}
       </div>
       ${item.notas ? `<div class="text-muted fst-italic">${item.notas}</div>` : ""}
       <div class="text-end mt-1">
@@ -1299,9 +1336,11 @@ function actualizarBandejaVisual() {
     contenedor.appendChild(div);
   });
 
-  // Mostrar botón parpadeando si hay elementos
-  document.getElementById("botonToggleBandeja").classList.toggle("parpadea", bandejaArticulos.length > 0);
+  const boton = document.getElementById("botonToggleBandeja");
+  boton.classList.toggle("parpadea", bandejaArticulos.length > 0);
+  boton.classList.toggle("bandeja-llena", bandejaArticulos.length >= 20); // 🚨 efecto si está llena
 }
+
 
 function toggleBandeja() {
   const bandeja = document.getElementById("bandejaFlotante");

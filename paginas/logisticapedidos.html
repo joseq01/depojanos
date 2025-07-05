@@ -131,6 +131,23 @@ body {
   50% { box-shadow: 0 0 20px #0dcaf0; }
 }
 
+/* efecto bandeja llena rojo */
+.bandeja-llena {
+  color: white !important;
+  background-color: #dc3545 !important;
+  border-color: #dc3545 !important;
+  animation: parpadeoRojo 1s infinite;
+}
+
+@keyframes parpadeoRojo {
+  0% { opacity: 1; }
+  50% { opacity: 0.3; }
+  100% { opacity: 1; }
+}
+#contenedorBandeja {
+  max-height: 50vh; /* 50% del alto visible de pantalla */
+  overflow-y: auto;
+}
 
   </style>
 </head>
@@ -1259,7 +1276,10 @@ let bandejaArticulos = [];
 
 window.cargarBandejaDesdeFirestore = async function () {
   try {
-    const snapshot = await getDocs(collection(db, "bandeja"));
+    const salonActual = sessionStorage.getItem("salon");
+    if (!salonActual) return;
+
+    const snapshot = await getDocs(collection(db, "bandeja", salonActual, "items"));
     bandejaArticulos = [];
 
     snapshot.forEach(doc => {
@@ -1269,7 +1289,7 @@ window.cargarBandejaDesdeFirestore = async function () {
         articulo: data.articulo,
         unidades: data.unidades,
         cajas: data.cajas,
-        salon: data.salon,
+        salonenviar: data.salonenviar, // 👈 esta es la que muestra a qué salón se envía
         notas: data.notas
       });
     });
@@ -1282,6 +1302,7 @@ window.cargarBandejaDesdeFirestore = async function () {
     console.error("Error al cargar bandeja:", e);
   }
 };
+
 
 window.eliminarDeBandeja = async function (index) {
   const item = bandejaArticulos[index];
@@ -1305,7 +1326,7 @@ window.eliminarDeBandeja = async function (index) {
     try {
       const id = item.id;
       if (id) {
-        await deleteDoc(doc(db, "bandeja", id));
+        await deleteDoc(doc(db, "bandeja", sessionStorage.getItem("salon"), "items", id));
       }
       bandejaArticulos.splice(index, 1);
       actualizarBandejaVisual();
@@ -1334,7 +1355,7 @@ window.actualizarBandejaVisual = function () {
       <div class="small text-muted">
         ${item.unidades ? `Unid: ${item.unidades}` : ""} 
         ${item.cajas ? `Cajas: ${item.cajas}` : ""} 
-        ${item.salon ? `→ ${item.salon}` : ""}
+        ${item.salonenviar ? `→ ${item.salonenviar}` : ""}
       </div>
       ${item.notas ? `<div class="text-muted fst-italic">${item.notas}</div>` : ""}
       <div class="text-end mt-1">
@@ -1345,8 +1366,22 @@ window.actualizarBandejaVisual = function () {
     contenedor.appendChild(div);
   });
 
-  document.getElementById("botonToggleBandeja").classList.toggle("parpadea", bandejaArticulos.length > 0);
+  // Parpadea en rojo si está llena
+const boton = document.getElementById("botonToggleBandeja");
+
+// Primero quitamos cualquier clase previa
+boton.classList.remove("parpadea", "bandeja-llena");
+
+// Aplicamos según cantidad de artículos
+if (bandejaArticulos.length > 0 && bandejaArticulos.length < 20) {
+  boton.classList.add("parpadea"); // brillo celeste
+} else if (bandejaArticulos.length >= 20) {
+  boton.classList.add("bandeja-llena"); // parpadeo rojo
+}
+
+
 };
+
 
 window.verificarBandeja = function () {
   const contenedor = document.getElementById("contenedorBandeja");
