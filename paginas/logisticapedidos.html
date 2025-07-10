@@ -21,6 +21,7 @@
       align-items: center;
       z-index: 2000;
     }
+    
     #pantallaFlotante .contenido {
       background: white;
       padding: 2rem;
@@ -149,47 +150,176 @@ body {
   overflow-y: auto;
 }
 
+/* Scroll horizontal solo en celulares */
+.navbar.fixed-top {
+  position: fixed !important;
+  top: 0;
+  width: 100%;
+  z-index: 1050;
+  transform: translateY(0) !important;
+}
+
+body {
+    padding-top: 70px;
+    overflow-x: auto;
+    margin: 0;
+  }
+
+@media (max-width: 768px) {
+  .tabla-scroll-movil {
+    width: 100%;
+  
+  }
+
+  .tabla-scroll-movil table {
+    min-width: 700px; /* Fuerza scroll horizontal */
+  }
+
+  .container.px-0 {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  .proyector-box {
+    min-width: 700px;
+  }
+
+  .navbar-nav {
+    flex-wrap: wrap;
+  }
+
+  
+  .navbar {
+    z-index: 1050;
+  }
+}
+
+@media (max-width: 991px) {
+  .botones-derecha {
+    flex-wrap: wrap; /* permite que los botones se bajen si no entran */
+    justify-content: end; /* que todo quede alineado a la derecha */
+    gap: 0.5rem; /* espacio entre los botones */
+  }
+
+  #btnGuardarCambios,
+  #botonToggleBandeja,
+  #btnImprimir {
+    width: auto;
+    max-width: 100%;
+  }
+
+  .navbar-toggler {
+    order: 2; /* asegura que el botón hamburguesa quede último, a la derecha */
+    margin-left: auto;
+  }
+}
+
+@media (max-width: 991px) {
+  #btnGuardarCambios {
+    margin-top: 0.5rem; /* agrega espacio encima del botón */
+  }
+}
+
+@media (max-width: 991px) {
+  .navbar-collapse {
+    position: fixed;
+    top: 56px; /* o lo que mida tu navbar */
+    left: 0;
+    right: 0;
+    background-color: #212529;
+    z-index: 1040;
+    width: 100%;
+    padding: 0.5rem 0.5rem;
+    box-sizing: border-box;
+    max-height: calc(100vh - 56px); /* evitar que se desborde */
+    overflow-y: auto;
+  }
+}
+
+
+
+@media (max-width: 991px) {
+  .navbar-collapse.show ~ #proyectorBoxPedidos,
+  .navbar-collapse.show ~ .container.px-0 {
+    margin-top: 140px;
+  }
+}
+
+@media (max-width: 991px) {
+  .bajar-formulario {
+    margin-top: 150px !important;
+  }
+}
+
+@media (max-width: 991px) {
+  .container-fluid {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  .navbar-collapse .nav-link {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+}
+
+
+
   </style>
 </head>
 <body class="d-flex flex-column min-vh-100">
 
-  <!-- Navegación -->
-  <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+  <div class="container-fluid d-flex justify-content-between align-items-center px-4">
 
-    <div class="container-fluid d-flex justify-content-between align-items-center px-4">
-      <div class="d-flex align-items-center">
-        <a class="navbar-brand d-flex align-items-center" href="#">
-          <img id="logo" src="../image/Logos-Janos.png" alt="logojanos" />
-          <span class="ms-3 text-white small">Logística - Pedidos</span>
-        </a>
-        <div class="collapse navbar-collapse show ms-4">
-          <ul class="navbar-nav">
-            <li class="nav-item"><a class="nav-link" href="../index.html">Stock</a></li>
-            <li class="nav-item"><a class="nav-link" href="../paginas/logiticaingreso.html">Ingresos</a></li>
-          </ul>
-             <!-- Dentro del navbar -->
-<li class="nav-item">
- <button id="botonToggleBandeja" class="btn btn-outline-info btn-sm mx-4 d-none" onclick="toggleBandeja()">
-  Pendientes 🧺
-</button>
-</li>
+    <!-- Marca y menú colapsable -->
+    <div class="d-flex align-items-center">
+      <a class="navbar-brand d-flex align-items-center" href="#">
+        <img id="logo" src="../image/Logos-Janos.png" alt="logojanos" />
+        <span class="ms-3 text-white small">Logística - Pedidos</span>
+      </a>
 
- <!-- Botón Guardar Cambios -->
-  <li class="nav-item">
-    <button id="btnGuardarCambios" class="btn btn-warning btn-sm mx-2 d-none" onclick="guardarCambiosFilaSeleccionada()">
-      Guardar
-    </button>
-  </li>
-</div>
-
-        </div>
+      <!-- Contenido colapsable -->
+     
+      <div class="collapse navbar-collapse ms-4" id="navbarContenido">
+        <ul class="navbar-nav">
+          <li class="nav-item"><a class="nav-link" href="../index.html">Stock</a></li>
+          <li class="nav-item"><a class="nav-link" href="../paginas/logiticaingreso.html">Ingresos</a></li>
+        </ul>
       </div>
-    <button id="btnImprimir" class="btn btn-success btn-sm me-2 d-none" onclick="abrirResumenImpresion()">
-  Imprimir
-</button>
+      
 
+      <!-- Botones que deben quedarse a la izquierda en pantallas grandes -->
+      <ul class="navbar-nav flex-row align-items-center ms-4">
+        <li class="nav-item">
+          <button id="botonToggleBandeja" class="btn btn-outline-info btn-sm mx-2 d-none" onclick="toggleBandeja()">
+            Pendientes 🧺
+          </button>
+        </li>
+        <li class="nav-item">
+          <button id="btnGuardarCambios" class="btn btn-warning btn-sm mx-2 d-none" onclick="guardarCambiosFilaSeleccionada()">
+            Guardar
+          </button>
+        </li>
+      </ul>
     </div>
-  </nav>
+
+    <!-- Botón imprimir siempre a la derecha -->
+    <div class="d-flex align-items-center">
+      <button id="btnImprimir" class="btn btn-success btn-sm me-2 d-none" onclick="abrirResumenImpresion()">
+        Imprimir
+      </button>
+
+      <!-- Botón hamburguesa (solo en móvil) -->
+      <button class="navbar-toggler d-lg-none" type="button" data-bs-toggle="collapse" data-bs-target="#navbarContenido">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+    </div>
+
+  </div>
+</nav>
+
+
 
   <!-- Contenedor bandeja -->
 <div id="bandejaFlotante" class="position-absolute bg-white border rounded shadow p-3"
@@ -197,6 +327,16 @@ body {
   <h6 class="text-center mb-2">Pendientes de Envios</h6>
   <div id="contenedorBandeja" class="d-flex flex-column gap-2"></div>
 </div>
+
+   
+   <!-- Contenedor de los botones de la derecha -->
+<div class="d-flex align-items-center botones-derecha">
+  <button id="btnImprimir" class="btn btn-success btn-sm me-2 d-none" onclick="abrirResumenImpresion()">Imprimir</button>
+  <button class="navbar-toggler d-lg-none" type="button" data-bs-toggle="collapse" data-bs-target="#navbarContenido">
+    <span class="navbar-toggler-icon"></span>
+  </button>
+</div>
+
 
 
   <!-- Formulario -->
@@ -243,8 +383,9 @@ body {
 </div>
 
 <!-- 📌 Tabla pedidos -->
-<div class="container">
-  <table class="table table-striped table-bordered mt-2">
+<div class="container px-0"> <!-- Quitamos padding horizontal en móviles -->
+  <div class="tabla-scroll-movil">
+    <table class="table table-striped table-bordered mt-2">
     <colgroup>
       <col style="width: 30px;">
       <col style="width: 100px;">
@@ -256,7 +397,7 @@ body {
       <col style="width: 60px;">
       <col style="width: 120px;">
     </colgroup>
-    <thead>
+     <thead class="bg-white">
       <tr>
         <th></th>
         <th>Salón Destino</th>
@@ -271,8 +412,8 @@ body {
     </thead>
     <tbody id="tablaArticulos"></tbody>
   </table>
+ </div>
 </div>
-
 
   <div id="filtroDropdown" class="card p-2 position-absolute shadow" style="display: none; z-index: 1000; width: 200px;">
     <input type="text" id="filtroInput" class="form-control mb-2" placeholder="Buscar...">
@@ -2043,7 +2184,18 @@ flechaPedidos.addEventListener("mouseenter", () => {
 });
 
 //bandeja temporal
+const navbar = document.getElementById("navbarContenido");
+  const proyectorBox = document.getElementById("proyectorBoxPedidos");
 
+  const observer = new MutationObserver(() => {
+    if (navbar.classList.contains("show")) {
+      proyectorBox.classList.add("bajar-formulario");
+    } else {
+      proyectorBox.classList.remove("bajar-formulario");
+    }
+  });
+
+  observer.observe(navbar, { attributes: true, attributeFilter: ['class'] });
 //fina bandeja
 
       </script>

@@ -131,7 +131,7 @@ thead th {
 /* General */
 body {
   padding-top: 70px;
-  overflow-x: hidden;
+
 }
 
 /* boton bandeja */
@@ -161,38 +161,144 @@ body {
     100% { opacity: 1; }
   }
 
+
+
+/* Encabezado flotante de tabla */
+thead th {
+  position: sticky;
+  top: 110px;
+  background-color: white;
+  z-index: 2;
+}
+
+/* Fijar navbar en móviles también */
+.navbar.fixed-top {
+  position: fixed !important;
+  top: 0;
+  width: 100%;
+  z-index: 1050;
+  transform: translateY(0) !important;
+}
+
+body {
+  padding-top: 70px;
+  overflow-x: auto;
+}
+
+@media (max-width: 991px) {
+  .navbar {
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    z-index: 1050;
+  }
+
+  .container-fluid {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  .navbar-collapse {
+    position: fixed;
+    top: 56px; /* Altura navbar */
+    left: 0;
+    right: 0;
+    background-color: #212529;
+    z-index: 1040;
+    padding: 0.5rem 0.5rem;
+    max-height: calc(100vh - 56px);
+    overflow-y: auto;
+  }
+
+  .navbar-collapse .nav-link {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+
+  .navbar-collapse.show ~ #proyectorBox,
+  .navbar-collapse.show ~ .container {
+    margin-top: 140px !important;
+  }
+
+  .proyector-box {
+    min-width: 700px;
+  }
+
+  .tabla-scroll-movil table {
+    min-width: 700px;
+  }
+
+  .navbar-nav {
+    flex-wrap: wrap;
+  }
+
+  /* Estilo botones que están a la izquierda del hamburguesa */
+  .botones-navbar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  /* Estilo para bandeja que flota por fuera */
+  #bandejaFlotante {
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: 90%;
+    max-width: 520px;
+    z-index: 2000;
+  }
+}
+
+@media (min-width: 992px) {
+  #botonToggleBandeja {
+    margin-left: 206px; /* Ajuste fino a la derecha (antes era 12 o 10) */
+    transform: translateY(3px); /* Lo baja visualmente 1px */
+  }
+}
+
   </style>
 
 </head>
 <body class="d-flex flex-column min-vh-100">
 
   <!-- Navegación -->
-  <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+  <div class="container-fluid px-4 d-flex justify-content-between align-items-center">
 
-    <div class="container-fluid d-flex justify-content-between align-items-center px-4">
-      <div class="d-flex align-items-center">
-        <a class="navbar-brand d-flex align-items-center" href="#">
-          <img id="logo" src="../image/Logos-Janos.png" alt="logojanos" />
-          <span class="ms-3 text-white small">Logística - Ingreso</span>
-        </a>
-        <div class="collapse navbar-collapse show ms-4">
-          <ul class="navbar-nav">
-            <li class="nav-item"><a class="nav-link" href="../index.html">Stock</a></li>
-            <li class="nav-item"><a class="nav-link" href="../paginas/logisticapedidos.html">Pedidos</a></li>
-          </ul>
-         <!-- Dentro del navbar -->
-<li class="nav-item">
-  <button id="botonToggleBandeja" class="btn btn-outline-info btn-sm ms-3 d-none" onclick="toggleBandeja()">
-    Pendientes  🧺
-  </button>
-</li>
+    <!-- Logo -->
+    <a class="navbar-brand d-flex align-items-center" href="#">
+      <img id="logo" src="../image/Logos-Janos.png" alt="logojanos" style="max-height: 50px;" />
+      <span class="ms-3 text-white small">Logística - Ingreso</span>
+    </a>
 
-        </div>
-      </div>
-      <button id="btnImprimir" class="btn btn-success btn-sm me-2 d-none" onclick="imprimirSeleccion()">Imprimir</button>
+    <!-- Botón hamburguesa a la derecha -->
+    <button class="navbar-toggler d-lg-none ms-auto" type="button" data-bs-toggle="collapse" data-bs-target="#menuIngreso">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <!-- Contenido colapsable -->
+    <div class="collapse navbar-collapse ms-4" id="menuIngreso">
+      <ul class="navbar-nav me-auto">
+        <li class="nav-item"><a class="nav-link" href="../index.html">Stock</a></li>
+        <li class="nav-item"><a class="nav-link" href="../paginas/logisticapedidos.html">Pedidos</a></li>
+
+        <!-- 🖥️ Bandeja solo en desktop -->
+        <li class="nav-item d-none d-lg-block">
+          <button id="botonToggleBandeja" class="btn btn-outline-info btn-sm ms-3" onclick="toggleBandeja()">Pendientes 🧺</button>
+        </li>
+      </ul>
     </div>
-  </nav>
 
+    <!-- 📱 Bandeja solo visible en móvil -->
+    <div class="d-flex align-items-center d-lg-none me-2">
+      <button id="botonToggleBandejaMovil" class="btn btn-outline-info btn-sm me-2" onclick="toggleBandeja()">🧺</button>
+    </div>
+
+  </div>
+</nav>
 
 <!-- Contenedor bandeja -->
 <div id="bandejaFlotante" class="position-absolute bg-white border rounded shadow p-3"
@@ -261,37 +367,39 @@ body {
   <div class="proyector-text" id="proyectorMensaje">deslice hacia abajo</div>
 </div>
 
-<!-- Tabla con encabezado sticky -->
-<div class="container">
-  <table class="table table-striped table-bordered mt-2">
-    <colgroup>
-      <col style="width: 15px;">
-      <col style="width: 40px;">
-      <col style="width: 40px;">
-      <col style="width: 80px;">
-      <col style="width: 25px;">
-      <col style="width: 25px;">
-      <col style="width: 25px;">
-      <col style="width: 50px;">
-      <col style="width: 30px;">
-      <col style="width: 40px;">
-    </colgroup>
-    <thead class="sticky-top">
-      <tr>
-        <th></th>
-        <th>Salón Origen</th>
-        <th class="text-center">Fecha</th>
-        <th>Artículo</th>
-        <th class="text-center">Unid.</th>
-        <th class="text-center">Caj./Pack</th>
-        <th class="text-center">Unid. Rotas</th>
-        <th>Notas</th>
-        <th>Acción</th>
-        <th>Usuario</th>
-      </tr>
-    </thead>
-    <tbody id="tablaArticulos"></tbody>
-  </table>
+<!-- Tabla con encabezado sticky y scroll solo en celulares -->
+<div class="container px-0"> <!-- Quitamos padding horizontal en móviles -->
+  <div class="tabla-scroll-movil">
+    <table class="table table-striped table-bordered mt-2">
+      <colgroup>
+        <col style="width: 15px;">
+        <col style="width: 40px;">
+        <col style="width: 40px;">
+        <col style="width: 80px;">
+        <col style="width: 25px;">
+        <col style="width: 25px;">
+        <col style="width: 25px;">
+        <col style="width: 50px;">
+        <col style="width: 30px;">
+        <col style="width: 40px;">
+      </colgroup>
+      <thead class="bg-white">
+        <tr>
+          <th></th>
+          <th>Salón Origen</th>
+          <th class="text-center">Fecha</th>
+          <th>Artículo</th>
+          <th class="text-center">Unid.</th>
+          <th class="text-center">Caj./Pack</th>
+          <th class="text-center">Unid. Rotas</th>
+          <th>Notas</th>
+          <th>Acción</th>
+          <th>Usuario</th>
+        </tr>
+      </thead>
+      <tbody id="tablaArticulos"></tbody>
+    </table>
+  </div>
 </div>
 
 
@@ -379,6 +487,8 @@ body {
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
 
 <script type="module">
   // Importa Firebase SDK (asegúrate de que tu proyecto lo permite si no usás bundlers como Webpack)
