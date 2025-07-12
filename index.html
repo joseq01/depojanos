@@ -11,6 +11,8 @@
     rel="stylesheet"
   />
 
+   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+
   <style>
       #loginInicial.invisible {
     visibility: hidden;
@@ -148,14 +150,58 @@ body {
   padding: 8px;
   margin: 10px 0;
 }
+
+thead th {
+  background-color: white;
+  position: sticky;
+  top: 60px; /* Altura del navbar */
+  z-index: 10;
+}
+@media (min-width: 992px) {
+  #navbarNavMobile {
+    display: none !important;
+  }
+}
+
+
+@media (max-width: 991px) {
+  .navbar-collapse.show {
+    position: fixed;
+    top: 56px;
+    left: 0;
+    right: 0;
+    background-color: #212529;
+    z-index: 1040;
+    padding: 1rem;
+    box-sizing: border-box;
+    max-height: calc(100vh - 56px);
+    overflow-y: auto;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+
+  .navbar-nav {
+    flex-wrap: nowrap !important;
+  }
+
+  .navbar-nav .nav-item {
+    flex: 0 0 auto;
+  }
+
+  .dropdown-ajuste {
+    margin-top: 1rem;
+  }
+}
+
   </style>
 
 </head>
 <body class="d-flex flex-column min-vh-100">
-
-
-<div id="loginInicial" class="modal d-flex align-items-center justify-content-center show invisible" tabindex="-1" style="display: flex; background-color: rgba(0,0,0,0.5);">
-
+<!-- Modal de login inicial -->
+<!-- 🔐 Modal de login inicial -->
+<div id="loginInicial" class="modal d-flex align-items-center justify-content-center show invisible" tabindex="-1"
+  style="display: flex; background-color: rgba(0,0,0,0.5);">
   <div class="modal-dialog">
     <div class="modal-content p-4 rounded-4 shadow-lg">
       <div class="modal-header border-0">
@@ -168,69 +214,106 @@ body {
       </div>
     </div>
   </div>
-</div>  <!--clave ingreso -->
+</div>
 
+<main class="flex-grow-1">
 
-  <main class="flex-grow-1">
-  <!-- Menú de navegación -->
-  <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+<!-- 🔧 NAVBAR -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+  <div class="container-fluid px-4 d-flex justify-content-between align-items-center">
 
-    <div class="container-fluid d-flex justify-content-between align-items-center px-4">
-      <!-- Izquierda: Logo y título -->
-      <div class="d-flex align-items-center">
-        <a class="navbar-brand d-flex align-items-center" href="#">
-          <img id="logo" src="./image/Logos-Janos.png" alt="logojanos" />
-          <span class="ms-3 text-white small">Logística</span>
-        </a>
+    <!-- 🧭 IZQUIERDA: Botón hamburguesa (solo móviles) + logo + menú Ingreso/Pedidos en desktop -->
+    <div class="d-flex align-items-center">
+      <button class="navbar-toggler d-lg-none me-2" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNavMobile">
+        <span class="navbar-toggler-icon"></span>
+      </button>
 
-        <div class="collapse navbar-collapse show ms-4" id="navbarNav">
-          <ul class="navbar-nav">
-            <li class="nav-item">
-              <a class="nav-link" href="#stock">Stock</a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="./paginas/logiticaingreso.html">Ingreso</a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="./paginas/logisticapedidos.html">Pedidos</a>
-            </li>
-          </ul>
+      <a class="navbar-brand d-flex align-items-center" href="#">
+        <img id="logo" src="./image/Logos-Janos.png" alt="logojanos" />
+        <span class="ms-3 text-white small">Logística - Stock</span>
+      </a>
+
+      <!-- Ingreso y Pedidos SOLO en pantallas grandes -->
+      <ul class="navbar-nav flex-row ms-4 d-none d-lg-flex">
+        <li class="nav-item me-3">
+          <a class="nav-link" href="./paginas/logiticaingreso.html">Ingreso</a>
+        </li>
+        <li class="nav-item me-3">
+          <a class="nav-link" href="./paginas/logisticapedidos.html">Pedidos</a>
+        </li>
+      </ul>
+    </div>
+
+    <!-- 📄 Botón Imprimir + ⚙️ Ajuste SOLO en pantallas grandes -->
+    <div class="d-flex align-items-center">
+      <button id="btnImprimirStock" onclick="imprimirStockActual()" class="btn btn-outline-light btn-sm me-4"
+        style="opacity: 0.15; transition: opacity 0.4s; pointer-events: none;">
+        🖨️ Imprimir
+      </button>
+
+      <!-- Ajuste visible solo en pantallas grandes -->
+      <div class="dropdown-ajuste d-none d-lg-block">
+        <a class="nav-link text-white" href="#" id="ajusteLink">Ajuste</a>
+        <div class="dropdown-menu d-none" id="ajusteMenu">
+          <a class="dropdown-item" href="#" onclick="abrirFlotanteProtegido('modalEditarCombos')">editar combos</a>
+          <a class="dropdown-item" href="#" onclick="abrirFlotanteProtegido('modalArticulos')">agr/elim articulo</a>
+          <a class="dropdown-item" href="#" onclick="abrirFlotanteProtegido('modalAgregarSalon')">agregar salones</a>
+          <a class="dropdown-item" href="#" onclick="abrirFlotanteProtegido('modalUsuarios')">agregar usuarios</a>
         </div>
       </div>
-
-<button id="btnImprimirStock" onclick="imprimirStockActual()" class="btn btn-outline-light btn-sm me-3" style="
-  opacity: 0.15;
-  transition: opacity 0.4s;
-  pointer-events: none;
-">
-  🖨️ Imprimir
-</button>
-
-    <!-- menu AJUSTE Botón Ajuste SIEMPRE visible -->
-<div class="dropdown-ajuste">
-  <a class="nav-link text-white" href="#" id="ajusteLink">Ajuste</a>
-  <div class="dropdown-menu d-none" id="ajusteMenu">
-    <a class="dropdown-item" href="#" onclick="abrirFlotanteProtegido('modalEditarCombos')">editar combos</a>
-    <a class="dropdown-item" href="#" onclick="abrirFlotanteProtegido('modalArticulos')">agr/elim articulo</a>
-    <a class="dropdown-item" href="#" onclick="abrirFlotanteProtegido('modalAgregarSalon')">agregar salones</a>
-    <a class="dropdown-item" href="#" onclick="abrirFlotanteProtegido('modalUsuarios')">agregar usuarios </a>
-  </div>
-</div>
-<div id="loginModal" class="modal-login" style="display: none;">
-  <div class="modal-content-login">
-    <h5>Acceso restringido</h5>
-    <input type="text" id="loginUsuario" placeholder="Usuario" />
-    <input type="password" id="loginContrasenia" placeholder="Contraseña" />
-    <div style="margin-top: 10px;">
-      <button onclick="validarLogin()">Ingresar</button>
-      <button onclick="cerrarLogin()" style="margin-left: 10px;">Cancelar</button>
     </div>
   </div>
-</div>
+
+  <!-- 📱 Menú hamburguesa: Ingreso, Pedidos y Ajuste SOLO en móviles -->
+  <div class="collapse navbar-collapse px-4 d-lg-none" id="navbarNavMobile">
+    <ul class="navbar-nav">
+      <li class="nav-item">
+        <a class="nav-link" href="./paginas/logiticaingreso.html">Ingreso</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="./paginas/logisticapedidos.html">Pedidos</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="#" onclick="mostrarMenuAjusteMobile()">Ajuste</a>
+        <!-- Submenú Ajuste en móviles -->
+        <ul class="nav flex-column ms-3" id="submenuAjusteMobile" style="display: none;">
+          <li class="nav-item"><a class="nav-link" href="#" onclick="abrirFlotanteProtegido('modalEditarCombos')">editar combos</a></li>
+          <li class="nav-item"><a class="nav-link" href="#" onclick="abrirFlotanteProtegido('modalArticulos')">agr/elim articulo</a></li>
+          <li class="nav-item"><a class="nav-link" href="#" onclick="abrirFlotanteProtegido('modalAgregarSalon')">agregar salones</a></li>
+          <li class="nav-item"><a class="nav-link" href="#" onclick="abrirFlotanteProtegido('modalUsuarios')">agregar usuarios</a></li>
+        </ul>
+      </li>
+    </ul>
+  </div>
+</nav>
 
 
+  <!-- 🔒 Modal login Ajuste -->
+  <div id="loginModal" class="modal-login" style="display: none;">
+    <div class="modal-content-login">
+      <h5>Acceso restringido</h5>
+      <input type="text" id="loginUsuario" placeholder="Usuario" />
+      <input type="password" id="loginContrasenia" placeholder="Contraseña" />
+      <div style="margin-top: 10px;">
+        <button onclick="validarLogin()">Ingresar</button>
+        <button onclick="cerrarLogin()" style="margin-left: 10px;">Cancelar</button>
+      </div>
+    </div>
+  </div>
 
-  </nav>
+  <!-- 🧾 Modal de acceso protegido -->
+  <div id="modalLoginAjuste" class="modal-login" style="display: none;">
+    <div class="modal-content-login">
+      <h4>Acceso requerido</h4>
+      <input type="text" id="usuarioAjuste" placeholder="Usuario">
+      <input type="password" id="contrasenaAjuste" placeholder="Contraseña">
+      <button onclick="verificarCredenciales()">Ingresar</button>
+      <button onclick="cerrarModalLogin()">Cancelar</button>
+    </div>
+  </div>
+</main>
+
+
  <!-- menu contrasenia ajuste --> 
 <div id="modalLoginAjuste" class="modal-login" style="display: none;">
   <div class="modal-content-login">
@@ -241,6 +324,7 @@ body {
     <button onclick="cerrarModalLogin()">Cancelar</button>
   </div>
 </div>
+
   <!-- Contenido -->
   <div id="contenido-imprimir" class="container mt-5 flex-grow-1">
   <h4 class="text-center mb-4">Stock Actual</h4>
@@ -1880,6 +1964,11 @@ function mostrarMensajeUsuario(texto, color = "bg-light") {
       location.reload();
     }, 500);
   }
+
+function mostrarMenuAjusteMobile() {
+  const submenu = document.getElementById("submenuAjusteMobile");
+  submenu.style.display = submenu.style.display === "none" ? "block" : "none";
+}
 
   </script>
 <!-- Footer al final -->

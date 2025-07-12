@@ -5,7 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Ingreso de Artículos</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
-  <style>
+ <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+
+<style>
     .nav-link:hover { color: #ffc107 !important; }
     .navbar { box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
     #logo { max-height: 50px; }
@@ -195,21 +197,25 @@ body {
     z-index: 1050;
   }
 
-  .container-fluid {
-    padding-left: 0 !important;
-    padding-right: 0 !important;
+ .navbar .container-fluid {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
   }
 
   .navbar-collapse {
     position: fixed;
-    top: 56px; /* Altura navbar */
+    top: 56px; /* Altura del navbar */
     left: 0;
     right: 0;
     background-color: #212529;
     z-index: 1040;
-    padding: 0.5rem 0.5rem;
+    padding: 0.5rem;
+    box-sizing: border-box;
     max-height: calc(100vh - 56px);
     overflow-y: auto;
+    overflow-x: auto; /* 💡 permite scroll horizontal si hay muchos elementos */
+    white-space: nowrap;
   }
 
   .navbar-collapse .nav-link {
@@ -232,6 +238,10 @@ body {
 
   .navbar-nav {
     flex-wrap: wrap;
+  }
+
+  .navbar-nav .nav-item {
+    flex: 0 0 auto;
   }
 
   /* Estilo botones que están a la izquierda del hamburguesa */
@@ -259,27 +269,43 @@ body {
   }
 }
 
+footer {
+  position: relative;
+  width: 100%;
+  min-width: 100vw;
+  max-width: none;
+  background-color: #212529;
+  color: white;
+  text-align: center;
+  padding: 1rem 0;
+  box-sizing: border-box;
+}
+
   </style>
 
 </head>
 <body class="d-flex flex-column min-vh-100">
 
-  <!-- Navegación -->
+ <!-- Navegación -->
+<!-- Navegación -->
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
   <div class="container-fluid px-4 d-flex justify-content-between align-items-center">
 
-    <!-- Logo -->
-    <a class="navbar-brand d-flex align-items-center" href="#">
-      <img id="logo" src="../image/Logos-Janos.png" alt="logojanos" style="max-height: 50px;" />
-      <span class="ms-3 text-white small">Logística - Ingreso</span>
-    </a>
+    <!-- 🟢 IZQUIERDA: Hamburguesa y logo -->
+    <div class="d-flex align-items-center">
+      <!-- 📱 Botón hamburguesa en móviles -->
+      <button class="navbar-toggler d-lg-none me-2" type="button" data-bs-toggle="collapse" data-bs-target="#menuIngreso">
+        <span class="navbar-toggler-icon"></span>
+      </button>
 
-    <!-- Botón hamburguesa a la derecha -->
-    <button class="navbar-toggler d-lg-none ms-auto" type="button" data-bs-toggle="collapse" data-bs-target="#menuIngreso">
-      <span class="navbar-toggler-icon"></span>
-    </button>
+      <!-- 🧭 Logo -->
+      <a class="navbar-brand d-flex align-items-center" href="#">
+        <img id="logo" src="../image/Logos-Janos.png" alt="logojanos" style="max-height: 50px;" />
+        <span class="ms-3 text-white small">Logística - Ingreso</span>
+      </a>
+    </div>
 
-    <!-- Contenido colapsable -->
+    <!-- 🔵 Contenido colapsable -->
     <div class="collapse navbar-collapse ms-4" id="menuIngreso">
       <ul class="navbar-nav me-auto">
         <li class="nav-item"><a class="nav-link" href="../index.html">Stock</a></li>
@@ -299,6 +325,11 @@ body {
 
   </div>
 </nav>
+
+
+<!-- CONTENEDOR que incluye tabla y footer -->
+<main class="flex-grow-1 d-flex flex-column" style="min-width: 700px;">
+
 
 <!-- Contenedor bandeja -->
 <div id="bandejaFlotante" class="position-absolute bg-white border rounded shadow p-3"
@@ -1505,8 +1536,9 @@ flecha.addEventListener("mouseenter", () => {
   </script>
 
 <!-- Footer al final -->
-<footer class="bg-dark text-white text-center py-3 mt-auto">
+<footer class="bg-dark text-white text-center py-2 mt-auto">
   <small>© 2025 Janos Logística. desarrollador Jose Quin.</small>
 </footer>
+</div> 
 </body>
 </html>
