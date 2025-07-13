@@ -479,12 +479,12 @@ footer {
   <div class="contenido position-relative">
     <button class="btn-close position-absolute top-0 end-0 m-3" onclick="cerrarFlotante()"></button>
 
-    <div class="row fw-bold px-3 mb-2">
+ <!--    <div class="row fw-bold px-3 mb-2">
       <div class="col-md-4">Ambientación</div>
       <div class="col">Unidades</div>
       <div class="col">Caj./Pack</div>
       <div class="col">Notas</div>
-    </div>
+    </div> -->
 
     <div id="contenedorCombos"></div>
 
@@ -669,20 +669,121 @@ document.addEventListener("DOMContentLoaded", () => {
 
 function mostrarFlotante() {
   const contenedor = document.getElementById("contenedorCombos");
-if (!contenedor) {
-  console.error("No se encontró el contenedor de combos.");
-  return;
-}
+  if (!contenedor) {
+    console.error("No se encontró el contenedor de combos.");
+    return;
+  }
+
+  // Leer combosCache desde sessionStorage y parsear
+  let combosCache = {};
+  const cacheStr = sessionStorage.getItem("combosCache");
+  if (cacheStr) {
+    try {
+      combosCache = JSON.parse(cacheStr);
+    } catch (e) {
+      console.error("Error al parsear combosCache:", e);
+    }
+  }
 
   contenedor.innerHTML = "";
 
+  // Crear campo de búsqueda con lupa
+  const buscadorWrapper = document.createElement("div");
+  buscadorWrapper.className = "input-group mb-3 position-relative";
+
+  const inputBusqueda = document.createElement("input");
+  inputBusqueda.type = "text";
+  inputBusqueda.className = "form-control";
+  inputBusqueda.placeholder = "Buscar combo...";
+
+  const spanIcono = document.createElement("span");
+  spanIcono.className = "input-group-text";
+  spanIcono.innerHTML = "🔍";
+
+  buscadorWrapper.appendChild(inputBusqueda);
+  buscadorWrapper.appendChild(spanIcono);
+  contenedor.appendChild(buscadorWrapper);
+
+  // Función para cerrar lista de autocompletar
+  function cerrarListas() {
+    const lista = document.getElementById("lista-autocompletar");
+    if (lista) lista.remove();
+  }
+
+  // Evento input para autocompletar
+  inputBusqueda.addEventListener("input", function () {
+    const val = this.value.toLowerCase();
+    const sugerencias = Object.keys(combosCache).filter((nombre) =>
+      nombre.toLowerCase().includes(val)
+    );
+
+    cerrarListas();
+
+    if (!val) return;
+
+    const lista = document.createElement("div");
+    lista.setAttribute("id", "lista-autocompletar");
+    lista.className = "list-group position-absolute w-100 zindex-dropdown";
+    this.parentNode.appendChild(lista);
+
+    sugerencias.forEach((nombre) => {
+      const item = document.createElement("button");
+      item.type = "button";
+      item.className = "list-group-item list-group-item-action";
+      item.textContent = nombre;
+
+      item.addEventListener("click", function () {
+        inputBusqueda.value = nombre;
+        cerrarListas();
+
+        const idCard = `combo-${nombre.replace(/\s+/g, "-")}`;
+        const card = document.getElementById(idCard);
+
+        if (card) {
+          const checkbox = card.querySelector(`input[type="checkbox"]`);
+          if (checkbox) checkbox.checked = true;
+
+          card.scrollIntoView({ behavior: "smooth", block: "start" });
+          card.classList.add("border", "border-warning");
+          setTimeout(() => card.classList.remove("border", "border-warning"), 2000);
+        }
+      });
+
+      lista.appendChild(item);
+    });
+  });
+
+  // Cerrar lista al clickear fuera
+  document.addEventListener("click", (e) => {
+    if (!contenedor.contains(e.target)) {
+      cerrarListas();
+    }
+  });
+
+  // Crear cards de combos (usando combos, no combosCache)
   Object.entries(combos).forEach(([nombre, productos]) => {
     const card = document.createElement("div");
     card.className = "combo-card";
+    card.id = `combo-${nombre.replace(/\s+/g, "-")}`;
 
-    const encabezado = document.createElement("h6");
-    encabezado.innerHTML = `<input type="checkbox" class="combo-checkbox" data-nombre="${nombre}"> ${nombre}`;
+    const encabezado = document.createElement("div");
+    encabezado.className = "mb-2 fw-bold";
+    encabezado.innerHTML = `
+      <input type="checkbox" class="combo-checkbox me-2" data-nombre="${nombre}">
+      ${nombre}
+    `;
     card.appendChild(encabezado);
+
+    // Cabecera personalizada para columnas
+    const rowHeader = document.createElement("div");
+    rowHeader.className = "row fw-semibold mb-1 text-muted small";
+    rowHeader.innerHTML = `
+      <div class="col-md-4">Artículo</div>
+      <div class="col">Unidades</div>
+      <div class="col">Caj/Pack</div>
+      <div class="col">Notas</div>
+    `;
+    card.appendChild(rowHeader);
 
     productos.forEach((p) => {
       const row = document.createElement("div");
@@ -713,6 +814,8 @@ if (!contenedor) {
 function cerrarFlotante() {
   document.getElementById("pantallaFlotante").style.display = "none";
 }
+
+
 
 // ✅ Crear fila HTML
 function crearFila(articulo, unidades, cajas, notas, destino, fecha, usuario, docId = "") {
@@ -1460,6 +1563,7 @@ document.addEventListener("click", function (e) {
     btnGuardar?.classList.add("d-none");
   }
 });
+document.getElementById("btnGuardarCambios")?.addEventListener("click", guardarCambiosFilaSeleccionada);
 
 
 //finaliza editar datos
