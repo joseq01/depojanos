@@ -318,12 +318,17 @@ footer {
       </ul>
     </div>
 
-    <!-- 📱 Bandeja solo visible en móvil -->
-    <div class="d-flex align-items-center d-lg-none me-2">
-      <button id="botonToggleBandejaMovil" class="btn btn-outline-info btn-sm me-2" onclick="toggleBandeja()">🧺</button>
-    </div>
+<!-- 🔄 Botones adaptables a móvil y escritorio -->
+<div class="d-flex align-items-center ms-auto me-2 me-lg-4 gap-2">
+  <!-- Botón Guardar (solo visible cuando se edita una fila) -->
+  <button id="btnGuardarCambios" class="btn btn-warning btn-sm d-none">
+    Guardar
+  </button>
 
-  </div>
+  <!-- Bandeja solo visible en móvil -->
+  <button id="botonToggleBandejaMovil" class="btn btn-outline-info btn-sm d-lg-none" onclick="toggleBandeja()">🧺</button>
+</div>
+
 </nav>
 
 
@@ -1157,6 +1162,133 @@ window.eliminarFila = eliminarFila;
 window.crearFila = crearFila;
 window.toggleSeleccion = toggleSeleccion;
 
+//editar celdas
+window.guardarCambiosFilaSeleccionada = async function () {
+  const filaSeleccionada = document.querySelector("tr.bg-warning");
+  if (!filaSeleccionada) return;
+
+  const id = filaSeleccionada.dataset.id;
+  if (!id) return;
+
+  const celdas = filaSeleccionada.children;
+  const articulo = celdas[3].textContent.trim();
+  const nuevasUnidades = parseInt(celdas[4].textContent.trim()) || 0;
+  const nuevasCajas = parseInt(celdas[5].textContent.trim()) || 0;
+  const nuevasRotas = parseInt(celdas[6].textContent.trim()) || 0;
+  const nuevasNotas = celdas[7].textContent.trim();
+  const fechaFila = celdas[2].textContent.trim();
+
+  // Validar fecha igual a hoy
+  const [diaF, mesF, anioF] = fechaFila.split("/");
+  const fechaFilaNormalizada = `${diaF.padStart(2, "0")}/${mesF.padStart(2, "0")}/${anioF}`;
+  const hoy = new Date();
+  const fechaHoy = `${String(hoy.getDate()).padStart(2, "0")}/${String(hoy.getMonth() + 1).padStart(2, "0")}/${hoy.getFullYear()}`;
+
+  if (fechaFilaNormalizada !== fechaHoy) {
+    await Swal.fire({
+      icon: 'warning',
+      title: 'Edición no permitida',
+      text: `Solo se pueden modificar ingresos del día de hoy (${fechaHoy}).`,
+      confirmButtonColor: '#3085d6'
+    });
+    return;
+  }
+
+  const origen = sessionStorage.getItem("salon");
+  const usuarioLogueado = sessionStorage.getItem("usuario");
+
+  // Consultar si el artículo existe
+  const artSnap = await getDocs(query(collection(db, "stock-articulos"), where("articulo", "==", articulo)));
+  const articuloExiste = !artSnap.empty;
+
+  if (articuloExiste) {
+    const ingresoDoc = await getDoc(doc(db, "stock-ingreso", id));
+    if (!ingresoDoc.exists()) return;
+
+    const ingresoAnterior = ingresoDoc.data();
+    const prevUnidades = ingresoAnterior.unidades || 0;
+    const prevCajas = ingresoAnterior.cajas ?? ingresoAnterior["caja-pack"] ?? 0;
+
+    const diferenciaUnidades = nuevasUnidades - prevUnidades;
+    const diferenciaCajas = nuevasCajas - prevCajas;
+
+    if (diferenciaUnidades !== 0 || diferenciaCajas !== 0) {
+      await sumarStockTotal(articulo, diferenciaUnidades, diferenciaCajas, origen);
+    }
+  }
+
+  // Actualizar Firestore con todos los campos modificables + usuario
+  const updateData = {
+    unidades: nuevasUnidades,
+    cajas: nuevasCajas,
+    rotas: nuevasRotas,
+    notas: nuevasNotas,
+    usuario: usuarioLogueado  // ✅ Siempre se actualiza
+  };
+
+  await updateDoc(doc(db, "stock-ingreso", id), updateData);
+
+  // ✅ Actualizar visualmente las celdas
+  celdas[4].textContent = nuevasUnidades;
+  celdas[5].textContent = nuevasCajas;
+  celdas[6].textContent = nuevasRotas;
+  celdas[7].textContent = nuevasNotas;
+  celdas[9].textContent = usuarioLogueado;  // ✅ Refrescar usuario
+
+  if (typeof actualizarBandejaVisual === "function") {
+    actualizarBandejaVisual();
+  }
+
+  filaSeleccionada.classList.remove("bg-warning");
+  document.getElementById("btnGuardarCambios")?.classList.add("d-none");
+
+  Swal.fire({
+    icon: "success",
+    title: "Cambios guardados",
+    timer: 1000,
+    showConfirmButton: false
+  });
+};
+
+
+document.addEventListener("click", function (e) { //activa boton guardar
+  const celda = e.target;
+  const esCeldaEditable = celda.hasAttribute("contenteditable");
+  const fila = celda.closest("tr");
+  const btnGuardar = document.getElementById("btnGuardarCambios");
+
+  if (fila && fila.parentElement?.tagName === "TBODY" && esCeldaEditable) {
+    document.querySelectorAll("tr").forEach(tr => tr.classList.remove("bg-warning"));
+    fila.classList.add("bg-warning");
+    btnGuardar?.classList.remove("d-none");
+  } else {
+    document.querySelectorAll("tr").forEach(tr => tr.classList.remove("bg-warning"));
+    btnGuardar?.classList.add("d-none");
+  }
+});
+
+document.getElementById("btnGuardarCambios")?.addEventListener("click", guardarCambiosFilaSeleccionada);
+
+async function sumarStockTotal(articulo, unidades, cajas, origen) {
+  const stockTotalRef = doc(db, "stock-total", articulo);
+  const stockSnap = await getDoc(stockTotalRef);
+
+  if (stockSnap.exists()) {
+    const pathUnidades = `salones.${origen}.unidades`;
+    const pathCajas = `salones.${origen}.cajas`;
+
+    await updateDoc(stockTotalRef, {
+      "caja-pack": increment(cajas),
+      [pathUnidades]: increment(unidades),
+      [pathCajas]: increment(cajas)
+    });
+  } else {
+    console.warn(`⚠️ No se encontró "${articulo}" en stock-total.`);
+  }
+}
+
+//termina de editar celdas
+
 //bandeja
 window.guardarEnBandeja = async function ({ articulo, unidades, cajas, salon: salonenviar, notas }) {
   try {
@@ -1293,10 +1425,10 @@ function toggleSeleccion(fila, desdeCheckbox = false) {
       toggleBotonImprimir();
     }
 
-    function toggleBotonImprimir() {
+  /*   function toggleBotonImprimir() {
       const haySeleccionados = document.querySelectorAll('tbody tr.seleccionado').length > 0;
       document.getElementById('btnImprimir').classList.toggle('d-none', !haySeleccionados);
-    }
+    } */
 
     function imprimirSeleccion() {
       const seleccionados = document.querySelectorAll('tbody tr.seleccionado');

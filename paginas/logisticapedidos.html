@@ -1128,27 +1128,27 @@ async function restaurarStockTotal(articulo, unidades, cajas, salon) {
     return;
   }
 
-  // Obtener unidades por caja del artículo
+  // 🔍 Obtener unidades por caja desde stock-articulos
   const artSnap = await getDocs(query(collection(db, "stock-articulos"), where("articulo", "==", articulo)));
   const unixCajaPack = (!artSnap.empty && parseInt(artSnap.docs[0].data().unixcajapack, 10)) || 0;
 
-  // Obtener stock actual del salón
+  // Si hay unidades y unixCajaPack > 0, convertir parte a cajas
+  let cajasConvertidas = 0;
+  let unidadesRestantes = unidades;
+
+  if (unixCajaPack > 0 && unidades >= unixCajaPack) {
+    cajasConvertidas = Math.floor(unidades / unixCajaPack);
+    unidadesRestantes = unidades % unixCajaPack;
+  }
+
   const data = totalSnap.data();
   const stockSalones = data.salones || {};
   const stockActual = stockSalones[salon] || { unidades: 0, cajas: 0 };
 
-  // Sumar unidades y cajas que se están restaurando
-  let totalUnidades = (stockActual.unidades || 0) + unidades;
-  let totalCajas = (stockActual.cajas || 0) + cajas;
+  // Sumar todo al stock
+  let totalUnidades = (stockActual.unidades || 0) + unidadesRestantes;
+  let totalCajas = (stockActual.cajas || 0) + cajas + cajasConvertidas;
 
-  // Convertir unidades a cajas si corresponde
-  if (unixCajaPack > 0 && totalUnidades >= unixCajaPack) {
-    const cajasExtra = Math.floor(totalUnidades / unixCajaPack);
-    totalUnidades = totalUnidades % unixCajaPack;
-    totalCajas += cajasExtra;
-  }
-
-  // Actualizar Firestore con los valores finales
   const pathUnidades = `salones.${salon}.unidades`;
   const pathCajas = `salones.${salon}.cajas`;
 
@@ -1159,7 +1159,6 @@ async function restaurarStockTotal(articulo, unidades, cajas, salon) {
 
   console.log(`✅ Restaurado "${articulo}" → ${salon}: ${totalCajas} cajas, ${totalUnidades} unidades`);
 }
-
 
 
 async function existeArticuloEnStockArticulos(articuloBuscado) {
@@ -1181,14 +1180,14 @@ async function descontarStock(articulo, unidades, cajas, origen) {
   let unidadesDisponibles = stockEnSalon.unidades || 0;
   let cajasDisponibles = stockEnSalon.cajas || 0;
 
-  // 🔁 Si no hay suficientes unidades pero sí hay cajas, reponer desde caja
+  // 🔁 Si no hay suficientes unidades pero sí hay cajas, convertir cajas en unidades
   if (unidadesDisponibles < unidades && cajasDisponibles > 0) {
     const artSnap = await getDocs(query(collection(db, "stock-articulos"), where("articulo", "==", articulo)));
     if (!artSnap.empty) {
       const artData = artSnap.docs[0].data();
       const unidadesPorCaja = parseInt(artData.unixcajapack, 10) || 0;
 
-      if (unidadesPorCaja > 0) {
+      while (unidadesDisponibles < unidades && cajasDisponibles > 0 && unidadesPorCaja > 0) {
         cajasDisponibles -= 1;
         unidadesDisponibles += unidadesPorCaja;
       }
@@ -1205,7 +1204,6 @@ async function descontarStock(articulo, unidades, cajas, origen) {
 
   await updateDoc(docRef, { salones: stockSalones });
 }
-
 
 
 // ✅ Eliminar fila
