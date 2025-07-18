@@ -267,13 +267,13 @@ body {
     margin-left: 206px; /* Ajuste fino a la derecha (antes era 12 o 10) */
     transform: translateY(3px); /* Lo baja visualmente 1px */
   }
+  
 }
 
 footer {
   position: relative;
-  width: 100%;
-  min-width: 100vw;
-  max-width: none;
+  width: max-content;
+  min-width: 100%;
   background-color: #212529;
   color: white;
   text-align: center;
@@ -333,8 +333,7 @@ footer {
 
 
 <!-- CONTENEDOR que incluye tabla y footer -->
-<main class="flex-grow-1 d-flex flex-column" style="min-width: 700px;">
-
+<main class="flex-grow-1 d-flex flex-column" style="min-width: 1000px;">
 
 <!-- Contenedor bandeja -->
 <div id="bandejaFlotante" class="position-absolute bg-white border rounded shadow p-3"
@@ -1756,23 +1755,67 @@ flecha.addEventListener("click", () => {
     flecha.classList.add("up");
   }
 });
-
-// 🔴 Cerrar al pasar el mouse por la flecha si está abierto
-flecha.addEventListener("mouseenter", () => {
-  if (formulario.classList.contains("visible")) {
-    formulario.classList.remove("visible");
-    formulario.classList.add("oculto");
-    mensaje.textContent = "deslice hacia abajo";
-    flecha.classList.remove("up");
-  }
-});
-
+ 
   </script>
+
+<button id="btnSubir"
+  onclick="window.scrollTo(0, 0);"
+  style="
+    display: none;
+    position: fixed;
+    bottom: 30px;
+    right: 20px;
+    z-index: 999;
+    background-color: rgba(33, 150, 243, 0.6);
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    cursor: pointer;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    transition: opacity 0.3s ease;
+  "
+  title="Volver arriba">
+  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="6 15 12 9 18 15"></polyline>
+  </svg>
+</button>
+
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const btnSubir = document.getElementById("btnSubir");
+    let ultimaPosicionScroll = window.scrollY;
+
+    window.addEventListener("scroll", () => {
+      const posicionActual = window.scrollY;
+
+      if (posicionActual > ultimaPosicionScroll && posicionActual > 200) {
+        btnSubir.style.display = "flex";
+        btnSubir.style.opacity = "1";
+      } else {
+        btnSubir.style.opacity = "0";
+        setTimeout(() => {
+          if (window.scrollY <= 200 || window.scrollY < ultimaPosicionScroll) {
+            btnSubir.style.display = "none";
+          }
+        }, 300);
+      }
+
+      ultimaPosicionScroll = posicionActual;
+    });
+  });
+</script>
+
+
 
 <!-- Footer al final -->
 <footer class="bg-dark text-white text-center py-2 mt-auto">
   <small>© 2025 Janos Logística. desarrollador Jose Quin.</small>
 </footer>
 </div> 
+
+</main>
 </body>
 </html>
