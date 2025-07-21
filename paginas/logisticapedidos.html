@@ -323,6 +323,20 @@ footer {
   box-sizing: border-box;
 }
 
+#lista-autocompletar {
+  position: absolute;
+  top: 100%; /* Justo debajo del input */
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  background: white;
+  border: 1px solid #ccc;
+  max-height: 200px;
+  overflow-y: auto;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+
   </style>
 </head>
 <body class="d-flex flex-column min-vh-100">
@@ -1674,6 +1688,7 @@ window.cargarBandejaDesdeFirestore = async function () {
         articulo: data.articulo,
         unidades: data.unidades,
         cajas: data.cajas,
+        rotas: data.rotas, // ✅ AÑADIDO
         salonenviar: data.salonenviar, // 👈 esta es la que muestra a qué salón se envía
         notas: data.notas
       });
@@ -1697,6 +1712,7 @@ window.eliminarDeBandeja = async function (index) {
     html: `<strong>${item.articulo}</strong><br>
            ${item.unidades ? `Unid: ${item.unidades}` : ''} 
            ${item.cajas ? `Cajas: ${item.cajas}` : ''} 
+           ${item.rotas ? `<br>Rotas: ${item.rotas}` : ''}
            ${item.salon ? `<br>Salón: ${item.salon}` : ''}
            ${item.notas ? `<br><em>📝 ${item.notas}</em>` : ''}`,
     icon: 'warning',
@@ -1740,6 +1756,7 @@ window.actualizarBandejaVisual = function () {
       <div class="small text-muted">
         ${item.unidades ? `Unid: ${item.unidades}` : ""} 
         ${item.cajas ? `Cajas: ${item.cajas}` : ""} 
+        ${item.rotas ? `Rotas: ${item.rotas}` : ""} 
         ${item.salonenviar ? `→ ${item.salonenviar}` : ""}
       </div>
       ${item.notas ? `<div class="text-muted fst-italic">${item.notas}</div>` : ""}
@@ -1917,7 +1934,7 @@ paginas.forEach((paginaItems, index) => {
       </ul>
 
       <!-- Pie reorganizado -->
-      <div style="position: absolute; bottom: 80px; left: 40px; right: 40px; border-top: 1px solid #ccc; padding-top: 12px; font-size: 14px; display: flex; justify-content: space-between;">
+      <div style="position: absolute; bottom: 100px; left: 40px; right: 40px; border-top: 1px solid #ccc; padding-top: 12px; font-size: 14px; display: flex; justify-content: space-between;">
 
         <!-- A la derecha: modelo, marca, patente -->
         <div style="text-align: right; line-height: 2; margin-left: 100px;">

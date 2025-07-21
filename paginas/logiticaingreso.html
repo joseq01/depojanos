@@ -294,6 +294,19 @@ footer {
   box-sizing: border-box;
 }
 
+#lista-autocompletar {
+  position: absolute;
+  top: 100%; /* Justo debajo del input */
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  background: white;
+  border: 1px solid #ccc;
+  max-height: 200px;
+  overflow-y: auto;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
   </style>
 
 </head>
@@ -676,6 +689,7 @@ function mostrarFlotante() {
   }
 
   contenedor.innerHTML = "";
+  
 
   // 🔍 Crear campo de búsqueda con lupa
   const buscadorWrapper = document.createElement("div");
@@ -876,10 +890,9 @@ async function actualizarStockTotal(articulo, unidades, cajas, origen) {
     await Swal.fire({
       icon: "error",
       title: "Stock insuficiente",
-      text: `No se puede modificar el stock de "${articulo}" en "${origen}" porque no hay suficiente:\n` +
-            `Stock actual: ${unidadesActuales} unidades / ${cajasActuales} cajas\n` +
-            `Intentás modificar: ${unidades} unidades / ${cajas} cajas.`
-    });
+    text: `No se puede modificar el stock de "${articulo}" ` +
+        `Stock actual: ${unidadesActuales} unidades / ${cajasActuales} cajas\n` 
+});
     return false;
   }
 
@@ -982,13 +995,13 @@ async function agregarArticulo() {
     year: 'numeric'
   });
 
-  const fila = crearFila(ingreso, fechaFormateada, articulo, unidades, cajas, rotas, notas, usuario, docRef.id);
+  const fila = crearFila(ingreso, fechaFormateada, articulo, unidades, cajas,  notas, usuario, docRef.id);
   document.getElementById("tablaArticulos").insertAdjacentHTML("beforeend", fila);
 
   mostrarMensajeGuardado();
 
   // ✅ Guardar en bandeja
-  guardarEnBandeja({ articulo, unidades, cajas, salon: salonEnviar, notas });
+  guardarEnBandeja({ articulo, unidades, cajas, rotas, salon: salonEnviar, notas });
 
   // ✅ Cargar últimos pedidos
   await cargarTablaPedidos(true);
@@ -1397,7 +1410,7 @@ async function sumarStockTotal(articulo, unidades, cajas, origen) {
 //termina de editar celdas
 
 //bandeja
-window.guardarEnBandeja = async function ({ articulo, unidades, cajas, salon: salonenviar, notas }) {
+window.guardarEnBandeja = async function ({ articulo, unidades, cajas, rotas, salon: salonenviar, notas }) {
   try {
     const salonActual = sessionStorage.getItem("salon"); // Salón del usuario logueado
     if (!salonActual || !salonenviar || salonenviar.trim() === "") return;
@@ -1417,11 +1430,12 @@ window.guardarEnBandeja = async function ({ articulo, unidades, cajas, salon: sa
       articulo,
       unidades,
       cajas,
+      rotas, // ✅ ahora sí se guarda
       salonenviar, // Guardamos a qué salón se va a enviar
       notas
     });
 
-    bandejaArticulos.push({ id: docRef.id, articulo, unidades, cajas, salonenviar, notas });
+    bandejaArticulos.push({ id: docRef.id, articulo, unidades, cajas, rotas, salonenviar, notas });
     actualizarBandejaVisual();
     verificarBandeja();
   } catch (e) {
@@ -1438,6 +1452,7 @@ window.eliminarDeBandeja = async function (index) {
     html: `<strong>${item.articulo}</strong><br>
            ${item.unidades ? `Unid: ${item.unidades}` : ''} 
            ${item.cajas ? `Cajas: ${item.cajas}` : ''} 
+           ${item.rotas ? `<br>Rotas: ${item.rotas}` : ''}
            ${item.salonenviar ? `<br>Destino: ${item.salonenviar}` : ''} 
            ${item.notas ? `<br><em>📝 ${item.notas}</em>` : ''}`,
     icon: 'warning',
@@ -1489,6 +1504,7 @@ async function cargarBandejaDesdeFirestore() {
       articulo: data.articulo,
       unidades: data.unidades,
       cajas: data.cajas,
+      rotas: data.rotas, // ✅ AÑADIDO
       salonenviar: data.salonenviar, // ← mostrás esto en la UI
       notas: data.notas
     });
@@ -1807,6 +1823,7 @@ function actualizarBandejaVisual() {
       <div class="small text-muted">
         ${item.unidades ? `Unid: ${item.unidades}` : ""} 
         ${item.cajas ? `Cajas: ${item.cajas}` : ""} 
+        ${item.rotas ? `Rotas: ${item.rotas}` : ""} 
         ${item.salonenviar ? `→ ${item.salonenviar}` : ""}
       </div>
       ${item.notas ? `<div class="text-muted fst-italic">${item.notas}</div>` : ""}
