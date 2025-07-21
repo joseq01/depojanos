@@ -300,6 +300,18 @@ body {
  
 }
 
+.footer-flotante {
+  position: sticky;
+  bottom: 0;
+  background: white;
+  padding: 10px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  border-top: 1px solid #ccc;
+  z-index: 5;
+}
+
 footer {
   position: relative;
   width: max-content;
@@ -397,11 +409,23 @@ footer {
     <h6 class="mt-2 text-start">Pedidos:</h6>
     <div class="card p-3">
       <div class="row align-items-end">
-        <div class="col-md-4">
-          <label for="articulo" class="form-label">Artículo:</label>
-          <input type="text" id="articulo" class="form-control" list="listaSugerencias" placeholder="Nombre del artículo" />
-          <datalist id="listaSugerencias"></datalist>
-        </div>
+      <div class="col-md-4">
+  <label for="articulo" class="form-label">Artículo:</label>
+  <input
+    type="text"
+    id="articulo"
+    class="form-control"
+    list="listaSugerencias"
+    name="articulo"
+    placeholder="Nombre del artículo"
+    autocomplete="off"
+    autocorrect="off"
+    autocapitalize="off"
+    spellcheck="false"
+  />
+  <datalist id="listaSugerencias"></datalist>
+</div>
+
         <div class="col-auto">
           <label for="unidades" class="form-label">Uni.</label>
           <input type="number" id="unidades" class="form-control" style="width: 80px;" />
@@ -477,15 +501,7 @@ footer {
   <div class="contenido position-relative">
     <button class="btn-close position-absolute top-0 end-0 m-3" onclick="cerrarFlotante()"></button>
 
- <!--    <div class="row fw-bold px-3 mb-2">
-      <div class="col-md-4">Ambientación</div>
-      <div class="col">Unidades</div>
-      <div class="col">Caj./Pack</div>
-      <div class="col">Notas</div>
-    </div> -->
-
-    <div id="contenedorCombos"></div>
-
+    <div id="contenedorCombos" style="max-height: 60vh; overflow-y: auto;"></div>
     <div class="d-flex justify-content-end gap-2 mt-3">
       <button class="btn btn-secondary" onclick="cerrarFlotante()">Cerrar</button>
       <button class="btn btn-primary" onclick="guardarSeleccion()">Guardar</button>
@@ -804,9 +820,38 @@ function mostrarFlotante() {
     });
 
     contenedor.appendChild(card);
+
+    
   });
 
   document.getElementById("pantallaFlotante").style.display = "flex";
+
+  // 🠗 Mostrar flecha si hay scroll disponible
+setTimeout(() => {
+  const contenedor = document.getElementById("contenedorCombos");
+  const flechaId = "flechaScrollFinal";
+  let flecha = document.getElementById(flechaId);
+
+  if (!flecha) {
+    flecha = document.createElement("div");
+    flecha.id = flechaId;
+    flecha.innerHTML = "&#x25BC;"; // ▼ (flecha sin relleno)
+    contenedor.appendChild(flecha); // ✅ Se agrega dentro del contenedor
+  }
+
+  const actualizarVisibilidad = () => {
+    const alFinal = contenedor.scrollTop + contenedor.clientHeight >= contenedor.scrollHeight - 1;
+    flecha.style.display = alFinal ? "none" : "block";
+  };
+
+  flecha.onclick = () => {
+    contenedor.scrollTo({ top: contenedor.scrollHeight, behavior: "smooth" });
+  };
+
+  contenedor.addEventListener("scroll", actualizarVisibilidad);
+  actualizarVisibilidad();
+}, 300);
+
 }
 
 function cerrarFlotante() {
@@ -945,20 +990,21 @@ async function agregarArticulo() {
   let stockUnidades = stockSalones[origen]?.unidades ?? 0;
   let stockCajas = stockSalones[origen]?.cajas ?? 0;
 
-  // ⚠️ Validación con conversión anticipada si hace falta
-  if (unidades > stockUnidades && stockCajas > 0) {
-    // Buscar unixcajapack del artículo
-    const artSnap = await getDocs(query(collection(db, "stock-articulos"), where("articulo", "==", articulo)));
-    if (!artSnap.empty) {
-      const artData = artSnap.docs[0].data();
-      const unidadesPorCaja = parseInt(artData.unixcajapack, 10) || 0;
+   // ⚠️ Validación con conversión total de cajas a unidades si es necesario
+  const artSnap = await getDocs(query(collection(db, "stock-articulos"), where("articulo", "==", articulo)));
+  if (!artSnap.empty) {
+    const artData = artSnap.docs[0].data();
+    const unidadesPorCaja = parseInt(artData.unixcajapack, 10) || 0;
 
-      if (unidadesPorCaja > 0) {
-        stockUnidades += unidadesPorCaja;
-        stockCajas -= 1;
-      }
+    if (unidadesPorCaja > 0 && unidades > stockUnidades) {
+      const faltantes = unidades - stockUnidades;
+      const cajasNecesarias = Math.ceil(faltantes / unidadesPorCaja);
+      const cajasAConvertir = Math.min(cajasNecesarias, stockCajas);
+      stockUnidades += cajasAConvertir * unidadesPorCaja;
+      stockCajas -= cajasAConvertir;
     }
   }
+
 
   // 🔴 Si aún así no alcanza el stock, mostrar mensaje
   if (unidades > stockUnidades || cajas > stockCajas) {
@@ -1126,15 +1172,13 @@ async function restaurarStockTotal(articulo, unidades, cajas, salon) {
     return;
   }
 
-  // 🔍 Obtener unidades por caja desde stock-articulos
   const artSnap = await getDocs(query(collection(db, "stock-articulos"), where("articulo", "==", articulo)));
   const unixCajaPack = (!artSnap.empty && parseInt(artSnap.docs[0].data().unixcajapack, 10)) || 0;
 
-  // Si hay unidades y unixCajaPack > 0, convertir parte a cajas
   let cajasConvertidas = 0;
   let unidadesRestantes = unidades;
 
-  if (unixCajaPack > 0 && unidades >= unixCajaPack) {
+  if (unixCajaPack > 0) {
     cajasConvertidas = Math.floor(unidades / unixCajaPack);
     unidadesRestantes = unidades % unixCajaPack;
   }
@@ -1143,9 +1187,15 @@ async function restaurarStockTotal(articulo, unidades, cajas, salon) {
   const stockSalones = data.salones || {};
   const stockActual = stockSalones[salon] || { unidades: 0, cajas: 0 };
 
-  // Sumar todo al stock
   let totalUnidades = (stockActual.unidades || 0) + unidadesRestantes;
   let totalCajas = (stockActual.cajas || 0) + cajas + cajasConvertidas;
+
+  // ✅ Nueva conversión si las unidades acumuladas permiten más cajas
+  if (unixCajaPack > 0 && totalUnidades >= unixCajaPack) {
+    const cajasExtra = Math.floor(totalUnidades / unixCajaPack);
+    totalCajas += cajasExtra;
+    totalUnidades = totalUnidades % unixCajaPack;
+  }
 
   const pathUnidades = `salones.${salon}.unidades`;
   const pathCajas = `salones.${salon}.cajas`;
@@ -1157,6 +1207,7 @@ async function restaurarStockTotal(articulo, unidades, cajas, salon) {
 
   console.log(`✅ Restaurado "${articulo}" → ${salon}: ${totalCajas} cajas, ${totalUnidades} unidades`);
 }
+
 
 
 async function existeArticuloEnStockArticulos(articuloBuscado) {
@@ -1178,29 +1229,58 @@ async function descontarStock(articulo, unidades, cajas, origen) {
   let unidadesDisponibles = stockEnSalon.unidades || 0;
   let cajasDisponibles = stockEnSalon.cajas || 0;
 
-  // 🔁 Si no hay suficientes unidades pero sí hay cajas, convertir cajas en unidades
-  if (unidadesDisponibles < unidades && cajasDisponibles > 0) {
-    const artSnap = await getDocs(query(collection(db, "stock-articulos"), where("articulo", "==", articulo)));
-    if (!artSnap.empty) {
-      const artData = artSnap.docs[0].data();
-      const unidadesPorCaja = parseInt(artData.unixcajapack, 10) || 0;
+  // 🔍 Buscar unidades por caja del artículo
+  const artSnap = await getDocs(query(collection(db, "stock-articulos"), where("articulo", "==", articulo)));
+  let unidadesPorCaja = 0;
+  if (!artSnap.empty) {
+    unidadesPorCaja = parseInt(artSnap.docs[0].data().unixcajapack, 10) || 0;
+  }
 
-      while (unidadesDisponibles < unidades && cajasDisponibles > 0 && unidadesPorCaja > 0) {
-        cajasDisponibles -= 1;
-        unidadesDisponibles += unidadesPorCaja;
-      }
+  // 🧠 Copia temporal de valores para validar conversión
+  let unidadesTemp = unidadesDisponibles;
+  let cajasTemp = cajasDisponibles;
+
+  if (unidadesTemp < unidades && unidadesPorCaja > 0 && cajasTemp > 0) {
+    const faltan = unidades - unidadesTemp;
+    const cajasNecesarias = Math.ceil(faltan / unidadesPorCaja);
+
+    if (cajasNecesarias <= cajasTemp) {
+      unidadesTemp += cajasNecesarias * unidadesPorCaja;
+      cajasTemp -= cajasNecesarias;
     }
   }
 
-  const nuevasUnidades = unidadesDisponibles - unidades;
-  const nuevasCajas = cajasDisponibles - cajas;
+  // ❌ Verificación final con la copia: si aún no alcanza, salir sin descontar
+  if (unidadesTemp < unidades || cajasTemp < cajas) {
+    throw new Error(
+      `Stock insuficiente para "${articulo}". Disponibles: ${unidadesDisponibles} unidades y ${cajasDisponibles} cajas.`
+    );
+  }
 
-  stockSalones[origen] = {
-    unidades: Math.max(nuevasUnidades, 0),
-    cajas: Math.max(nuevasCajas, 0)
-  };
+ // ✅ Ahora sí descontamos sobre los valores reales
+const faltanFinal = unidades - unidadesDisponibles;
+const cajasAConvertir = unidadesPorCaja > 0 ? Math.ceil(faltanFinal / unidadesPorCaja) : 0;
 
-  await updateDoc(docRef, { salones: stockSalones });
+unidadesDisponibles += cajasAConvertir * unidadesPorCaja;
+cajasDisponibles -= cajasAConvertir;
+
+let nuevasUnidades = unidadesDisponibles - unidades;
+let nuevasCajas = cajasDisponibles - cajas;
+
+// 🧠 Reconvertir unidades sobrantes a cajas si son múltiplos exactos
+if (unidadesPorCaja > 0 && nuevasUnidades >= unidadesPorCaja) {
+  const cajasExtra = Math.floor(nuevasUnidades / unidadesPorCaja);
+  nuevasUnidades -= cajasExtra * unidadesPorCaja;
+  nuevasCajas += cajasExtra;
+}
+
+stockSalones[origen] = {
+  unidades: nuevasUnidades,
+  cajas: nuevasCajas
+};
+
+await updateDoc(docRef, { salones: stockSalones });
+
 }
 
 
@@ -1304,21 +1384,25 @@ async function guardarSeleccion() {
       let stockEnSalonUnidades = stockSalones[origen]?.unidades ?? 0;
       let stockEnSalonCajas = stockSalones[origen]?.cajas ?? 0;
 
-      // 🧠 Intentar convertir 1 caja a unidades si hay faltante
-      if (unidades > stockEnSalonUnidades && stockEnSalonCajas > 0) {
-        const artSnap = await getDocs(
-          query(collection(db, "stock-articulos"), where("articulo", "==", articulo))
-        );
-        if (!artSnap.empty) {
-          const artData = artSnap.docs[0].data();
-          const unidadesPorCaja = parseInt(artData.unixcajapack, 10) || 0;
+     if (unidades > stockEnSalonUnidades && stockEnSalonCajas > 0) {
+  const artSnap = await getDocs(
+    query(collection(db, "stock-articulos"), where("articulo", "==", articulo))
+  );
+  if (!artSnap.empty) {
+    const artData = artSnap.docs[0].data();
+    const unidadesPorCaja = parseInt(artData.unixcajapack, 10) || 0;
 
-          if (unidadesPorCaja > 0 && unidadesPorCaja >= (unidades - stockEnSalonUnidades)) {
-            stockEnSalonUnidades += unidadesPorCaja;
-            stockEnSalonCajas -= 1;
-          }
-        }
-      }
+    if (unidadesPorCaja > 0) {
+      const faltantes = unidades - stockEnSalonUnidades;
+      const cajasNecesarias = Math.ceil(faltantes / unidadesPorCaja);
+      const cajasAConvertir = Math.min(cajasNecesarias, stockEnSalonCajas);
+
+      stockEnSalonUnidades += cajasAConvertir * unidadesPorCaja;
+      stockEnSalonCajas -= cajasAConvertir;
+    }
+  }
+}
+
 
       if (unidades > stockEnSalonUnidades || cajas > stockEnSalonCajas) {
         await Swal.fire({
@@ -1418,6 +1502,9 @@ window.addEventListener("DOMContentLoaded", async () => {
 window.devolverStock = async function (articulo, unidades, cajas, salon) {
   if (unidades === 0 && cajas === 0) return;
 
+  const artSnap = await getDocs(query(collection(db, "stock-articulos"), where("articulo", "==", articulo)));
+  const unidadesPorCaja = (!artSnap.empty && parseInt(artSnap.docs[0].data().unixcajapack, 10)) || 0;
+
   const docRef = doc(db, "stock-total", articulo);
   const snap = await getDoc(docRef);
   let data = snap.exists() ? snap.data() : {};
@@ -1425,12 +1512,26 @@ window.devolverStock = async function (articulo, unidades, cajas, salon) {
   if (!data.salones) data.salones = {};
   if (!data.salones[salon]) data.salones[salon] = { unidades: 0, cajas: 0 };
 
-  data.salones[salon].unidades = (data.salones[salon].unidades || 0) + unidades;
-  data.salones[salon].cajas = (data.salones[salon].cajas || 0) + cajas;
+  // 👉 Sumamos todo
+  let totalUnidades = (data.salones[salon].unidades || 0) + unidades;
+  let totalCajas = (data.salones[salon].cajas || 0) + cajas;
+
+  // 🔁 Convertir todo lo posible a cajas
+  if (unidadesPorCaja > 0) {
+    const totalGlobal = totalUnidades + totalCajas * unidadesPorCaja;
+    const cajasFinales = Math.floor(totalGlobal / unidadesPorCaja);
+    const unidadesFinales = totalGlobal % unidadesPorCaja;
+
+    data.salones[salon].cajas = cajasFinales;
+    data.salones[salon].unidades = unidadesFinales;
+  } else {
+    // Si no hay info de cajas, solo sumamos directo
+    data.salones[salon].cajas = totalCajas;
+    data.salones[salon].unidades = totalUnidades;
+  }
 
   await setDoc(docRef, data, { merge: true });
 };
-
 
 window.guardarCambiosFilaSeleccionada = async function () {
   const filaSeleccionada = document.querySelector("tr.bg-warning");
@@ -1448,18 +1549,10 @@ window.guardarCambiosFilaSeleccionada = async function () {
   const usuarioLogueado = sessionStorage.getItem("usuario");
   const usuarioActual = celdas[8]?.textContent.trim();
 
-  // 🧠 1. Consultar si el artículo existe en stock-articulos
   const artSnap = await getDocs(query(collection(db, "stock-articulos"), where("articulo", "==", articulo)));
   const articuloExiste = !artSnap.empty;
 
   if (articuloExiste) {
-    // 🔁 2. Traer stock actual
-    const stockDisponible = await obtenerStockTotal();
-    const stockSalones = stockDisponible[articulo]?.salones ?? {};
-    let stockUnidades = stockSalones[origen]?.unidades ?? 0;
-    let stockCajas = stockSalones[origen]?.cajas ?? 0;
-
-    // 🔁 3. Traer el pedido anterior y devolverlo al stock en Firestore
     const pedidoDoc = await getDoc(doc(db, "stock-pedidos", id));
     if (!pedidoDoc.exists()) return;
 
@@ -1467,27 +1560,27 @@ window.guardarCambiosFilaSeleccionada = async function () {
     const prevUnidades = pedidoAnterior.unidades || 0;
     const prevCajas = pedidoAnterior.cajas || 0;
 
-    await devolverStock(articulo, prevUnidades, prevCajas, origen); // ✅ devolución real
+    const stockDisponible = await obtenerStockTotal();
+    const stockSalones = stockDisponible[articulo]?.salones ?? {};
+    let stockUnidades = stockSalones[origen]?.unidades ?? 0;
+    let stockCajas = stockSalones[origen]?.cajas ?? 0;
 
-    // 🔄 4. Obtener stock actualizado luego de devolver
-    const stockActualizado = await obtenerStockTotal();
-    const stockRecalculado = stockActualizado[articulo]?.salones ?? {};
-    let stockUnidadesActual = stockRecalculado[origen]?.unidades ?? 0;
-    let stockCajasActual = stockRecalculado[origen]?.cajas ?? 0;
+    // Simular devolución del stock anterior
+    stockUnidades += prevUnidades;
+    stockCajas += prevCajas;
 
-    // 📦 5. Buscar unidades por caja
+    // Obtener unidades por caja (puede ser 0 si no usa cajas)
     let unidadesPorCaja = parseInt(artSnap.docs[0].data().unixcajapack) || 0;
 
-    // 🔄 6. Simular conversión si faltan unidades
-    let unidadesTemp = stockUnidadesActual;
-    let cajasTemp = stockCajasActual;
+    // Simulación para ver si alcanza (incluye conversión de cajas a unidades si hace falta)
+    let unidadesTemp = stockUnidades;
+    let cajasTemp = stockCajas;
 
     while (nuevasUnidades > unidadesTemp && cajasTemp > 0 && unidadesPorCaja > 0) {
       unidadesTemp += unidadesPorCaja;
       cajasTemp--;
     }
 
-    // ❌ 7. Verificación final
     if (nuevasUnidades > unidadesTemp || nuevasCajas > cajasTemp) {
       await Swal.fire({
         icon: 'info',
@@ -1499,11 +1592,11 @@ window.guardarCambiosFilaSeleccionada = async function () {
       return;
     }
 
-    // ✅ 8. Descontar nuevas cantidades (unidades + cajas)
+    // Solo si hay stock suficiente, hacer devolución + descuento
+    await devolverStock(articulo, prevUnidades, prevCajas, origen);
     await descontarStock(articulo, nuevasUnidades, nuevasCajas, origen);
   }
 
-  // 📝 9. Actualizar documento del pedido
   const updateData = {
     unidades: nuevasUnidades,
     cajas: nuevasCajas,
@@ -1517,12 +1610,10 @@ window.guardarCambiosFilaSeleccionada = async function () {
 
   await updateDoc(doc(db, "stock-pedidos", id), updateData);
 
- // 🧺 ✅ Refrescar visual de bandeja si corresponde
   if (typeof actualizarBandejaVisual === "function") {
     actualizarBandejaVisual();
   }
 
-  // 🎯 10. Quitar selección y ocultar botón
   filaSeleccionada.classList.remove("bg-warning");
   document.getElementById("btnGuardarCambios")?.classList.add("d-none");
 
@@ -1533,6 +1624,7 @@ window.guardarCambiosFilaSeleccionada = async function () {
     showConfirmButton: false
   });
 };
+
 
 
 document.addEventListener("click", function (e) {

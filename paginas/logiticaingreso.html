@@ -270,6 +270,19 @@ body {
   
 }
 
+.footer-flotante {
+  position: sticky;
+  bottom: 0;
+  background: white;
+  padding: 10px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  border-top: 1px solid #ccc;
+  z-index: 5;
+}
+
+
 footer {
   position: relative;
   width: max-content;
@@ -351,11 +364,23 @@ footer {
     <h6 class="mt-2 text-start">Ingresos</h6>
     <div class="card p-3">
       <div class="row align-items-end">
-        <div class="col-md-4">
-          <label for="articulo" class="form-label">Artículo:</label>
-          <input type="text" id="articulo" class="form-control" list="listaSugerencias" placeholder="Nombre del artículo" />
-          <datalist id="listaSugerencias"></datalist>
-        </div>
+       <div class="col-md-4">
+  <label for="articulo" class="form-label">Artículo:</label>
+  <input
+    type="text"
+    id="articulo"
+    class="form-control"
+    list="listaSugerencias"
+    name="articulo"
+    placeholder="Nombre del artículo"
+    autocomplete="off"
+    autocorrect="off"
+    autocapitalize="off"
+    spellcheck="false"
+  />
+  <datalist id="listaSugerencias"></datalist>
+</div>
+
         <div class="col-auto">
           <label for="unidades" class="form-label">Uni.</label>
           <input type="number" id="unidades" class="form-control" style="width: 80px;" />
@@ -458,7 +483,7 @@ footer {
         <div class="col">Caj./Pack</div>
         <div class="col">Notas</div>
       </div> -->
-      <div id="contenedorCombos"></div>
+      <div id="contenedorCombos" style="max-height: 60vh; overflow-y: auto;"></div>
       <div class="d-flex justify-content-end gap-2 mt-3">
         <button class="btn btn-secondary" onclick="cerrarFlotante()">Cerrar</button>
         <button class="btn btn-primary" onclick="guardarSeleccion()">Guardar</button>
@@ -769,6 +794,33 @@ function mostrarFlotante() {
   });
 
   document.getElementById("pantallaFlotante").style.display = "flex";
+
+  // 🠗 Mostrar flecha si hay scroll disponible
+setTimeout(() => {
+  const contenedor = document.getElementById("contenedorCombos");
+  const flechaId = "flechaScrollFinal";
+  let flecha = document.getElementById(flechaId);
+
+  if (!flecha) {
+    flecha = document.createElement("div");
+    flecha.id = flechaId;
+    flecha.innerHTML = "&#x25BC;"; // ▼ (flecha sin relleno)
+    contenedor.appendChild(flecha); // ✅ Se agrega dentro del contenedor
+  }
+
+  const actualizarVisibilidad = () => {
+    const alFinal = contenedor.scrollTop + contenedor.clientHeight >= contenedor.scrollHeight - 1;
+    flecha.style.display = alFinal ? "none" : "block";
+  };
+
+  flecha.onclick = () => {
+    contenedor.scrollTo({ top: contenedor.scrollHeight, behavior: "smooth" });
+  };
+
+  contenedor.addEventListener("scroll", actualizarVisibilidad);
+  actualizarVisibilidad();
+}, 300);
+
 }
 
 function cerrarFlotante() {
@@ -806,28 +858,40 @@ async function actualizarStockTotal(articulo, unidades, cajas, origen) {
 
   if (!existe) {
     console.warn(`⚠️ El artículo "${articulo}" no existe en stock-articulos. No se actualiza stock-total.`);
-    return;
+    return true; // ✅ Permitir ingreso sin validar stock para artículos inexistentes
   }
 
   const stockTotalRef = doc(db, "stock-total", articulo);
   const stockSnap = await getDoc(stockTotalRef);
+  const data = stockSnap.exists() ? stockSnap.data() : null;
+
+  const stockSalon = data?.salones?.[origen] || { unidades: 0, cajas: 0 };
+  const unidadesActuales = parseInt(stockSalon.unidades) || 0;
+  const cajasActuales = parseInt(stockSalon.cajas) || 0;
+
+  const nuevasUnidades = unidadesActuales + unidades;
+  const nuevasCajas = cajasActuales + cajas;
+
+  if (nuevasUnidades < 0 || nuevasCajas < 0) {
+    await Swal.fire({
+      icon: "error",
+      title: "Stock insuficiente",
+      text: `No se puede modificar el stock de "${articulo}" en "${origen}" porque no hay suficiente:\n` +
+            `Stock actual: ${unidadesActuales} unidades / ${cajasActuales} cajas\n` +
+            `Intentás modificar: ${unidades} unidades / ${cajas} cajas.`
+    });
+    return false;
+  }
 
   if (stockSnap.exists()) {
-    // Si existe, actualizamos con increment
-    const pathUnidades = `salones.${origen}.unidades`;
-    const pathCajas = `salones.${origen}.cajas`;
-
     await updateDoc(stockTotalRef, {
-     
-      "caja-pack": increment(cajas),
-      [pathUnidades]: increment(unidades),
-      [pathCajas]: increment(cajas)
+      [`salones.${origen}.unidades`]: nuevasUnidades,
+      [`salones.${origen}.cajas`]: nuevasCajas,
+      "caja-pack": (data["caja-pack"] || 0) + cajas
     });
   } else {
-    // Si no existe, lo creamos desde cero
-    const nuevoDoc = {
+    await setDoc(stockTotalRef, {
       articulo,
-      
       "caja-pack": cajas,
       salones: {
         [origen]: {
@@ -835,12 +899,11 @@ async function actualizarStockTotal(articulo, unidades, cajas, origen) {
           cajas
         }
       }
-    };
-
-    await setDoc(stockTotalRef, nuevoDoc);
+    });
   }
-}
 
+  return true;
+}
 
 let articulosCache = []; // cache para stock-articulos
 async function cargarArticulosDesdeFirestore() {
@@ -892,8 +955,15 @@ async function agregarArticulo() {
   const origen = document.getElementById("salonDestino").textContent;
   const fecha = Timestamp.fromDate(new Date());
   const usuario = sessionStorage.getItem("usuario");
+  const salonEnviar = document.getElementById("salonEnviar").value.trim();
 
-  if (articulo !== "") {
+  if (articulo === "") return;
+
+  // ⚠️ Primero verificar y actualizar stock antes de guardar
+  const actualizado = await actualizarStockTotal(articulo, unidades, cajas, origen);
+  if (!actualizado) return; // ❌ Detener el flujo si hay stock insuficiente
+
+  // ✅ Ahora sí, guardar en "stock-ingreso"
   const docRef = await addDoc(collection(db, "stock-ingreso"), {
     articulo,
     unidades,
@@ -906,29 +976,22 @@ async function agregarArticulo() {
     fecha
   });
 
-  await actualizarStockTotal(articulo, unidades, cajas, origen);
-
   const fechaFormateada = fecha.toDate().toLocaleDateString('es-AR', {
-  day: '2-digit',
-  month: '2-digit',
-  year: 'numeric'
-});
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  });
 
-const fila = crearFila(ingreso, fechaFormateada, articulo, unidades, cajas, rotas, notas, usuario, docRef.id);
-
+  const fila = crearFila(ingreso, fechaFormateada, articulo, unidades, cajas, rotas, notas, usuario, docRef.id);
   document.getElementById("tablaArticulos").insertAdjacentHTML("beforeend", fila);
 
   mostrarMensajeGuardado();
 
- const salonEnviar = document.getElementById("salonEnviar").value.trim();
+  // ✅ Guardar en bandeja
+  guardarEnBandeja({ articulo, unidades, cajas, salon: salonEnviar, notas });
 
-  // ✅ GUARDAR EN BANDEJA (acá lo llamás)
-   guardarEnBandeja({  articulo,   unidades,   cajas,   salon: salonEnviar,
-  notas
-});
-// ✅ VOLVER A CARGAR LA TABLA SOLO CON LOS ÚLTIMOS 5 DÍAS
-    await cargarTablaPedidos(true);
-}
+  // ✅ Cargar últimos pedidos
+  await cargarTablaPedidos(true);
 
   // Limpiar inputs
   document.getElementById("articulo").value = "";
@@ -936,7 +999,7 @@ const fila = crearFila(ingreso, fechaFormateada, articulo, unidades, cajas, rota
   document.getElementById("cajas").value = "";
   document.getElementById("notas").value = "";
   document.getElementById("salonIngreso").value = "";
-  document.getElementById("rotas").value = ""; // Limpiar "Uni. Rotas"
+  document.getElementById("rotas").value = "";
 }
 
 async function cargarTablaPedidos(soloUltimosDias = true) {
@@ -1014,7 +1077,7 @@ async function eliminarFila(btn, event) {
     return;
   }
 
-  // 🔒 Confirmar antes de modificar stock o eliminar
+  // Confirmar antes de modificar stock o eliminar
   const confirmacion = await Swal.fire({
     title: '¿Eliminar ingreso?',
     text: 'Esta acción no se puede deshacer.',
@@ -1032,24 +1095,51 @@ async function eliminarFila(btn, event) {
     const docRef = doc(db, "stock-ingreso", docId);
     const docSnap = await getDoc(docRef);
 
-    if (docSnap.exists()) {
-      const data = docSnap.data();
-      const { articulo, unidades, cajas, origen } = data;
+    if (!docSnap.exists()) return;
 
-      // Solo restar si el artículo existe en stock-articulos
-      const artSnap = await getDocs(query(collection(db, "stock-articulos"), where("articulo", "==", articulo)));
-      if (!artSnap.empty) {
-        await restarStockTotal(articulo, parseInt(unidades) || 0, parseInt(cajas) || 0, origen);
+    const data = docSnap.data();
+    const { articulo, unidades, cajas, origen } = data;
+
+    const artSnap = await getDocs(query(collection(db, "stock-articulos"), where("articulo", "==", articulo)));
+    if (!artSnap.empty) {
+      // Obtener stock actual antes de intentar restar
+      const stockRef = doc(db, "stock-total", articulo);
+      const stockSnap = await getDoc(stockRef);
+
+      if (stockSnap.exists()) {
+        const stockData = stockSnap.data();
+        const stockSalon = stockData.salones?.[origen] || { unidades: 0, cajas: 0 };
+
+        // Verificar si hay stock suficiente para "devolver" lo que se eliminaría
+        const nuevasUnidades = (stockSalon.unidades || 0) - (parseInt(unidades) || 0);
+        const nuevasCajas = (stockSalon.cajas || 0) - (parseInt(cajas) || 0);
+
+        if (nuevasUnidades < 0 || nuevasCajas < 0) {
+          await Swal.fire({
+            icon: 'error',
+            title: 'No se puede eliminar',
+            text: `Eliminar dejaría el stock en negativo para "${articulo}" en el salón "${origen}".`,
+            confirmButtonColor: '#d33'
+          });
+          return;
+        }
       }
+    }
+
+    // ✅ Recién ahora eliminamos y restamos
+    if (!artSnap.empty) {
+      await restarStockTotal(articulo, parseInt(unidades) || 0, parseInt(cajas) || 0, origen);
     }
 
     await deleteDoc(docRef);
     fila.remove();
     mostrarMensajeEliminado();
+
   } catch (error) {
     console.error("Error eliminando documento:", error);
   }
 }
+
 
 async function restarStockTotal(articulo, unidades, cajas, origen) {
   const existe = await existeArticuloEnStockArticulos(articulo);
@@ -1062,18 +1152,31 @@ async function restarStockTotal(articulo, unidades, cajas, origen) {
   const stockTotalRef = doc(db, "stock-total", articulo);
   const stockSnap = await getDoc(stockTotalRef);
 
-  if (stockSnap.exists()) {
-    const pathUnidades = `salones.${origen}.unidades`;
-    const pathCajas = `salones.${origen}.cajas`;
-
-    await updateDoc(stockTotalRef, {
-      "caja-pack": increment(-cajas),
-      [pathUnidades]: increment(-unidades),
-      [pathCajas]: increment(-cajas)
-    });
-  } else {
+  if (!stockSnap.exists()) {
     console.warn(`⚠️ No se encontró "${articulo}" en stock-total.`);
+    return;
   }
+
+  const data = stockSnap.data();
+  const stockSalon = (data.salones && data.salones[origen]) || { unidades: 0, cajas: 0 };
+
+  const unidadesActuales = parseInt(stockSalon.unidades) || 0;
+  const cajasActuales = parseInt(stockSalon.cajas) || 0;
+
+  const nuevasUnidades = unidadesActuales - unidades;
+  const nuevasCajas = cajasActuales - cajas;
+
+  if (nuevasUnidades < 0 || nuevasCajas < 0) {
+    console.warn(`❌ No se puede restar "${articulo}" en salón "${origen}": stock insuficiente.`);
+    return;
+  }
+
+  // Descontar stock (ya validado)
+  await updateDoc(stockTotalRef, {
+    "caja-pack": increment(-cajas),
+    [`salones.${origen}.unidades`]: nuevasUnidades,
+    [`salones.${origen}.cajas`]: nuevasCajas
+  });
 }
 
 async function guardarSeleccion() {
@@ -1108,34 +1211,39 @@ async function guardarSeleccion() {
         const ingreso = document.getElementById("salonIngreso").value;
         const origen = document.getElementById("salonDestino").textContent;
 
-        try {
-          const docRef = await addDoc(collection(db, "stock-ingreso"), {
-            combo: comboNombre,
-            articulo,
-            unidades,
-            cajas,
-            rotas,
-            notas,
-            fecha: fecha,
-            usuario,
-            salones: ingreso,
-            origen
-          });
+       try {
+  const actualizado = await actualizarStockTotal(articulo, unidades, cajas, origen);
+  if (!actualizado) return; // ❌ Detener si no hay stock suficiente
 
-          const fechaFormateada = fecha.toDate().toLocaleDateString('es-AR', {
-          day: '2-digit',
-         month: '2-digit',
-         year: 'numeric'
-        });
+  // ✅ Solo guarda si hay stock suficiente
+  const docRef = await addDoc(collection(db, "stock-ingreso"), {
+    combo: comboNombre,
+    articulo,
+    unidades,
+    cajas,
+    rotas,
+    notas,
+    fecha: fecha,
+    usuario,
+    salones: ingreso,
+    origen
+  });
 
-          const filaHTML = crearFila(ingreso, fechaFormateada, articulo, unidades, cajas, rotas, notas, usuario, docRef.id);
-          document.getElementById("tablaArticulos").insertAdjacentHTML("beforeend", filaHTML);
+  const fechaFormateada = fecha.toDate().toLocaleDateString('es-AR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  });
 
-          mostrarMensajeGuardado();
-          await actualizarStockTotal(articulo, unidades, cajas, origen);
-        } catch (error) {
-          console.error("❌ Error al guardar en Firestore:", error);
-        }
+  const filaHTML = crearFila(ingreso, fechaFormateada, articulo, unidades, cajas, rotas, notas, usuario, docRef.id);
+  document.getElementById("tablaArticulos").insertAdjacentHTML("beforeend", filaHTML);
+
+  mostrarMensajeGuardado();
+
+} catch (error) {
+  console.error("❌ Error al guardar en Firestore:", error);
+}
+
       }
     }
   }
