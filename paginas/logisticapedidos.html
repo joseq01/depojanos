@@ -1367,7 +1367,19 @@ async function guardarSeleccion() {
   const usuario = sessionStorage.getItem("usuario");
   const destino = document.getElementById("salonDestino").value;
   const origen = sessionStorage.getItem("salon") || "";
-
+  
+  // ✅ Validación: Destino obligatorio
+  if (destino.trim() === "") {
+    await Swal.fire({
+      icon: 'warning',
+      title: 'Destino requerido',
+      text: 'Debes seleccionar un salón de destino antes de agregar el combo.',
+      confirmButtonText: 'Entendido',
+      confirmButtonColor: '#3085d6'
+    });
+    return;
+  }
+  
   const stockDisponible = await obtenerStockTotal();
 
   for (let card of comboCards) {
@@ -2296,11 +2308,18 @@ document.addEventListener("change", (e) => {
   });
 }
 
-    document.getElementById("filtroInput").addEventListener("input", (e) => {
-  filtrarOpcionesDropdown(e.target.value);
-});
+document.getElementById("filtroInput").addEventListener("input", (e) => {
+  const valor = e.target.value.trim().toLowerCase();
 
-    
+  if (valor === "") {
+    // ✅ Restaurar todas las opciones, no cerrar filtro
+    mostrarOpcionesFiltradas();
+  } else {
+    // ✅ Filtrar solo las opciones visibles
+    filtrarOpcionesDropdown(valor);
+  }
+});
+  
       // este carga todos los articulos
   function aplicarFiltro() {
   if (columnaActualIndex === null) return;
