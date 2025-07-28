@@ -591,6 +591,33 @@ footer {
 </div>
 <!-- modal print preliminar -->
 
+<!-- Modal para Pedidos Pendientes -->
+<div class="modal fade" id="modalPedidosPendientes" tabindex="-1" aria-labelledby="modalPedidosPendientesLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content position-relative p-4">
+      <button type="button" class="btn-close position-absolute top-0 end-0 m-3" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      <h5 class="modal-title mb-3" id="modalPedidosPendientesLabel">Agregar Pedidos Pendientes</h5>
+
+      <!-- Título del pedido -->
+      <div class="mb-3">
+        <label for="tituloPedidoPendiente" class="form-label">Título del pedido</label>
+        <input type="text" class="form-control" id="tituloPedidoPendiente" placeholder="Ej: Pedido Fiesta Juan" list="listaPedidosPendientes">
+        <datalist id="listaPedidosPendientes"></datalist>
+      </div>
+
+      <div id="contenedorPedidosPendientes" class="mb-3"></div>
+
+     <div class="d-flex justify-content-between mt-3">
+   <button class="btn btn-secondary" onclick="agregarFilaPendiente()">Agregar artículo</button>
+  <div>
+    <button class="btn btn-success me-2" onclick="enviarPedidoATabla()">Enviar Pedido</button>
+    <button class="btn btn-primary" onclick="guardarPedidosPendientes()">Guardar Pedido</button>
+  <button class="btn btn-warning" onclick="eliminarPedidoPendiente()">Eliminar Pedido</button>
+  </div>
+</div>
+
+  </div>
+</div>
 
   <div id="mensaje-eliminado" style="
   display: none;
@@ -982,7 +1009,7 @@ async function agregarArticulo() {
   const fecha = Timestamp.fromDate(new Date());
  const usuario = sessionStorage.getItem("usuario");
 
-  if (articulo === "" || destino.trim() === "") {
+  if (destino.trim() === "") {
     if (destino.trim() === "") {
       await Swal.fire({
         icon: 'warning',
@@ -991,6 +1018,18 @@ async function agregarArticulo() {
         confirmButtonText: 'Entendido',
         confirmButtonColor: '#3085d6'
       });
+    }
+    return;
+  }
+
+// ✅ 2. Si artículo está vacío → abrir modal y salir
+  if (!articulo) {
+    const modalElement = document.getElementById('modalPedidosPendientes');
+    if (modalElement) {
+      const modal = new bootstrap.Modal(modalElement);
+      modal.show();
+    } else {
+      console.error("No se encontró el modal #modalPedidosPendientes");
     }
     return;
   }
@@ -1379,7 +1418,7 @@ async function guardarSeleccion() {
     });
     return;
   }
-  
+
   const stockDisponible = await obtenerStockTotal();
 
   for (let card of comboCards) {
@@ -1679,8 +1718,236 @@ document.addEventListener("click", function (e) {
 });
 document.getElementById("btnGuardarCambios")?.addEventListener("click", guardarCambiosFilaSeleccionada);
 
-
 //finaliza editar datos
+
+//modalpenidentes
+let listaArticulosFirestore = [];
+
+// 🔄 Obtener artículos desde Firestore para autocompletar
+async function obtenerArticulosDesdeFirestore() {
+  const snapshot = await getDocs(collection(db, "stock-articulos"));
+  listaArticulosFirestore = snapshot.docs.map(doc => doc.data().articulo);
+}
+
+// ➕ Agregar fila editable al modal
+window.agregarFilaPendiente = async function () {
+  if (listaArticulosFirestore.length === 0) {
+    await obtenerArticulosDesdeFirestore();
+  }
+
+  const contenedor = document.getElementById("contenedorPedidosPendientes");
+  const fila = document.createElement("div");
+  fila.classList.add("fila-pendiente", "d-flex", "gap-2", "mb-2");
+
+  const datalistId = "lista-articulos-" + Math.random().toString(36).substring(7);
+
+  fila.innerHTML = `
+    <input type="text" class="form-control input-articulo" list="${datalistId}" placeholder="Artículo">
+    <datalist id="${datalistId}">
+      ${listaArticulosFirestore.map(a => `<option value="${a}">`).join("")}
+    </datalist>
+    <input type="number" class="form-control input-unidades" placeholder="Unidades" style="width: 100px;">
+    <input type="number" class="form-control input-caja-pack" placeholder="Caja/Pack" style="width: 100px;">
+    <button class="btn btn-danger" onclick="this.parentElement.remove()">🗑</button>
+  `;
+
+  contenedor.appendChild(fila);
+};
+
+// ✅ Guardar pedidos pendientes en LocalStorage con fecha
+window.guardarPedidosPendientes = function() {
+  const titulo = document.getElementById("tituloPedidoPendiente").value.trim();
+  if (!titulo) {
+    Swal.fire({ icon: "warning", text: "Debe ingresar un título para el pedido." });
+    return;
+  }
+
+  const filas = document.querySelectorAll("#contenedorPedidosPendientes .fila-pendiente");
+  if (filas.length === 0) {
+    Swal.fire({ icon: "warning", text: "Agrega al menos un artículo." });
+    return;
+  }
+
+  const articulos = [];
+  filas.forEach(fila => {
+    const articulo = fila.querySelector(".input-articulo").value.trim();
+    const unidades = parseInt(fila.querySelector(".input-unidades").value) || 0;
+    const cajas = parseInt(fila.querySelector(".input-caja-pack").value) || 0;
+
+    if (articulo && (unidades > 0 || cajas > 0)) {
+      articulos.push({ articulo, unidades, cajas });
+    }
+  });
+
+  if (articulos.length === 0) {
+    Swal.fire({ icon: "warning", text: "Debe haber al menos un artículo válido." });
+    return;
+  }
+
+  let pedidos = obtenerPedidosPendientes(); // ✅ Filtrados y vigentes
+  const index = pedidos.findIndex(p => p.titulo === titulo);
+
+  if (index >= 0) {
+    pedidos[index].articulos = articulos;
+    pedidos[index].fecha = Date.now();
+  } else {
+    pedidos.push({ titulo, articulos, fecha: Date.now() });
+  }
+
+  guardarPedidosEnLocalStorage(pedidos);
+  actualizarDatalistPedidos();
+
+  Swal.fire({ icon: "success", text: "Pedido guardado en el dispositivo." });
+
+  // Limpiar campos
+  document.getElementById("tituloPedidoPendiente").value = "";
+  document.getElementById("contenedorPedidosPendientes").innerHTML = "";
+};
+
+// ✅ Enviar pedido a la tabla con validación de stock
+window.enviarPedidoATabla = async function () {
+  const titulo = document.getElementById("tituloPedidoPendiente").value.trim();
+  if (!titulo) {
+    Swal.fire({ icon: "warning", text: "Debe seleccionar un pedido para enviar." });
+    return;
+  }
+
+  const pedidos = obtenerPedidosPendientes();
+  const pedido = pedidos.find(p => p.titulo === titulo);
+
+  if (!pedido || pedido.articulos.length === 0) {
+    Swal.fire({ icon: "warning", text: "El pedido seleccionado no tiene artículos." });
+    return;
+  }
+
+  const destino = document.getElementById("salonDestino").value.trim();
+  if (!destino) {
+    Swal.fire({ icon: "warning", text: "Debe seleccionar un salón destino antes de enviar el pedido." });
+    return;
+  }
+
+  const result = await Swal.fire({
+    title: `¿Enviar "${titulo}" a la tabla de pedidos?`,
+    text: "Se aplicarán las validaciones de stock para cada artículo.",
+    icon: "question",
+    showCancelButton: true,
+    confirmButtonText: "Sí, enviar",
+    cancelButtonText: "Cancelar"
+  });
+
+  if (!result.isConfirmed) return;
+
+  for (const item of pedido.articulos) {
+    document.getElementById("articulo").value = item.articulo;
+    document.getElementById("unidades").value = item.unidades;
+    document.getElementById("cajas").value = item.cajas;
+   /*  document.getElementById("notas").value = `Pendiente: ${titulo}`; */
+
+    await agregarArticulo(); // ✅ Validaciones de stock
+  }
+
+  // ✅ Eliminar el pedido después de enviarlo
+  const nuevosPedidos = pedidos.filter(p => p.titulo !== titulo);
+  guardarPedidosEnLocalStorage(nuevosPedidos);
+  actualizarDatalistPedidos();
+
+  // Limpiar y cerrar modal
+  document.getElementById("tituloPedidoPendiente").value = "";
+  document.getElementById("contenedorPedidosPendientes").innerHTML = "";
+  const modal = bootstrap.Modal.getInstance(document.getElementById("modalPedidosPendientes"));
+  modal.hide();
+
+  Swal.fire({ icon: "success", text: "Pedido enviado a la tabla." });
+};
+
+// ✅ Botón para eliminar manualmente un pendiente completo
+window.eliminarPedidoPendiente = function () {
+  const titulo = document.getElementById("tituloPedidoPendiente").value.trim();
+  if (!titulo) return;
+
+  Swal.fire({
+    title: `¿Eliminar el pedido "${titulo}"?`,
+    text: "Esta acción no se puede deshacer.",
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonText: "Eliminar",
+    cancelButtonText: "Cancelar"
+  }).then(result => {
+    if (!result.isConfirmed) return;
+
+    const pedidos = obtenerPedidosPendientes().filter(p => p.titulo !== titulo);
+    guardarPedidosEnLocalStorage(pedidos);
+    actualizarDatalistPedidos();
+
+    // Limpiar inputs
+    document.getElementById("tituloPedidoPendiente").value = "";
+    document.getElementById("contenedorPedidosPendientes").innerHTML = "";
+
+    Swal.fire({ icon: "success", text: "Pedido eliminado." });
+  });
+};
+
+// ✅ Filtra pedidos vencidos (>7 días) al cargarlos
+function obtenerPedidosPendientes() {
+  const pedidos = JSON.parse(localStorage.getItem("pedidosPendientes") || "[]");
+  const ahora = Date.now();
+  const unaSemana = 7 * 24 * 60 * 60 * 1000;
+
+  const pedidosVigentes = pedidos.filter(p => (ahora - (p.fecha || 0)) < unaSemana);
+
+  // Si eliminamos pedidos vencidos, actualizar storage
+  if (pedidosVigentes.length !== pedidos.length) {
+    guardarPedidosEnLocalStorage(pedidosVigentes);
+  }
+
+  return pedidosVigentes;
+}
+
+function guardarPedidosEnLocalStorage(pedidos) {
+  localStorage.setItem("pedidosPendientes", JSON.stringify(pedidos));
+}
+
+function actualizarDatalistPedidos() {
+  const lista = document.getElementById("listaPedidosPendientes");
+  if (!lista) return;
+
+  lista.innerHTML = "";
+  const pedidos = obtenerPedidosPendientes();
+  pedidos.forEach(p => {
+    const option = document.createElement("option");
+    option.value = p.titulo;
+    lista.appendChild(option);
+  });
+}
+
+// ✅ Mostrar artículos al seleccionar título
+document.getElementById("tituloPedidoPendiente").addEventListener("change", () => {
+  const titulo = document.getElementById("tituloPedidoPendiente").value.trim();
+  const pedidos = obtenerPedidosPendientes();
+  const pedido = pedidos.find(p => p.titulo === titulo);
+
+  const contenedor = document.getElementById("contenedorPedidosPendientes");
+  contenedor.innerHTML = "";
+
+  if (pedido) {
+    pedido.articulos.forEach(art => {
+      const fila = document.createElement("div");
+      fila.classList.add("fila-pendiente", "d-flex", "gap-2", "mb-2");
+      fila.innerHTML = `
+        <input type="text" class="form-control input-articulo" value="${art.articulo}">
+        <input type="number" class="form-control input-unidades" value="${art.unidades}" style="width: 100px;">
+        <input type="number" class="form-control input-caja-pack" value="${art.cajas}" style="width: 100px;">
+        <button class="btn btn-danger" onclick="this.parentElement.remove()">🗑</button>
+      `;
+      contenedor.appendChild(fila);
+    });
+  }
+});
+
+// ✅ Inicializar datalist al cargar la página
+document.addEventListener("DOMContentLoaded", actualizarDatalistPedidos);
+
+//final modal pendientes
 
 //bandeja
 let bandejaArticulos = [];
