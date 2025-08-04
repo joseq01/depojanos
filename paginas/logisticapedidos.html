@@ -162,6 +162,10 @@ body {
   }
 }
 
+.oculto-js {
+  display: none !important;
+}
+
 /* Scroll horizontal solo en celulares */
 .navbar.fixed-top {
   position: fixed !important;
@@ -1967,21 +1971,19 @@ window.cargarBandejaDesdeFirestore = async function () {
         articulo: data.articulo,
         unidades: data.unidades,
         cajas: data.cajas,
-        rotas: data.rotas, // ✅ AÑADIDO
-        salonenviar: data.salonenviar, // 👈 esta es la que muestra a qué salón se envía
+        rotas: data.rotas,
+        salonenviar: data.salonenviar,
         notas: data.notas
       });
     });
 
-    if (bandejaArticulos.length > 0) {
-      actualizarBandejaVisual();
-      document.getElementById("botonToggleBandeja").classList.remove("d-none");
-    }
+    actualizarBandejaVisual();
+    verificarBandeja();
+
   } catch (e) {
     console.error("Error al cargar bandeja:", e);
   }
 };
-
 
 window.eliminarDeBandeja = async function (index) {
   const item = bandejaArticulos[index];
@@ -2010,11 +2012,7 @@ window.eliminarDeBandeja = async function (index) {
       }
       bandejaArticulos.splice(index, 1);
       actualizarBandejaVisual();
-
-      if (bandejaArticulos.length === 0) {
-        document.getElementById("bandejaFlotante").style.display = "none";
-        document.getElementById("botonToggleBandeja").classList.add("d-none");
-      }
+      verificarBandeja();
     } catch (e) {
       console.error("Error al eliminar de bandeja:", e);
       Swal.fire('Error', 'No se pudo eliminar el artículo.', 'error');
@@ -2029,7 +2027,6 @@ window.actualizarBandejaVisual = function () {
   bandejaArticulos.forEach((item, i) => {
     const div = document.createElement("div");
     div.className = "bg-light border rounded p-2 shadow-sm";
-
     div.innerHTML = `
       <div class="fw-bold">${item.articulo}</div>
       <div class="small text-muted">
@@ -2043,57 +2040,69 @@ window.actualizarBandejaVisual = function () {
         <button class="btn btn-sm btn-outline-danger" onclick="eliminarDeBandeja(${i})">❌</button>
       </div>
     `;
-
     contenedor.appendChild(div);
   });
 
-  // Parpadea en rojo si está llena
-const boton = document.getElementById("botonToggleBandeja");
+  // Parpadeo (solo escritorio)
+  const btnDesktop = document.getElementById("botonToggleBandeja");
+  if (btnDesktop) {
+    btnDesktop.classList.remove("parpadea", "bandeja-llena");
+    if (bandejaArticulos.length > 0 && bandejaArticulos.length < 20) {
+      btnDesktop.classList.add("parpadea");
+    } else if (bandejaArticulos.length >= 20) {
+      btnDesktop.classList.add("bandeja-llena");
+    }
+  }
 
-// Primero quitamos cualquier clase previa
-boton.classList.remove("parpadea", "bandeja-llena");
-
-// Aplicamos según cantidad de artículos
-if (bandejaArticulos.length > 0 && bandejaArticulos.length < 20) {
-  boton.classList.add("parpadea"); // brillo celeste
-} else if (bandejaArticulos.length >= 20) {
-  boton.classList.add("bandeja-llena"); // parpadeo rojo
-}
-
-
+  verificarBandeja(); // ✅ siempre verificar visibilidad
 };
 
 
 window.verificarBandeja = function () {
-  const contenedor = document.getElementById("contenedorBandeja");
-  const btn = document.getElementById("botonToggleBandeja");
+  const btnDesktop = document.getElementById("botonToggleBandeja");
+  const btnMobile = document.getElementById("botonToggleBandejaMovil");
+  const bandejaFlotante = document.getElementById("bandejaFlotante");
 
-  if (contenedor.children.length === 0) {
-    document.getElementById("bandejaFlotante").style.display = "none";
-    btn.classList.add("d-none");
-  } else {
-    btn.classList.remove("d-none");
+  const sinDatos = !bandejaArticulos || bandejaArticulos.length === 0;
+
+  // Ocultar bandeja flotante si no hay datos
+  if (sinDatos && bandejaFlotante) bandejaFlotante.style.display = "none";
+
+  // Ocultar/mostrar botón escritorio
+  if (btnDesktop) {
+    if (sinDatos) {
+      btnDesktop.classList.add("oculto-js");
+    } else {
+      btnDesktop.classList.remove("oculto-js");
+    }
+  }
+
+  // Ocultar/mostrar botón móvil
+  if (btnMobile) {
+    if (sinDatos) {
+      btnMobile.classList.add("oculto-js");
+    } else {
+      btnMobile.classList.remove("oculto-js");
+    }
   }
 };
 
+
 window.toggleBandeja = function () {
   const bandeja = document.getElementById("bandejaFlotante");
-  if (!bandeja || bandejaArticulos.length === 0) return;
+  if (!bandeja) return;
 
-  // Alternar visibilidad
   bandeja.style.display = bandeja.style.display === "none" ? "block" : "none";
 };
 
-
-// Ejecutar al cargar
+// Ejecutar al cargar la página
 document.addEventListener("DOMContentLoaded", () => {
   cargarBandejaDesdeFirestore();
 });
 
-
 //fin bandeja
 
-  // modal para agregar datos del chofer
+// modal para agregar datos del chofer
 async function confirmarYImprimirDesdeResumen() {
   const choferesGuardados = JSON.parse(localStorage.getItem("choferes") || "{}");
   const seleccionados = document.querySelectorAll('tbody tr.seleccionado');
@@ -2144,8 +2153,22 @@ async function confirmarYImprimirDesdeResumen() {
     }
   }
 
-  cargarTablaPedidos("hoy");  // filtra por la fecha de hoy
+ for (let fila of seleccionados) {
+  const docId = fila.getAttribute("data-id");
+  const celdas = fila.querySelectorAll("td");
+  const notasOriginales = celdas[6]?.innerText.trim() || "";
+  const nuevaNota = chofer ? `${notasOriginales} - Chofer: ${chofer}` : notasOriginales;
 
+  try {
+    await updateDoc(doc(db, "stock-pedidos", docId), { notas: nuevaNota });
+    celdas[6].innerText = nuevaNota; // ✅ Actualizar visualmente la columna "Notas"
+  } catch (error) {
+    console.error("Error actualizando notas:", error);
+  }
+}
+
+
+  // ✅ Mostrar alerta
   const alerta = document.createElement("div");
   alerta.className = "alert alert-success position-fixed top-0 start-50 translate-middle-x mt-3 shadow rounded-3";
   alerta.style.zIndex = 1050;
@@ -2154,6 +2177,7 @@ async function confirmarYImprimirDesdeResumen() {
   document.body.appendChild(alerta);
   setTimeout(() => alerta.remove(), 3000);
 
+  // ✅ Dividir en páginas de 10 items
   const itemsPorPagina = 10;
   const seleccionadosArray = Array.from(seleccionados);
   const paginas = [];
@@ -2161,127 +2185,129 @@ async function confirmarYImprimirDesdeResumen() {
     paginas.push(seleccionadosArray.slice(i, i + itemsPorPagina));
   }
 
- // ✨ Imprimir la cantidad de copias por cada página completa
-for (let copia = 0; copia < copias; copia++) {
-  let contenidoFinal = "";
+  // ✅ Función para imprimir en iframe oculto con promesa
+ function imprimirEnIframe(contenido) {
+  return new Promise((resolve) => {
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    document.body.appendChild(iframe);
 
-paginas.forEach((paginaItems, index) => {
-  let contenido = `
-    <div style="font-family: Arial, sans-serif; padding: 60px 40px; position: relative; min-height: 100vh; box-sizing: border-box;">
-      <!-- Fecha (2 líneas más abajo) -->
-      <div style="position: absolute; top: 272px; right: 124px; font-size: 14px;">${fecha}</div>
+    const doc = iframe.contentWindow.document;
+    doc.open();
+    doc.write(`
+      <html>
+        <head><title>Impresión</title></head>
+        <body style="margin: 0;">${contenido}</body>
+      </html>
+    `);
+    doc.close();
 
-      <!-- Salón -->
-      <div style="margin-top: 208px; font-size: 16px; margin-left: 80px;">${salonNombre}</div>
+    setTimeout(() => {
+      iframe.contentWindow.focus();
+      iframe.contentWindow.print();
 
-      <!-- Dirección -->
-      <div style="height: 32px;"></div>
-      <div style="margin-bottom: 60px; font-size: 14px; margin-left: 80px;">
-        ${direccion}, ${localidad}, ${provincia} (${cp})
+      // Esperar un poco para no borrar el iframe antes de lanzar la impresión
+      setTimeout(() => {
+        document.body.removeChild(iframe);
+        resolve();
+      }, 1500);
+    }, 500); // pequeño delay para que cargue el contenido
+  });
+}
+
+  // ✅ Generar contenido HTML por página (estructura original intacta)
+  function generarContenidoPagina(paginaItems) {
+    let contenido = `
+      <div style="font-family: Arial, sans-serif; padding: 60px 40px; position: relative; min-height: 100vh; box-sizing: border-box;">
+        <!-- Fecha -->
+        <div style="position: absolute; top: 272px; right: 124px; font-size: 14px;">${fecha}</div>
+        <!-- Salón -->
+        <div style="margin-top: 208px; font-size: 16px; margin-left: 80px;">${salonNombre}</div>
+        <!-- Dirección -->
+        <div style="height: 32px;"></div>
+        <div style="margin-bottom: 60px; font-size: 14px; margin-left: 80px;">
+          ${direccion}, ${localidad}, ${provincia} (${cp})
+        </div>
+        <!-- Lista de artículos -->
+        <ul style="list-style: none; padding-left: 0; margin-top: 88px; margin-bottom: 140px;">
+    `;
+
+    const maxArticulos = 10;
+    for (let i = 0; i < maxArticulos; i++) {
+      const fila = paginaItems[i];
+      if (fila) {
+        const celdas = fila.querySelectorAll("td");
+        const articulo = celdas[3]?.innerText || "";
+        const unidades = celdas[4]?.innerText || "";
+        const cajas = celdas[5]?.innerText || "";
+
+        contenido += `
+          <li style="margin-bottom: 8px; display: flex; gap: 40px;">
+            <span style="min-width: 250px; margin-left: 10px;">${articulo}</span>
+            <span style="margin-left: auto; margin-right: 74px;"><strong>${unidades}</strong> unid.</span>
+            <span style="margin-right: 74px;"><strong>${cajas}</strong> cajas</span>
+          </li>`;
+      } else {
+        contenido += `
+          <li style="margin-bottom: 8px; display: flex; gap: 80px;">
+            <span style="min-width: 250px;">&nbsp;</span>
+            <span>&nbsp;</span>
+            <span>&nbsp;</span>
+          </li>`;
+      }
+    }
+
+    contenido += `
+        </ul>
+        <!-- Pie reorganizado -->
+        <div style="position: absolute; bottom: 95px; left: 40px; right: 40px; border-top: 1px solid #ccc; padding-top: 12px; font-size: 14px; display: flex; justify-content: space-between;">
+          <div style="text-align: right; line-height: 2; margin-left: 100px;">
+            <div>&nbsp;</div><div>&nbsp;</div><div>${modelo || "&nbsp;"}</div>
+            <div>${marca || "&nbsp;"}</div><div>${patente || "&nbsp;"}</div>
+          </div>
+          <div style="text-align: left; line-height: 2; margin-right: 100px;">
+            <div>&nbsp;</div><div>&nbsp;</div><div>${chofer || "&nbsp;"}</div>
+            <div>&nbsp;</div><div>${dni || "&nbsp;"}</div><div>&nbsp;</div>
+          </div>
+        </div>
       </div>
+    `;
+    return contenido;
+  }
 
-      <!-- Lista de artículos (1 línea más arriba y desplazada 2 caracteres a la derecha) -->
-      <ul style="list-style: none; padding-left: 0; margin-top: 88px; margin-bottom: 140px;">
-  `;
-
-  const maxArticulos = 10;
-  for (let i = 0; i < maxArticulos; i++) {
-    const fila = paginaItems[i];
-    if (fila) {
-      const celdas = fila.querySelectorAll("td");
-      const articulo = celdas[3]?.innerText || "";
-      const unidades = celdas[4]?.innerText || "";
-      const cajas = celdas[5]?.innerText || "";
-
-      contenido += `
-        <li style="margin-bottom: 8px; display: flex; gap: 40px;">
-          <span style="min-width: 250px; margin-left: 10px;">${articulo}</span>
-          <span style="margin-left: auto; margin-right: 74px;"><strong>${unidades}</strong> unid.</span>
-          <span style="margin-right: 74px;"><strong>${cajas}</strong> cajas</span>
-        </li>`;
-    } else {
-      contenido += `
-        <li style="margin-bottom: 8px; display: flex; gap: 80px;">
-          <span style="min-width: 250px;">&nbsp;</span>
-          <span>&nbsp;</span>
-          <span>&nbsp;</span>
-        </li>`;
+  // ✅ Lógica para imprimir con espera entre copias
+  if (paginas.length === 1) {
+    for (let copia = 0; copia < copias; copia++) {
+      await imprimirEnIframe(generarContenidoPagina(paginas[0]));
+    }
+  } else {
+    for (let p = 0; p < paginas.length; p++) {
+      for (let copia = 0; copia < copias; copia++) {
+        await imprimirEnIframe(generarContenidoPagina(paginas[p]));
+        await new Promise(resolve => setTimeout(resolve, 500)); // espera corta entre copias
+      }
     }
   }
 
-    contenido += `
-      </ul>
+  // ✅ Cerrar modal y limpiar campos
+  setTimeout(() => {
+    const modalEl = document.getElementById("modalResumenImpresion");
+    const modalInstance = bootstrap.Modal.getInstance(modalEl);
+    if (modalInstance) modalInstance.hide();
 
-      <!-- Pie reorganizado -->
-      <div style="position: absolute; bottom: 100px; left: 40px; right: 40px; border-top: 1px solid #ccc; padding-top: 12px; font-size: 14px; display: flex; justify-content: space-between;">
-
-        <!-- A la derecha: modelo, marca, patente -->
-        <div style="text-align: right; line-height: 2; margin-left: 100px;">
-          <div>&nbsp;</div> <!-- Línea 1 -->
-          <div>&nbsp;</div> <!-- Línea 2 -->
-          <div>${modelo || "&nbsp;"}</div>
-          <div>${marca || "&nbsp;"}</div>
-          <div>${patente || "&nbsp;"}</div>
-        </div>
-
-        <!-- A la izquierda: chofer, dni -->
-        <div style="text-align: left; line-height: 2; margin-right: 100px;">
-          <div>&nbsp;</div> <!-- Línea 1 -->
-          <div>&nbsp;</div> <!-- Línea 2 -->
-          <div>${chofer || "&nbsp;"}</div>
-          <div>&nbsp;</div> <!-- Línea intermedia como en original -->
-          <div>${dni || "&nbsp;"}</div>
-          <div>&nbsp;</div> <!-- Opcional: mantiene espacio final -->
-        </div>
-      </div>
-  `;
-
-
-  if (index < paginas.length - 1) {
-    contenido += `<div style="page-break-after: always;"></div>`;
-  }
-
-  contenidoFinal += contenido;
-});
-
-
-  const win = window.open('', '_blank');
-  if (win) {
-    win.document.write(`
-      <html>
-        <head><title>Impresión</title></head>
-        <body style="margin: 0;">${contenidoFinal.trim()}</body>
-      </html>
-    `);
-    win.document.close();
-    win.onload = () => win.print();
-  } else {
-    const alertaPopup = document.createElement("div");
-    alertaPopup.className = "alert alert-danger position-fixed top-0 start-50 translate-middle-x mt-3 shadow rounded-3";
-    alertaPopup.style.zIndex = 1050;
-    alertaPopup.style.maxWidth = "350px";
-    alertaPopup.textContent = "⚠️ El navegador bloqueó una ventana emergente. Permití popups para este sitio.";
-    document.body.appendChild(alertaPopup);
-    setTimeout(() => alertaPopup.remove(), 6000);
-  }
+    document.getElementById("nombreChofer").value = "";
+    document.getElementById("dniChofer").value = "";
+    document.getElementById("marcaVehiculo").value = "";
+    document.getElementById("modeloVehiculo").value = "";
+    document.getElementById("patenteVehiculo").value = "";
+    document.getElementById("cantidadCopias").value = "2";
+  }, 300);
 }
-
-// 🔒 Cerrar modal y limpiar campos
-setTimeout(() => {
-  const modalEl = document.getElementById("modalResumenImpresion");
-  const modalInstance = bootstrap.Modal.getInstance(modalEl);
-  if (modalInstance) modalInstance.hide();
-
-  document.getElementById("nombreChofer").value = "";
-  document.getElementById("dniChofer").value = "";
-  document.getElementById("marcaVehiculo").value = "";
-  document.getElementById("modeloVehiculo").value = "";
-  document.getElementById("patenteVehiculo").value = "";
-  document.getElementById("cantidadCopias").value = "2";
-}, 300);
-
-}
-
 
 // Exponer
 window.confirmarYImprimirDesdeResumen = confirmarYImprimirDesdeResumen;

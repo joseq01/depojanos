@@ -1593,6 +1593,20 @@ document.getElementById("btnEliminarUsuario").addEventListener("click", async ()
   document.getElementById("formularioUsuario").reset();
 });
 
+document.getElementById("modalUsuarios").addEventListener("hidden.bs.modal", () => {
+  // Limpiar el formulario
+  document.getElementById("formularioUsuario").reset();
+
+  // Asegurarse de limpiar mensajes
+  mostrarMensajeUsuario("", "");
+
+  // Ocultar alertas
+  const alerta = document.getElementById("alertaUsuarioExistente");
+  if (alerta) {
+    alerta.classList.add("d-none");
+  }
+});
+
 //fin modal usuarios
 
 //clave acceso

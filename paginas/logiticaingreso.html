@@ -163,7 +163,9 @@ body {
     100% { opacity: 1; }
   }
 
-
+.oculto-js {
+  display: none !important;
+}
 
 /* Encabezado flotante de tabla */
 thead th {
@@ -1495,8 +1497,18 @@ async function cargarBandejaDesdeFirestore() {
   if (!salonActual) return;
 
   const snapshot = await getDocs(collection(db, "bandeja", salonActual, "items"));
-  bandejaArticulos = [];
 
+  // ✅ Si no hay artículos en Firestore para este salón
+  if (snapshot.empty) {
+    console.log(`La bandeja está vacía para el salón: ${salonActual}`);
+    bandejaArticulos = [];       // Limpiar array
+    actualizarBandejaVisual();   // Dejar contenedor vacío
+    verificarBandeja();          // Ocultar botón y bandeja
+    return;
+  }
+
+  // ✅ Si hay artículos, cargamos la bandeja
+  bandejaArticulos = [];
   snapshot.forEach(doc => {
     const data = doc.data();
     bandejaArticulos.push({
@@ -1504,8 +1516,8 @@ async function cargarBandejaDesdeFirestore() {
       articulo: data.articulo,
       unidades: data.unidades,
       cajas: data.cajas,
-      rotas: data.rotas, // ✅ AÑADIDO
-      salonenviar: data.salonenviar, // ← mostrás esto en la UI
+      rotas: data.rotas,
+      salonenviar: data.salonenviar,
       notas: data.notas
     });
   });
@@ -1514,9 +1526,7 @@ async function cargarBandejaDesdeFirestore() {
   verificarBandeja();
 }
 
-
-
-// ✅ Luego hacés que se ejecute cuando la página cargue
+// ✅ Ejecutar cuando cargue la página
 document.addEventListener("DOMContentLoaded", () => {
   cargarBandejaDesdeFirestore();
 });
@@ -1796,19 +1806,29 @@ function guardarEnBandeja({ articulo, unidades, cajas, salonenviar, notas }) {
   document.getElementById("botonToggleBandeja").classList.remove("d-none");
 }
 
-
 function verificarBandeja() {
-  const contenedor = document.getElementById("contenedorBandeja");
-  const btn = document.getElementById("botonToggleBandeja");
+  const bandejaFlotante = document.getElementById("bandejaFlotante");
+  const btnDesktop = document.getElementById("botonToggleBandeja");
+  const btnMovil = document.getElementById("botonToggleBandejaMovil");
 
-  if (contenedor.children.length === 0) {
-    document.getElementById("bandejaFlotante").style.display = "none";
-    btn.classList.add("d-none");
-  } else {
-    btn.classList.remove("d-none");
+  const hayDatos = bandejaArticulos && bandejaArticulos.length > 0;
+
+  // Ocultar bandeja flotante si no hay datos
+  if (!hayDatos && bandejaFlotante) {
+    bandejaFlotante.style.display = "none";
   }
-}
 
+  // Mostrar/ocultar botones (desktop y móvil)
+  [btnDesktop, btnMovil].forEach(btn => {
+    if (btn) {
+      if (hayDatos) {
+        btn.classList.remove("oculto-js");
+      } else {
+        btn.classList.add("oculto-js");
+      }
+    }
+  });
+}
 
 function actualizarBandejaVisual() {
   const contenedor = document.getElementById("contenedorBandeja");
@@ -1835,14 +1855,21 @@ function actualizarBandejaVisual() {
     contenedor.appendChild(div);
   });
 
-  const boton = document.getElementById("botonToggleBandeja");
-  boton.classList.toggle("parpadea", bandejaArticulos.length > 0);
-  boton.classList.toggle("bandeja-llena", bandejaArticulos.length >= 20); // 🚨 efecto si está llena
+  // Animaciones solo en botón desktop
+  const botonDesktop = document.getElementById("botonToggleBandeja");
+  if (botonDesktop) {
+    botonDesktop.classList.remove("parpadea", "bandeja-llena");
+    if (bandejaArticulos.length > 0 && bandejaArticulos.length < 20) {
+      botonDesktop.classList.add("parpadea");
+    } else if (bandejaArticulos.length >= 20) {
+      botonDesktop.classList.add("bandeja-llena");
+    }
+  }
 }
-
 
 function toggleBandeja() {
   const bandeja = document.getElementById("bandejaFlotante");
+  if (!bandeja || bandejaArticulos.length === 0) return; // Evitar abrir si está vacía
   bandeja.style.display = bandeja.style.display === "none" ? "block" : "none";
 }
 
