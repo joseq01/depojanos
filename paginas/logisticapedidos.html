@@ -2265,7 +2265,7 @@ async function confirmarYImprimirDesdeResumen() {
     contenido += `
         </ul>
         <!-- Pie reorganizado -->
-        <div style="position: absolute; bottom: 95px; left: 40px; right: 40px; border-top: 1px solid #ccc; padding-top: 12px; font-size: 14px; display: flex; justify-content: space-between;">
+        <div style="position: absolute; bottom: 105px; left: 40px; right: 40px; border-top: 1px solid #ccc; padding-top: 12px; font-size: 14px; display: flex; justify-content: space-between;">
           <div style="text-align: right; line-height: 2; margin-left: 100px;">
             <div>&nbsp;</div><div>&nbsp;</div><div>${modelo || "&nbsp;"}</div>
             <div>${marca || "&nbsp;"}</div><div>${patente || "&nbsp;"}</div>
@@ -2307,6 +2307,18 @@ async function confirmarYImprimirDesdeResumen() {
     document.getElementById("patenteVehiculo").value = "";
     document.getElementById("cantidadCopias").value = "2";
   }, 300);
+
+  
+  // ✅ Deseleccionar filas y desmarcar checkboxes
+document.querySelectorAll('tbody tr.seleccionado').forEach(fila => {
+  fila.classList.remove('seleccionado');
+  const checkbox = fila.querySelector('input[type="checkbox"]');
+  if (checkbox) checkbox.checked = false;
+});
+
+// ✅ Actualizar visibilidad del botón imprimir
+toggleBotonImprimir();
+
 }
 
 // Exponer
@@ -2446,6 +2458,17 @@ contenido += `</ul></div>`;
     ventana.document.write(`<html><head><title>Impresión</title></head><body>${contenido}</body></html>`);
     ventana.document.close();
     ventana.print();
+
+    // ✅ Deseleccionar filas y desmarcar checkboxes
+document.querySelectorAll('tbody tr.seleccionado').forEach(fila => {
+  fila.classList.remove('seleccionado');
+  const checkbox = fila.querySelector('input[type="checkbox"]');
+  if (checkbox) checkbox.checked = false;
+});
+
+// ✅ Actualizar visibilidad del botón imprimir
+toggleBotonImprimir();
+
   }
 
   // ✅ Exportamos a `window` para que se puedan usar en el HTML
