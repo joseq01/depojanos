@@ -503,9 +503,20 @@ footer {
       </tr>
     </thead>
     <tbody id="tablaArticulos"></tbody>
+    <tfoot>
+  <tr>
+    <td colspan="3"></td>
+    <td id="contadorArticulos" style="font-weight:bold;"></td>
+    <td colspan="5"></td>
+  </tr>
+</tfoot>
+
   </table>
  </div>
 </div>
+
+<!-- Contador flotante -->
+<div id="contadorArticulos" style="display:none; font-weight:bold;"></div>
 
   <div id="filtroDropdown" class="card p-2 position-absolute shadow" style="display: none; z-index: 1000; width: 200px;">
     <input type="text" id="filtroInput" class="form-control mb-2" placeholder="Buscar...">
@@ -2637,7 +2648,7 @@ document.getElementById("filtroInput").addEventListener("input", (e) => {
 });
   
       // este carga todos los articulos
-  function aplicarFiltro() {
+function aplicarFiltro() {
   if (columnaActualIndex === null) return;
 
   const seleccionados = Array.from(
@@ -2648,25 +2659,76 @@ document.getElementById("filtroInput").addEventListener("input", (e) => {
 
   // Si "ver todos" está marcado y es columna FECHA, recarga desde Firestore
   if (columnaActualIndex === 2 && verTodos) {
-    cargarTablaPedidos("todos"); // ✅ así sí carga toda la tabla
+    cargarTablaPedidos("todos");
     document.getElementById("filtroDropdown").style.display = "none";
+    ocultarContador();
     return;
   }
 
+  // Mostrar / ocultar filas
   document.querySelectorAll("#tablaArticulos tr").forEach(tr => {
     const celda = tr.cells[columnaActualIndex];
-    const valorCelda = celda?.textContent.trim();
+    const valorCelda = celda?.textContent.trim() || "";
+    const valorNorm = normalizarTexto(valorCelda);
 
-    if (verTodos || (valorCelda && seleccionados.includes(valorCelda))) {
+    if (verTodos || (valorNorm && seleccionados.some(sel => normalizarTexto(sel) === valorNorm))) {
       tr.style.display = "";
     } else {
       tr.style.display = "none";
     }
   });
 
+  // Si la columna es "Artículo" (index 3 → la cuarta columna), mostramos el contador
+  if (columnaActualIndex === 3 && !verTodos) {
+    actualizarContador();
+  } else {
+    ocultarContador();
+  }
+
   document.getElementById("filtroDropdown").style.display = "none";
 }
 
+function normalizarTexto(txt) {
+  return txt.toLowerCase().replace(/['"]/g, "").replace(/\s+/g, " ").trim();
+}
+
+function actualizarContador() {
+  let totalUnidades = 0;
+  let totalCajas = 0;
+
+  // recorrer solo las filas visibles
+  document.querySelectorAll("#tablaArticulos tr").forEach(tr => {
+    if (tr.style.display !== "none") {
+      const unidades = parseFloat(tr.cells[4]?.textContent || "0");
+      const cajas = parseFloat(tr.cells[5]?.textContent || "0");
+      totalUnidades += isNaN(unidades) ? 0 : unidades;
+      totalCajas += isNaN(cajas) ? 0 : cajas;
+    }
+  });
+
+  const contadorDiv = document.getElementById("contadorArticulos");
+
+  if (totalUnidades > 0 || totalCajas > 0) {
+    contadorDiv.textContent = `Total: ${totalUnidades} unidades / ${totalCajas} cajas`;
+    contadorDiv.style.display = "block";
+  } else {
+    contadorDiv.style.display = "none";
+  }
+}
+
+function ocultarContador() {
+  const contadorDiv = document.getElementById("contadorArticulos");
+  contadorDiv.style.display = "none";
+  contadorDiv.textContent = "";
+}
+
+function limpiarFiltro() {
+  document.querySelectorAll("#tablaArticulos tr").forEach(tr => tr.style.display = "");
+  document.getElementById("filtroDropdown").style.display = "none";
+  valorFiltroActual = "";
+
+  ocultarContador();
+}
 
     
     // Ocultar menú de filtro al hacer clic fuera
