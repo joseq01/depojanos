@@ -80,21 +80,34 @@
   padding-bottom: 50px; /* espacio para flecha colgando */
 }
 
-/* Flecha tipo triángulo */
+/* --- Flecha cerrada: triángulo abajo --- */
 .proyector-arrow {
   width: 0;
   height: 0;
   border-left: 30px solid transparent;
   border-right: 30px solid transparent;
-  border-top: 30px solid #333;
+  border-top: 30px solid #333; /* negra como siempre */
   margin: 0 auto;
   cursor: pointer;
-  transition: transform 0.2s ease;
+  transition: all 0.3s ease;
+  position: relative;
 }
 
-/* Flecha apuntando arriba */
+/* --- Flecha abierta: doble chevron con degradado, ancho configurable --- */
 .proyector-arrow.up {
-  transform: rotate(180deg);
+  border: none;          /* oculto el triángulo */
+  width: 100px;          /* << ajustá acá el ancho (doble, triple, etc.) */
+  height: 30px;          /* misma altura que el triángulo */
+  background: none;
+  position: relative;
+}
+
+.proyector-arrow.up::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 24' preserveAspectRatio='none' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><defs><linearGradient id='g' x1='0%' y1='0%' x2='100%' y2='0%'><stop offset='0%' stop-color='%23ff00cc'/><stop offset='100%' stop-color='%236633ff'/></linearGradient></defs><path d='M6 16l18-12 18 12' stroke='url(%23g)' fill='none'/><path d='M6 24l18-12 18 12' stroke='url(%23g)' fill='none'/></svg>") no-repeat center;
+  background-size: 100% 100%;  /* ocupa todo el contenedor */
 }
 
 /* Hover efecto */
@@ -340,7 +353,61 @@ footer {
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
+/* Estados base */
+#formularioPedidos.oculto { display: none; }
+#formularioPedidos.visible,
+#formularioPedidos.desgranando {
+  display: block;
+  overflow: hidden;       /* necesario para que el recorte sea limpio */
+  will-change: clip-path, transform, opacity;
+}
 
+/* Mostrar: revelado en bloques (de abajo hacia arriba) */
+#formularioPedidos.visible {
+  animation: revealBlocks 420ms steps(6) forwards;
+}
+
+/* Ocultar: “desgranando” hacia arriba en bloques */
+#formularioPedidos.desgranando {
+  animation: crumbleUp 500ms steps(6) forwards;
+}
+
+/* Ajustá la cantidad de bloques cambiando steps(6) por steps(8), steps(10), etc. */
+
+/* Keyframes */
+@keyframes revealBlocks {
+  /* arranca recortado y subiendo un poco */
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+    clip-path: inset(100% 0 0 0); /* todo recortado desde arriba */
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    clip-path: inset(0 0 0 0);    /* sin recorte */
+  }
+}
+
+@keyframes crumbleUp {
+  /* se va recortando desde arriba en saltos (bloques) y sube un toque */
+  from {
+    opacity: 1;
+    transform: translateY(0);
+    clip-path: inset(0 0 0 0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-24px);
+    clip-path: inset(100% 0 0 0);
+  }
+}
+
+/* (Opcional) Estilo de la flecha si la necesitás clickeable */
+#proyectorFlechaPedidos {
+  cursor: pointer;
+  user-select: none;
+}
   </style>
 </head>
 <body class="d-flex flex-column min-vh-100">
@@ -2815,31 +2882,60 @@ proyectorBoxPedidos.addEventListener("mouseenter", () => {
 });
 
 // Al hacer clic en la flecha, alternar mostrar/ocultar
-flechaPedidos.addEventListener("click", () => {
-  const abierto = formularioPedidos.classList.contains("visible");
+document.addEventListener("DOMContentLoaded", () => {
+  const formularioPedidos = document.getElementById("formularioPedidos");
+  const flechaPedidos = document.getElementById("proyectorFlechaPedidos");
+  const mensajePedidos = document.getElementById("proyectorMensajePedidos");
 
-  if (abierto) {
-    formularioPedidos.classList.remove("visible");
-    formularioPedidos.classList.add("oculto");
-    flechaPedidos.classList.remove("up");
-    mensajePedidos.textContent = "deslice hacia abajo";
-  } else {
+  let animando = false;
+
+  function abrirFormulario() {
+    animando = true;
     formularioPedidos.classList.remove("oculto");
     formularioPedidos.classList.add("visible");
     flechaPedidos.classList.add("up");
     mensajePedidos.textContent = "deslice hacia arriba";
-  }
-});
 
-// 🔴 Al pasar el mouse por la flecha, cerrar si está abierto
-flechaPedidos.addEventListener("mouseenter", () => {
-  if (formularioPedidos.classList.contains("visible")) {
+    const onEnd = () => {
+      formularioPedidos.removeEventListener("animationend", onEnd);
+      animando = false;
+    };
+    formularioPedidos.addEventListener("animationend", onEnd, { once: true });
+  }
+
+  function cerrarFormulario() {
+    animando = true;
     formularioPedidos.classList.remove("visible");
-    formularioPedidos.classList.add("oculto");
+    formularioPedidos.classList.add("desgranando");
     flechaPedidos.classList.remove("up");
     mensajePedidos.textContent = "deslice hacia abajo";
+
+    const onEnd = () => {
+      formularioPedidos.classList.remove("desgranando");
+      formularioPedidos.classList.add("oculto");
+      formularioPedidos.removeEventListener("animationend", onEnd);
+      animando = false;
+    };
+    formularioPedidos.addEventListener("animationend", onEnd, { once: true });
   }
+
+  // Click en la flecha: alterna mostrar/ocultar
+  flechaPedidos.addEventListener("click", () => {
+    if (formularioPedidos.classList.contains("visible")) {
+      cerrarFormulario();
+    } else {
+      abrirFormulario();
+    }
+  });
+
+  // Hover sobre la flecha: cierra si está abierto
+  flechaPedidos.addEventListener("mouseenter", () => {
+    if (formularioPedidos.classList.contains("visible")) {
+      cerrarFormulario();
+    }
+  });
 });
+
 
 //bandeja temporal
 const navbar = document.getElementById("navbarContenido");

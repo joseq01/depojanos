@@ -1469,9 +1469,15 @@ window.eliminarComboConConfirmacion = async function() {
     console.error("Error al eliminar combo:", error);
     alert("Error al eliminar el combo.");
   }
-}
+}}; 
 
-}; //finaliza modal combos
+// 🔹 Cada vez que se cierre el modal, limpiamos el campo y el contenedor
+document.getElementById("modalEditarCombos").addEventListener("hidden.bs.modal", () => {
+  document.getElementById("nombreCombo").value = "";
+  document.getElementById("contenedorNuevosCombos").innerHTML = "";
+});
+
+//finaliza modal combos
 
 // Expone funciones al scope global
 window.cargarSalones = cargarSalones;

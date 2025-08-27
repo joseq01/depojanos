@@ -104,10 +104,26 @@ table {
   transition: transform 0.2s ease;
 }
 
-/* Flecha apuntando arriba */
-.proyector-arrow.up {
-  transform: rotate(180deg);
+/* Cerrada: triángulo hacia abajo (igual que antes) */
+#proyectorFlecha.proyector-arrow{
+  width:0;height:0;
+  border-left:30px solid transparent;
+  border-right:30px solid transparent;
+  border-top:30px solid #333;
+  margin:0 auto;cursor:pointer;transition:all .3s ease;position:relative;
 }
+
+/* Abierta: doble chevron con degradado, misma altura y más ancho */
+#proyectorFlecha.proyector-arrow.up{
+  border:none; width:100px; height:30px; /* cambiá el ancho acá */
+  background:none; position:relative;
+}
+#proyectorFlecha.proyector-arrow.up::before{
+  content:""; position:absolute; inset:0;
+  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 24' preserveAspectRatio='none' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><defs><linearGradient id='g' x1='0%' y1='0%' x2='100%' y2='0%'><stop offset='0%' stop-color='%23ff00cc'/><stop offset='100%' stop-color='%236633ff'/></linearGradient></defs><path d='M6 16l18-12 18 12' stroke='url(%23g)' fill='none'/><path d='M6 24l18-12 18 12' stroke='url(%23g)' fill='none'/></svg>") no-repeat center;
+  background-size:100% 100%;
+}
+
 
 /* Hover efecto */
 .proyector-arrow:hover {
@@ -309,6 +325,61 @@ footer {
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
+/* Estados base */
+#formularioIngreso.oculto { display: none; }
+#formularioIngreso.visible,
+#formularioIngreso.desgranando {
+  display: block;
+  overflow: hidden;       /* necesario para que el recorte sea limpio */
+  will-change: clip-path, transform, opacity;
+}
+
+/* Mostrar: revelado en bloques (de abajo hacia arriba) */
+#formularioIngreso.visible {
+  animation: revealBlocks 420ms steps(6) forwards;
+}
+
+/* Ocultar: “desgranando” hacia arriba en bloques */
+#formularioIngreso.desgranando {
+  animation: crumbleUp 500ms steps(6) forwards;
+}
+
+/* Ajustá la cantidad de bloques cambiando steps(6) por steps(8), steps(10), etc. */
+
+/* Keyframes */
+@keyframes revealBlocks {
+  /* arranca recortado y subiendo un poco */
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+    clip-path: inset(100% 0 0 0); /* todo recortado desde arriba */
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    clip-path: inset(0 0 0 0);    /* sin recorte */
+  }
+}
+
+@keyframes crumbleUp {
+  /* se va recortando desde arriba en saltos (bloques) y sube un toque */
+  from {
+    opacity: 1;
+    transform: translateY(0);
+    clip-path: inset(0 0 0 0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-24px);
+    clip-path: inset(100% 0 0 0);
+  }
+}
+
+/* (Opcional) Estilo de la flecha si la necesitás clickeable */
+#proyectorFlecha {
+  cursor: pointer;
+  user-select: none;
+}
   </style>
 
 </head>
@@ -1881,9 +1952,11 @@ const formulario = document.getElementById("formularioIngreso");
 const mensaje = document.getElementById("proyectorMensaje");
 const flecha = document.getElementById("proyectorFlecha");
 
+let animando = false; // 🔹 evita doble animación
+
 // Mostrar al pasar el mouse (solo si está oculto)
 proyectorBox.addEventListener("mouseenter", () => {
-  if (!formulario.classList.contains("visible")) {
+  if (!formulario.classList.contains("visible") && !animando) {
     formulario.classList.remove("oculto");
     formulario.classList.add("visible");
     mensaje.textContent = "deslice hacia arriba";
@@ -1893,21 +1966,60 @@ proyectorBox.addEventListener("mouseenter", () => {
 
 // Mostrar/Ocultar al hacer clic en la flecha
 flecha.addEventListener("click", () => {
+  if (animando) return; // 🔹 evita conflicto si ya está animando
+
   const abierto = formulario.classList.contains("visible");
 
   if (abierto) {
+    animando = true;
     formulario.classList.remove("visible");
-    formulario.classList.add("oculto");
+    formulario.classList.add("desgranando");
     mensaje.textContent = "deslice hacia abajo";
     flecha.classList.remove("up");
+
+    // Espera al final de la animación
+    const onEnd = () => {
+      formulario.classList.remove("desgranando");
+      formulario.classList.add("oculto");
+      formulario.removeEventListener("animationend", onEnd);
+      animando = false;
+    };
+    formulario.addEventListener("animationend", onEnd, { once: true });
+
   } else {
+    animando = true;
     formulario.classList.remove("oculto");
     formulario.classList.add("visible");
     mensaje.textContent = "deslice hacia arriba";
     flecha.classList.add("up");
+
+    const onEnd = () => {
+      animando = false;
+      formulario.removeEventListener("animationend", onEnd);
+    };
+    formulario.addEventListener("animationend", onEnd, { once: true });
   }
 });
- 
+
+// 🔹 Cerrar al pasar el mouse por la flecha (si ya está abierto)
+flecha.addEventListener("mouseenter", () => {
+  if (formulario.classList.contains("visible") && !animando) {
+    animando = true;
+    formulario.classList.remove("visible");
+    formulario.classList.add("desgranando");
+    mensaje.textContent = "deslice hacia abajo";
+    flecha.classList.remove("up");
+
+    const onEnd = () => {
+      formulario.classList.remove("desgranando");
+      formulario.classList.add("oculto");
+      formulario.removeEventListener("animationend", onEnd);
+      animando = false;
+    };
+    formulario.addEventListener("animationend", onEnd, { once: true });
+  }
+});
+
   </script>
 
 <button id="btnSubir"
