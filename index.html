@@ -210,11 +210,32 @@ footer {
     min-width: 700px; /* Igual que el ancho mínimo de la tabla */
   }
 }
+
+/* Caja de salones con límite de altura */
+.lista-salones {
+  max-height: 250px;   /* 🔹 ajustá según prefieras */
+  overflow-y: auto;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 5px;
+}
+
+/* Estilo de cada item */
+.lista-salones .salon-item {
+  padding: 6px 10px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+.lista-salones .salon-item:hover {
+  background: #007bff;
+  color: white;
+}
+
   </style>
 
 </head>
 <body class="d-flex flex-column min-vh-100">
-<!-- Modal de login inicial -->
+
 <!-- 🔐 Modal de login inicial -->
 <div id="loginInicial" class="modal d-flex align-items-center justify-content-center show invisible" tabindex="-1"
   style="display: flex; background-color: rgba(0,0,0,0.5);">
@@ -231,6 +252,28 @@ footer {
     </div>
   </div>
 </div>
+<!-- Modal Selección de Salón -->
+<div class="modal fade d-none" id="modalSeleccionSalon" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content p-3">
+      <div class="modal-header">
+        <h5 class="modal-title">Seleccionar Salón</h5>
+        <button type="button" class="btn-close" onclick="cancelarSeleccionSalon()"></button>
+      </div>
+      <div class="modal-body">
+        <!-- Buscador -->
+        <input type="text" id="buscarSalon" class="form-control mb-2" placeholder="Buscar salón...">
+
+        <!-- Lista de salones -->
+        <div id="listaSalones" class="lista-salones"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="cancelarSeleccionSalon()">Cancelar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 
 <!-- 🔧 NAVBAR -->
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
@@ -473,8 +516,8 @@ footer {
           <div class="row mb-3">
             <div class="col-md-6">
               <label for="nombreSalon" class="form-label">Salón</label>
-              <input type="text" class="form-control" id="nombreSalon" list="listaSalones" >
-              <datalist id="listaSalones"></datalist>
+              <input type="text" class="form-control" id="nombreSalon" list="listaSalonesGestion" >
+              <datalist id="listaSalonesGestion"></datalist>
             </div>
             <div class="col-md-6">
               <label for="direccionSalon" class="form-label">Dirección</label>
@@ -513,51 +556,61 @@ footer {
   <div class="modal-dialog modal-dialog-centered modal-lg">
     <div class="modal-content position-relative p-4">
       <button type="button" class="btn-close position-absolute top-0 end-0 m-3" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-      <h5 class="modal-title mb-3" id="modalUsuariosLabel">Agregar Usuario</h5>
+      <h5 class="modal-title mb-3 fw-bold text-center" id="modalUsuariosLabel">Agregar Usuario</h5>
 
       <form id="formularioUsuario">
         <div class="row mb-3">
           <div class="col-md-6">
             <label for="nombreApellido" class="form-label">Nombre y Apellido</label>
-      <input type="text" id="nombreApellido" class="form-control" list="listaUsuarios" required>
-      <datalist id="listaUsuarios"></datalist>
-
+            <input type="text" id="nombreApellido" class="form-control" list="listaUsuarios" required placeholder="Ej: Juan Pérez">
+            <datalist id="listaUsuarios"></datalist>
           </div>
 
           <div class="col-md-6">
             <label for="usuario" class="form-label">Usuario</label>
-            <input type="text" id="usuario" class="form-control" required>
+            <input type="text" id="usuario" class="form-control" required placeholder="Ej: jperez">
           </div>
         </div>
 
         <div class="row mb-3">
           <div class="col-md-6">
             <label for="contrasenia" class="form-label">Contraseña</label>
-            <input type="password" id="contrasenia" class="form-control" required>
+            <input type="password" id="contrasenia" class="form-control" required placeholder="••••••••">
           </div>
 
-        <div class="col-md-6">
-        <label for="salonesUsuario" class="form-label">Salones</label>
-        <input type="text" id="salonesUsuario" class="form-control" placeholder="Ej: Escobar, Pilar, Tigre"
-         list="listaSalones">
-        <datalist id="listaSalones"></datalist>
-      </div>
+          <!-- === SALONES (sin campo de búsqueda) === -->
+          <div class="col-md-6">
+            <label for="salonesResumen" class="form-label">Salones asignados</label>
+            <!-- Campo resumen -->
+            <input type="text" id="salonesResumen" class="form-control mb-2" readonly placeholder="Sin salones seleccionados">
 
-
-
-        <div class="d-flex justify-content-between">
-          <button type="submit" class="btn btn-success">Guardar</button>
-          <button type="button" id="btnEliminarUsuario" class="btn btn-danger">Eliminar</button>
+            <!-- Contenedor con lista de salones -->
+            <div id="contenedorSalones" class="border rounded p-2 overflow-auto bg-light" style="max-height: 200px;">
+              <div class="form-check mb-1">
+                <input class="form-check-input" type="checkbox" id="checkTodos">
+                <label class="form-check-label fw-bold" for="checkTodos">Seleccionar todos</label>
+              </div>
+              <hr class="my-2">
+              <div id="listaCheckSalones" class="d-flex flex-column gap-1"></div>
+            </div>
+          </div>
         </div>
 
-        <div id="alertaUsuarioExistente" class="alert alert-warning mt-3 d-none rounded-3 shadow-sm" role="alert">
+        <div class="d-flex justify-content-between">
+          <button type="submit" class="btn btn-success px-4">💾 Guardar</button>
+          <button type="button" id="btnEliminarUsuario" class="btn btn-danger px-4">🗑️ Eliminar</button>
+        </div>
+
+        <!-- Mensaje de estado -->
+        <div id="mensajeUsuario" class="alert mt-3 d-none rounded-3 shadow-sm text-center"></div>
+
+        <div id="alertaUsuarioExistente" class="alert alert-warning mt-3 d-none rounded-3 shadow-sm text-center" role="alert">
           ⚠️ El usuario ya existe. Se actualizará.
         </div>
       </form>
     </div>
   </div>
 </div>
-
 
 
 <div id="mensajeGuardado" style="
@@ -740,29 +793,37 @@ document.getElementById("nombreApellido").addEventListener("change", async (e) =
     return;
   }
 
-  const docRef = doc(db, "passwordinicio", nombreSeleccionado);
-  const docSnap = await getDoc(docRef);
+const docRef = doc(db, "passwordinicio", nombreSeleccionado);
+const docSnap = await getDoc(docRef);
 
-  if (docSnap.exists()) {
-    const data = docSnap.data();
-    document.getElementById("usuario").value = data.usuario || "";
-    document.getElementById("contrasenia").value = data.contrasenia || "";
+if (docSnap.exists()) {
+  const data = docSnap.data();
 
-    let salones = [];
-    if (Array.isArray(data.salones)) {
-      salones = data.salones;
-    } else if (typeof data.salones === "string") {
-      salones = [data.salones];
-    }
+  // Verificamos que los elementos existan antes de asignar valores
+  const usuarioInput = document.getElementById("usuario");
+  const contraseniaInput = document.getElementById("contrasenia");
+  const salonesInput = document.getElementById("salonesUsuario");
 
-    document.getElementById("salonesUsuario").value = salones.join(", ");
-    mostrarMensajeUsuario("ℹ️ Usuario cargado. Podés actualizarlo o eliminarlo.", "bg-info text-white");
-  } else {
-    // Si se escribió algo pero no existe en la base
-    limpiarCamposUsuario();
-    mostrarMensajeUsuario("⚠️ No se encontró un usuario con ese nombre.", "bg-warning");
+  if (usuarioInput) usuarioInput.value = data.usuario || "";
+  if (contraseniaInput) contraseniaInput.value = data.contrasenia || "";
+
+  let salones = [];
+  if (Array.isArray(data.salones)) {
+    salones = data.salones;
+  } else if (typeof data.salones === "string") {
+    salones = [data.salones];
   }
+
+  if (salonesInput) salonesInput.value = salones.join(", ");
+
+  mostrarMensajeUsuario("ℹ️ Usuario cargado. Podés actualizarlo o eliminarlo.", "bg-info text-white");
+} else {
+  // Si se escribió algo pero no existe en la base
+  limpiarCamposUsuario();
+  mostrarMensajeUsuario("⚠️ No se encontró un usuario con ese nombre.", "bg-warning");
+}
 });
+
 
 // 🔽 Función reutilizable para limpiar campos
 function limpiarCamposUsuario() {
@@ -1152,9 +1213,10 @@ window.cargarListaSalones = async function () {
     const datos = doc.data();
     nombres.push({ id: doc.id, nombre: datos.nombre });
   });
+  
 
   // Opcional: usar datalist para autocompletar
-  const datalist = document.getElementById("listaSalones");
+  const datalist = document.getElementById("listaSalonesGestion"); //se puede pisar con este
   if (datalist) {
     datalist.innerHTML = "";
     nombres.forEach(salon => {
@@ -1485,81 +1547,172 @@ window.cargarStockActual = cargarStockActual;
 window.actualizarStock = actualizarStock;
 
 //modal usuarios
-document.getElementById("nombreApellido").addEventListener("change", async (e) => {
-  let nombreSeleccionado = e.target.value.trim().replace(/\s+/g, " ");
-  document.getElementById("nombreApellido").value = nombreSeleccionado;
+let salonesSeleccionados = [];
 
-  if (!nombreSeleccionado) return;
+// === CARGAR SALONES DESDE FIRESTORE ===
+async function cargarSalonesDesdeFirestore() {
+  const lista = document.getElementById("listaCheckSalones");
+  if (!lista) return;
+  lista.innerHTML = "";
 
-  const docRef = doc(db, "passwordinicio", nombreSeleccionado);
-  const docSnap = await getDoc(docRef);
+  try {
+    const snapshot = await getDocs(collection(db, "salones"));
+    const salones = [];
 
-  if (docSnap.exists()) {
-    const data = docSnap.data();
-    document.getElementById("usuario").value = data.usuario || "";
-    document.getElementById("contrasenia").value = data.contrasenia || "";
+    snapshot.forEach(docSnap => {
+      const data = docSnap.data();
+      const nombreSalon = data.nombre || "Sin nombre";
+      salones.push(nombreSalon);
+    });
 
-    // Manejar array o string en salones
-    let salones = [];
-    if (Array.isArray(data.salones)) {
-      salones = data.salones;
-    } else if (typeof data.salones === "string") {
-      salones = [data.salones]; // lo transformamos en array
-    }
+    salones.sort((a, b) => a.localeCompare(b));
 
-    document.getElementById("salonesUsuario").value = salones.join(", ");
-    mostrarMensajeUsuario("ℹ️ Usuario cargado. Podés actualizarlo o eliminarlo.", "bg-info text-white");
-  } else {
-    // Limpia campos si no se encuentra
-    document.getElementById("usuario").value = "";
-    document.getElementById("contrasenia").value = "";
-    document.getElementById("salonesUsuario").value = "";
-    mostrarMensajeUsuario("⚠️ No se encontró un usuario con ese nombre.", "bg-warning");
+    salones.forEach(nombreSalon => {
+      const idSafe = "salon-" + nombreSalon.replace(/\s+/g, "_");
+      const div = document.createElement("div");
+      div.className = "form-check";
+      div.innerHTML = `
+        <input class="form-check-input salon-check" type="checkbox" value="${nombreSalon}" id="${idSafe}">
+        <label class="form-check-label" for="${idSafe}">${nombreSalon}</label>
+      `;
+      lista.appendChild(div);
+    });
+
+    // Listener de cada checkbox
+    document.querySelectorAll(".salon-check").forEach(chk => {
+      chk.addEventListener("change", () => {
+        actualizarCheckTodos();
+        actualizarResumenDeSalones();
+      });
+    });
+
+  } catch (error) {
+    console.error("❌ Error cargando salones desde Firestore:", error);
+  }
+}
+
+// === ACTUALIZAR CHECK "TODOS" ===
+function actualizarCheckTodos() {
+  const todos = [...document.querySelectorAll(".salon-check")];
+  const todosMarcados = todos.length > 0 && todos.every(c => c.checked);
+  const checkTodos = document.getElementById("checkTodos");
+  if (checkTodos) checkTodos.checked = todosMarcados;
+}
+
+// === SELECCIONAR / DESELECCIONAR TODOS ===
+document.addEventListener("DOMContentLoaded", () => {
+  const checkTodos = document.getElementById("checkTodos");
+  if (checkTodos) {
+    checkTodos.addEventListener("change", () => {
+      const marcar = checkTodos.checked;
+      document.querySelectorAll(".salon-check").forEach(c => c.checked = marcar);
+      actualizarResumenDeSalones();
+    });
   }
 });
 
+// === ACTUALIZAR RESUMEN (en campo salonesResumen) ===
+function actualizarResumenDeSalones() {
+  const seleccionados = [...document.querySelectorAll(".salon-check:checked")].map(c => c.value);
+  const resumen = document.getElementById("salonesResumen");
 
-// Guardar o actualizar usuario
+  if (resumen) {
+    if (seleccionados.length === 0) {
+      resumen.value = "Sin salones seleccionados";
+    } else if (seleccionados.length === 1) {
+      resumen.value = seleccionados[0];
+    } else {
+      resumen.value = `${seleccionados.length} salones seleccionados`;
+    }
+    resumen.title = seleccionados.join(", ");
+  }
+}
+
+// === OBTENER LOS SALONES SELECCIONADOS ===
+function obtenerSalonesSeleccionados() {
+  return [...document.querySelectorAll(".salon-check:checked")].map(c => c.value);
+}
+
+// === CARGAR USUARIO EXISTENTE ===
+document.addEventListener("DOMContentLoaded", () => {
+  const inputNombre = document.getElementById("nombreApellido");
+
+  if (inputNombre) {
+    inputNombre.addEventListener("change", async (e) => {
+      const nombreSeleccionado = e.target.value.trim().replace(/\s+/g, " ");
+      inputNombre.value = nombreSeleccionado;
+      if (!nombreSeleccionado) return;
+
+      const docRef = doc(db, "passwordinicio", nombreSeleccionado);
+      const docSnap = await getDoc(docRef);
+
+      await cargarSalonesDesdeFirestore();
+
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        document.getElementById("usuario").value = data.usuario || "";
+        document.getElementById("contrasenia").value = data.contrasenia || "";
+
+        if (Array.isArray(data.salones)) {
+          salonesSeleccionados = [...data.salones];
+        } else if (typeof data.salones === "string") {
+          salonesSeleccionados = [data.salones];
+        } else {
+          salonesSeleccionados = [];
+        }
+
+        document.querySelectorAll(".salon-check").forEach(chk => {
+          chk.checked = salonesSeleccionados.includes(chk.value);
+        });
+
+        actualizarCheckTodos();
+        actualizarResumenDeSalones();
+
+        mostrarMensajeUsuario("ℹ️ Usuario cargado. Podés actualizarlo o eliminarlo.", "bg-info text-white");
+      } else {
+        document.getElementById("usuario").value = "";
+        document.getElementById("contrasenia").value = "";
+        salonesSeleccionados = [];
+        document.querySelectorAll(".salon-check").forEach(c => c.checked = false);
+        actualizarCheckTodos();
+        actualizarResumenDeSalones();
+        mostrarMensajeUsuario("⚠️ No se encontró un usuario con ese nombre.", "bg-warning");
+      }
+    });
+  }
+
+  cargarSalonesDesdeFirestore();
+});
+
+// === GUARDAR / ACTUALIZAR USUARIO ===
 document.getElementById("formularioUsuario").addEventListener("submit", async (e) => {
   e.preventDefault();
-
   const nombreApellido = document.getElementById("nombreApellido").value.trim();
   const usuario = document.getElementById("usuario").value.trim();
   const contrasenia = document.getElementById("contrasenia").value.trim();
-  const salonesRaw = document.getElementById("salonesUsuario").value.trim();
+  const salonesSeleccionadosAhora = obtenerSalonesSeleccionados();
 
   if (!nombreApellido || !usuario || !contrasenia) {
     mostrarMensajeUsuario("⚠️ Completá todos los campos obligatorios.", "bg-warning");
     return;
   }
 
-  const salones = salonesRaw.split(",").map(s => s.trim()).filter(Boolean);
-
   const docRef = doc(db, "passwordinicio", nombreApellido);
-  const docSnap = await getDoc(docRef);
-
-  if (docSnap.exists()) {
-    mostrarMensajeUsuario("⚠️ El usuario ya existe. Se actualizará.", "bg-warning");
-  }
-
-  await setDoc(docRef, {
-    usuario,
-    contrasenia,
-    salones
-  });
+  await setDoc(docRef, { usuario, contrasenia, salones: salonesSeleccionadosAhora });
 
   mostrarMensajeUsuario("✅ Usuario guardado correctamente.", "bg-success text-white");
-
   document.getElementById("formularioUsuario").reset();
-  document.getElementById("alertaUsuarioExistente").classList.add("d-none");
+  document.querySelectorAll(".salon-check").forEach(c => c.checked = false);
+  document.getElementById("checkTodos").checked = false;
+  actualizarResumenDeSalones();
 
   const modal = bootstrap.Modal.getInstance(document.getElementById("modalUsuarios"));
   modal.hide();
 });
 
+// === ELIMINAR USUARIO ===
 document.getElementById("btnEliminarUsuario").addEventListener("click", async () => {
   const nombreApellido = document.getElementById("nombreApellido").value.trim().replace(/\s+/g, " ");
-
   if (!nombreApellido) {
     mostrarMensajeUsuario("⚠️ Ingresá un nombre para eliminar.", "bg-warning");
     return;
@@ -1575,42 +1728,23 @@ document.getElementById("btnEliminarUsuario").addEventListener("click", async ()
     confirmButtonText: 'Sí, eliminar',
     cancelButtonText: 'Cancelar'
   });
-
   if (!result.isConfirmed) return;
 
-  const docRef = doc(db, "passwordinicio", nombreApellido);
-  const docSnap = await getDoc(docRef);
-
-  if (!docSnap.exists()) {
-    mostrarMensajeUsuario("⚠️ No se encontró ese usuario para eliminar.", "bg-warning");
-    return;
-  }
-
-  await deleteDoc(docRef);
-
-  Swal.fire({
-    icon: 'success',
-    title: 'Eliminado',
-    text: '🗑️ Usuario eliminado correctamente.',
-    showConfirmButton: false,
-    timer: 2000
-  });
+  await deleteDoc(doc(db, "passwordinicio", nombreApellido));
+  Swal.fire({ icon: 'success', title: 'Eliminado', text: '🗑️ Usuario eliminado correctamente.', showConfirmButton: false, timer: 2000 });
 
   document.getElementById("formularioUsuario").reset();
+  document.querySelectorAll(".salon-check").forEach(c => c.checked = false);
+  document.getElementById("checkTodos").checked = false;
+  actualizarResumenDeSalones();
 });
 
+// === LIMPIAR FORMULARIO AL CERRAR MODAL ===
 document.getElementById("modalUsuarios").addEventListener("hidden.bs.modal", () => {
-  // Limpiar el formulario
   document.getElementById("formularioUsuario").reset();
-
-  // Asegurarse de limpiar mensajes
-  mostrarMensajeUsuario("", "");
-
-  // Ocultar alertas
-  const alerta = document.getElementById("alertaUsuarioExistente");
-  if (alerta) {
-    alerta.classList.add("d-none");
-  }
+  document.querySelectorAll(".salon-check").forEach(c => c.checked = false);
+  document.getElementById("checkTodos").checked = false;
+  actualizarResumenDeSalones();
 });
 
 //fin modal usuarios
@@ -1618,6 +1752,7 @@ document.getElementById("modalUsuarios").addEventListener("hidden.bs.modal", () 
 //clave acceso
 let usuarioActual = null;
 let salonActual = null;
+let salonesDisponibles = []; // guardamos los salones del usuario
 
 window.validarLoginInicial = async function () {
   const usuario = document.getElementById("usuarioInicio").value.trim();
@@ -1632,26 +1767,39 @@ window.validarLoginInicial = async function () {
 
       if (docData.contrasenia === contrasenia) {
         usuarioActual = usuario;
-        salonActual = docData.salones;
 
-        sessionStorage.setItem("usuario", usuarioActual);
-        sessionStorage.setItem("salon", salonActual);
+        // Normalizamos salones (array siempre)
+        salonesDisponibles = [];
+        if (Array.isArray(docData.salones)) {
+          salonesDisponibles = docData.salones;
+        } else if (typeof docData.salones === "string") {
+          salonesDisponibles = [docData.salones];
+        }
 
-        document.getElementById("selectorSalon").value = salonActual;
-        await cargarStockActual(); // recargar tabla cuando cambia el salón
+        if (salonesDisponibles.length === 1) {
+          // Caso 1 salón → entrar directo
+          salonActual = salonesDisponibles[0];
+          sessionStorage.setItem("usuario", usuarioActual);
+          sessionStorage.setItem("salon", salonActual);
 
-        // Ocultar el login correctamente
-        const loginModal = document.getElementById("loginInicial");
-        loginModal.classList.remove("show", "d-flex");
-        loginModal.classList.add("d-none");
+          document.getElementById("selectorSalon").value = salonActual;
+          await cargarStockActual();
 
-        Swal.fire({
-          icon: 'success',
-          title: 'Bienvenido',
-          text: `Hola ${usuarioActual}, salón: ${salonActual}`,
-          timer: 2000,
-          showConfirmButton: false
-        });
+          ocultarLoginModal();
+          Swal.fire({
+            icon: 'success',
+            title: 'Bienvenido',
+            text: `Hola ${usuarioActual}, salón: ${salonActual}`,
+            timer: 2000,
+            showConfirmButton: false
+          });
+
+        } else {
+          // Caso varios salones → mostrar modal personalizado
+          ocultarLoginModal();
+          mostrarModalSeleccionSalon(salonesDisponibles);
+        }
+
       } else {
         Swal.fire({
           icon: 'error',
@@ -1680,7 +1828,109 @@ window.validarLoginInicial = async function () {
   }
 };
 
-// 👇 Este bloque es el que debés tener al final de tu script
+// Función para mostrar modal de selección de salón con buscador
+function mostrarModalSeleccionSalon(salones) {
+  const modal = document.getElementById("modalSeleccionSalon");
+  const listaSalonesDiv = document.getElementById("listaSalones"); //puede fallar aca
+  const buscarSalonInput = document.getElementById("buscarSalon");
+
+  // Render dinámico
+  function mostrarSalones(filtro = "") {
+    listaSalonesDiv.innerHTML = "";
+    salones
+      .filter(s => s.toLowerCase().includes(filtro.toLowerCase()))
+      .forEach(salon => {
+        const div = document.createElement("div");
+        div.textContent = salon;
+        div.classList.add("salon-item");
+        div.onclick = () => {
+          salonActual = salon;
+          sessionStorage.setItem("usuario", usuarioActual);
+          sessionStorage.setItem("salon", salonActual);
+
+          document.getElementById("selectorSalon").value = salonActual;
+          cargarStockActual();
+
+          modal.classList.remove("show", "d-flex");
+          modal.classList.add("d-none");
+          modal.style.display = "none";
+
+          Swal.fire({
+            icon: 'success',
+            title: 'Bienvenido',
+            text: `Hola ${usuarioActual}, salón: ${salonActual}`,
+            timer: 2000,
+            showConfirmButton: false
+          });
+        };
+        listaSalonesDiv.appendChild(div);
+      });
+  }
+
+  // Filtrar al escribir
+  buscarSalonInput.oninput = e => mostrarSalones(e.target.value);
+
+  // Inicial
+  buscarSalonInput.value = "";
+  mostrarSalones();
+
+  // Mostrar modal
+  modal.classList.remove("d-none", "invisible");
+  modal.classList.add("show", "d-flex");
+  modal.style.display = "flex";
+}
+
+
+// ✅ Función global para cancelar selección de salón
+window.cancelarSeleccionSalon = function() {
+  const modalSalon = document.getElementById("modalSeleccionSalon");
+  const modalLogin = document.getElementById("loginInicial");
+
+  // Ocultar modal de salones
+  modalSalon.classList.remove("show", "d-flex");
+  modalSalon.classList.add("d-none");
+  modalSalon.style.display = "none";
+
+  // Mostrar modal de login
+  modalLogin.classList.remove("d-none");
+  modalLogin.classList.add("show", "d-flex");
+  modalLogin.style.display = "flex";
+
+  // Limpiar campos de login
+  document.getElementById("usuarioInicio").value = "";
+  document.getElementById("contraseniaInicio").value = "";
+};
+
+// ✅ Función para cancelar selección de salón y volver al login
+function cancelarSeleccionSalon() {
+  const modalSalon = document.getElementById("modalSeleccionSalon");
+  const modalLogin = document.getElementById("loginInicial");
+
+  // Ocultar modal de salones
+  modalSalon.classList.remove("show", "d-flex");
+  modalSalon.classList.add("d-none");
+  modalSalon.style.display = "none";
+
+  // Mostrar modal de login
+  modalLogin.classList.remove("d-none");
+  modalLogin.classList.add("show", "d-flex");
+  modalLogin.style.display = "flex";
+
+  // Limpiar campos de login
+  document.getElementById("usuarioInicio").value = "";
+  document.getElementById("contraseniaInicio").value = "";
+}
+
+
+// función auxiliar para ocultar login
+function ocultarLoginModal() {
+  const loginModal = document.getElementById("loginInicial");
+  loginModal.classList.remove("show", "d-flex");
+  loginModal.classList.add("d-none");
+  loginModal.style.display = "none";
+}
+
+// restaurar usuario/salón de sessionStorage al cargar
 window.addEventListener('load', () => {
   const usuarioGuardado = sessionStorage.getItem("usuario");
   const salonGuardado = sessionStorage.getItem("salon");
@@ -1690,18 +1940,20 @@ window.addEventListener('load', () => {
     usuarioActual = usuarioGuardado;
     salonActual = salonGuardado;
 
-    // Ocultar modal
+    // Ocultar modal login
     loginModal.classList.remove("show", "d-flex");
     loginModal.classList.add("d-none");
-    loginModal.style.display = "none"; // Lo ocultás completamente
+    loginModal.style.display = "none";
+
     console.log(`Usuario restaurado: ${usuarioActual}, salón: ${salonActual}`);
   } else {
-    // Mostrar modal
+    // Mostrar modal login
     loginModal.classList.remove("d-none");
     loginModal.classList.add("show", "d-flex");
-    loginModal.classList.remove("invisible"); // Lo mostrás solo si hace falta
+    loginModal.classList.remove("invisible");
   }
 });
+
 
 //clave acceso fin
 
