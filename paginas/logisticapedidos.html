@@ -739,6 +739,7 @@ import {
   Timestamp,
   deleteDoc,
   doc,
+  arrayUnion,
   increment
 } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
@@ -2244,7 +2245,35 @@ async function confirmarYImprimirDesdeResumen() {
     console.error("Error actualizando notas:", error);
   }
 }
+// ✅ Guardar cada artículo seleccionado en la colección transfEnv
+/* try {
+  for (let fila of seleccionados) {
+    const celdas = fila.querySelectorAll("td");
+    const destino = celdas[1]?.innerText.trim() || "";
+    const fecha = celdas[2]?.innerText.trim() || "";
+    const articulo = celdas[3]?.innerText.trim() || "";
+    const unidades = parseInt(celdas[4]?.innerText.trim() || "0");
+    const cajas = parseInt(celdas[5]?.innerText.trim() || "0");
+    const notas = celdas[6]?.innerText.trim() || "";
+    const usuario = celdas[9]?.innerText.trim() || "";
 
+    await addDoc(collection(db, "transfEnv"), {
+      destino,
+      fecha,
+      articulo,
+      unidades,
+      cajas,
+      notas,
+      usuario,
+      chofer: chofer || ""
+    });
+  }
+
+  console.log("Artículos guardados en transfEnv correctamente.");
+} catch (error) {
+  console.error("Error guardando artículos en transfEnv:", error);
+} */
+// ✅ finaliza Guardar cada artículo seleccionado en la colección transfEnv
 
   // ✅ Mostrar alerta
   const alerta = document.createElement("div");
@@ -2299,64 +2328,90 @@ async function confirmarYImprimirDesdeResumen() {
 }
 
   // ✅ Generar contenido HTML por página (estructura original intacta)
-  function generarContenidoPagina(paginaItems) {
-    let contenido = `
-      <div style="font-family: Arial, sans-serif; padding: 60px 40px; position: relative; min-height: 100vh; box-sizing: border-box;">
-        <!-- Fecha -->
-        <div style="position: absolute; top: 272px; right: 124px; font-size: 14px;">${fecha}</div>
-        <!-- Salón -->
-        <div style="margin-top: 208px; font-size: 16px; margin-left: 80px;">${salonNombre}</div>
-        <!-- Dirección -->
-        <div style="height: 32px;"></div>
-        <div style="margin-bottom: 60px; font-size: 14px; margin-left: 80px;">
-          ${direccion}, ${localidad}, ${provincia} (${cp})
-        </div>
-        <!-- Lista de artículos -->
-        <ul style="list-style: none; padding-left: 0; margin-top: 88px; margin-bottom: 140px;">
-    `;
+function generarContenidoPagina(paginaItems) {
+  // ✳️ Descomponer la fecha en día, mes y año
+  const [dia, mes, anio] = (fecha || "").split("/");
 
-    const maxArticulos = 10;
-    for (let i = 0; i < maxArticulos; i++) {
-      const fila = paginaItems[i];
-      if (fila) {
-        const celdas = fila.querySelectorAll("td");
-        const articulo = celdas[3]?.innerText || "";
-        const unidades = celdas[4]?.innerText || "";
-        const cajas = celdas[5]?.innerText || "";
+  let contenido = `
+    <div style="font-family: Arial, sans-serif; padding: 60px 40px; position: relative; min-height: 100vh; box-sizing: border-box;">
+      <!-- Fecha -->
+      <div style="position: absolute; top: 27px; right: 114px; font-size: 16px;">
+        <span style="display: inline-block; width: 1cm; text-align: center;">${dia || ""}</span>
+        <span style="display: inline-block; width: 1cm; text-align: center;">${mes || ""}</span>
+        <span style="display: inline-block; width: 1cm; text-align: center;">${anio || ""}</span>
+      </div>
 
-        contenido += `
-          <li style="margin-bottom: 8px; display: flex; gap: 40px;">
-            <span style="min-width: 250px; margin-left: 10px;">${articulo}</span>
-            <span style="margin-left: auto; margin-right: 74px;"><strong>${unidades}</strong> unid.</span>
-            <span style="margin-right: 74px;"><strong>${cajas}</strong> cajas</span>
-          </li>`;
-      } else {
-        contenido += `
-          <li style="margin-bottom: 8px; display: flex; gap: 80px;">
-            <span style="min-width: 250px;">&nbsp;</span>
-            <span>&nbsp;</span>
-            <span>&nbsp;</span>
-          </li>`;
-      }
-    }
+      <!-- Salón -->
+      <div style="margin-top: 208px; font-size: 16px; margin-left: 80px;">${salonNombre}</div>
 
+      <!-- Dirección -->
+      <div style="height: 32px;"></div>
+      <div style="margin-bottom: 60px; font-size: 14px; margin-left: 80px;">
+        ${direccion}, ${localidad}, ${provincia} (${cp})
+      </div>
+  `;
+
+  // 🔹 Posición inicial de los artículos y altura de fila
+  const startY = 208 + 32 + 60 + 118; // salón + margen aprox + dirección + margin-top ul = 344px
+  const rowHeight = 32;              // altura de fila en px (≈1.2cm)
+  const maxArticulos = 10;
+
+  for (let i = 0; i < maxArticulos; i++) {
+    const fila = paginaItems[i];
+    if (!fila) continue;
+
+    const celdas = fila.querySelectorAll("td");
+    const articulo = celdas[3]?.innerText?.trim() || "";
+    const unidades = celdas[4]?.innerText?.trim() || "";
+    const cajas = celdas[5]?.innerText?.trim() || "";
+
+    // Construir texto de unidades/cajas solo si existen y >0
+    let detalles = "";
+    if (unidades && unidades !== "0") detalles += `<strong>${unidades}</strong> unid. `;
+    if (cajas && cajas !== "0") detalles += `<strong>${cajas}</strong> cajas`;
+
+    // 🔹 Div absolutamente posicionado por fila
     contenido += `
-        </ul>
-        <!-- Pie reorganizado -->
-        <div style="position: absolute; bottom: 105px; left: 40px; right: 40px; border-top: 1px solid #ccc; padding-top: 12px; font-size: 14px; display: flex; justify-content: space-between;">
-          <div style="text-align: right; line-height: 2; margin-left: 100px;">
-            <div>&nbsp;</div><div>&nbsp;</div><div>${modelo || "&nbsp;"}</div>
-            <div>${marca || "&nbsp;"}</div><div>${patente || "&nbsp;"}</div>
-          </div>
-          <div style="text-align: left; line-height: 2; margin-right: 100px;">
-            <div>&nbsp;</div><div>&nbsp;</div><div>${chofer || "&nbsp;"}</div>
-            <div>&nbsp;</div><div>${dni || "&nbsp;"}</div><div>&nbsp;</div>
-          </div>
-        </div>
+      <div style="
+        position: absolute;
+        top: ${startY + i * rowHeight}px;
+        left: 20px; 
+        display: flex;
+        gap: 20px;
+      ">
+        <span style="width: 160px; text-align: right; margin-left: -75px;">${detalles}</span>
+        <span style="flex: 1;">${articulo}</span>
       </div>
     `;
-    return contenido;
   }
+
+  // 🔹 Pie de página
+contenido += `
+  <div style="position: absolute; bottom: 105px; left: 40px; right: 40px; border-top: 1px solid #ccc; padding-top: 12px; font-size: 14px; display: flex; justify-content: flex-end;">
+    
+    <div style="text-align: right;">
+      <!-- Primera línea: Marca, Modelo, Patente -->
+      <div style="display: flex; gap: 10px; justify-content: flex-end;">
+        <div>${modelo || "&nbsp;"}</div>
+        <div>${marca || "&nbsp;"}</div>
+        <div>${patente || "&nbsp;"}</div>
+      </div>
+
+      <!-- Segunda línea: Chofer baja 2 líneas -->
+      <div style="margin-top: 32px;">${chofer || "&nbsp;"}</div>
+
+      <!-- Tercera línea: DNI baja 1 línea más abajo -->
+      <div style="margin-top: 16px;">${dni || "&nbsp;"}</div>
+    </div>
+
+  </div>
+</div>
+`;
+
+  return contenido;
+}
+
+
 
   // ✅ Lógica para imprimir con espera entre copias
   if (paginas.length === 1) {
@@ -2462,9 +2517,7 @@ function abrirResumenImpresion() {
 window.abrirResumenImpresion = abrirResumenImpresion;
 
 
-
-  //
-
+//
   async function imprimirSeleccion() {
     const seleccionados = document.querySelectorAll('tbody tr.seleccionado');
     if (seleccionados.length === 0) return;
@@ -2491,6 +2544,7 @@ window.abrirResumenImpresion = abrirResumenImpresion;
     } catch (error) {
       console.error("Error obteniendo datos del salón:", error);
     }
+  
 
     // 🖨️ Generamos el contenido para imprimir
   let contenido = `
