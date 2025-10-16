@@ -652,7 +652,8 @@ footer {
       addDoc,
       deleteDoc,
       query, 
-      where
+      where,
+      onSnapshot   
       } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
    
     // Configuración Firebase
@@ -852,6 +853,10 @@ export async function cargarSalones() {
 }
 
 // Estructura de stock actual por salón
+let unsubIngresos = null;
+let unsubPedidos = null;
+let unsubStockTotal = null;
+
 export async function cargarStockActual() {
   const selector = document.getElementById("selectorSalon");
   const salon = selector?.value;
@@ -865,9 +870,11 @@ export async function cargarStockActual() {
   const pedidos = new Map();
   const cajasPedidas = new Map();
   const articulosOficialesSet = new Set();
-  const unidadesPorCajaMap = new Map(); // 🔹 Nuevo: almacena unixcajapack
+  const unidadesPorCajaMap = new Map();
 
-  // Artículos oficiales
+  const db = getFirestore();
+
+  // 🔹 Cargar artículos oficiales (una sola vez)
   const articulosSnap = await getDocs(collection(db, "stock-articulos"));
   articulosSnap.forEach(doc => {
     const data = doc.data();
@@ -880,90 +887,106 @@ export async function cargarStockActual() {
     }
   });
 
-  // Ingresos
-  const ingresoSnap = await getDocs(collection(db, "stock-ingreso"));
-  ingresoSnap.forEach(doc => {
-    const data = doc.data();
-    const art = data.articulo?.trim().toLowerCase();
-    if (data.origen === salon && articulosOficialesSet.has(art)) {
-      const cantUnidades = parseInt(data.unidades) || 0;
-      const cantCajas = parseInt(data.cajas) || 0;
-      const cantRotas = parseInt(data.rotas) || 0;
+  // 🧹 Detener listeners anteriores antes de crear nuevos
+  if (unsubIngresos) unsubIngresos();
+  if (unsubPedidos) unsubPedidos();
+  if (unsubStockTotal) unsubStockTotal();
 
-      const unidadesPorCaja = unidadesPorCajaMap.get(art) || 0;
-      const totalUnidades = cantUnidades + (cantCajas * unidadesPorCaja);
+  // 🔹 Escuchar ingresos
+  unsubIngresos = onSnapshot(collection(db, "stock-ingreso"), (ingresoSnap) => {
+    ingresos.clear();
+    cajasIngresadas.clear();
+    rotas.clear();
 
-      ingresos.set(art, (ingresos.get(art) || 0) + totalUnidades);
-      cajasIngresadas.set(art, (cajasIngresadas.get(art) || 0) + cantCajas);
-      rotas.set(art, (rotas.get(art) || 0) + cantRotas);
-    }
-  });
-
-  // Pedidos
-  const pedidosSnap = await getDocs(collection(db, "stock-pedidos"));
-  pedidosSnap.forEach(doc => {
-    const data = doc.data();
-    const art = data.articulo?.trim().toLowerCase();
-    if (data.origen === salon && articulosOficialesSet.has(art)) {
-      const cantUnidades = parseInt(data.unidades) || 0;
-      const cantCajas = parseInt(data.cajas) || 0;
-
-      const unidadesPorCaja = unidadesPorCajaMap.get(art) || 0;
-      const totalUnidades = cantUnidades + (cantCajas * unidadesPorCaja);
-
-      pedidos.set(art, (pedidos.get(art) || 0) + totalUnidades);
-      cajasPedidas.set(art, (cajasPedidas.get(art) || 0) + cantCajas);
-    }
-  });
-
-  // 🔄 Stock real desde stock-total
-  const stockTotalSnap = await getDocs(collection(db, "stock-total"));
-  const stockTotalMap = new Map();
-  stockTotalSnap.forEach(doc => {
-    const data = doc.data();
-    const art = doc.id?.trim().toLowerCase();
-    if (data.salones && data.salones[salon]) {
-      stockTotalMap.set(art, {
-        unidades: parseInt(data.salones[salon].unidades) || 0,
-        cajas: parseInt(data.salones[salon].cajas) || 0
-      });
-    }
-  });
-
-  // Artículos combinados entre ingresos y pedidos
-  const articulos = new Set([...ingresos.keys(), ...pedidos.keys()]);
-  articulos.forEach(articulo => {
-    const ingreso = ingresos.get(articulo) || 0;
-    const pedido = pedidos.get(articulo) || 0;
-
-    // ✅ Tomamos stock real desde stock-total
-    const stockData = stockTotalMap.get(articulo) || { unidades: 0, cajas: 0 };
-    const stock = stockData.unidades;
-    const stockCajas = stockData.cajas;
-
-    const rota = rotas.get(articulo) || 0;
-    let categoria = "";
-
-    articulosSnap.forEach(doc => {
+    ingresoSnap.forEach(doc => {
       const data = doc.data();
-      if (data.articulo?.trim().toLowerCase() === articulo && data.categoria) {
-        categoria = data.categoria;
+      const art = data.articulo?.trim().toLowerCase();
+      if (data.origen === salon && articulosOficialesSet.has(art)) {
+        const cantUnidades = parseInt(data.unidades) || 0;
+        const cantCajas = parseInt(data.cajas) || 0;
+        const cantRotas = parseInt(data.rotas) || 0;
+        const unidadesPorCaja = unidadesPorCajaMap.get(art) || 0;
+        const totalUnidades = cantUnidades + (cantCajas * unidadesPorCaja);
+
+        ingresos.set(art, (ingresos.get(art) || 0) + totalUnidades);
+        cajasIngresadas.set(art, (cajasIngresadas.get(art) || 0) + cantCajas);
+        rotas.set(art, (rotas.get(art) || 0) + cantRotas);
       }
     });
 
-    const fila = `
-      <tr>
-        <td>${categoria}</td>
-        <td>${articulo}</td>
-        <td contenteditable="true" class="text-center" oninput="actualizarStock(this)">${ingreso}</td>
-        <td contenteditable="true" class="text-center" oninput="actualizarStock(this)">${pedido}</td>
-        <td class="stock-actual text-center">${stock}</td> <!-- ✅ STOCK desde stock-total -->
-        <td class="text-center">${stockCajas}</td>         <!-- ✅ CAJAS desde stock-total -->
-        <td class="text-center">${rota}</td>
-      </tr>
-    `;
-    tabla.insertAdjacentHTML("beforeend", fila);
+    actualizarTabla();
   });
+
+  // 🔹 Escuchar pedidos
+  unsubPedidos = onSnapshot(collection(db, "stock-pedidos"), (pedidosSnap) => {
+    pedidos.clear();
+    cajasPedidas.clear();
+
+    pedidosSnap.forEach(doc => {
+      const data = doc.data();
+      const art = data.articulo?.trim().toLowerCase();
+      if (data.origen === salon && articulosOficialesSet.has(art)) {
+        const cantUnidades = parseInt(data.unidades) || 0;
+        const cantCajas = parseInt(data.cajas) || 0;
+        const unidadesPorCaja = unidadesPorCajaMap.get(art) || 0;
+        const totalUnidades = cantUnidades + (cantCajas * unidadesPorCaja);
+
+        pedidos.set(art, (pedidos.get(art) || 0) + totalUnidades);
+        cajasPedidas.set(art, (cajasPedidas.get(art) || 0) + cantCajas);
+      }
+    });
+
+    actualizarTabla();
+  });
+
+  // 🔹 Escuchar stock total
+  unsubStockTotal = onSnapshot(collection(db, "stock-total"), (stockTotalSnap) => {
+    const stockTotalMap = new Map();
+
+    stockTotalSnap.forEach(doc => {
+      const data = doc.data();
+      const art = doc.id?.trim().toLowerCase();
+      if (data.salones && data.salones[salon]) {
+        stockTotalMap.set(art, {
+          unidades: parseInt(data.salones[salon].unidades) || 0,
+          cajas: parseInt(data.salones[salon].cajas) || 0
+        });
+      }
+    });
+
+    actualizarTabla(stockTotalMap);
+  });
+
+  // 🔹 Reconstruir tabla
+  function actualizarTabla(stockTotalMap = new Map()) {
+    tabla.innerHTML = "";
+    const articulos = new Set([...ingresos.keys(), ...pedidos.keys(), ...stockTotalMap.keys()]);
+
+    articulos.forEach(articulo => {
+      const ingreso = ingresos.get(articulo) || 0;
+      const pedido = pedidos.get(articulo) || 0;
+      const stockData = stockTotalMap.get(articulo) || { unidades: 0, cajas: 0 };
+      const stock = stockData.unidades;
+      const stockCajas = stockData.cajas;
+      const rota = rotas.get(articulo) || 0;
+
+      const docArticulo = articulosSnap.docs.find(d => d.data().articulo?.trim().toLowerCase() === articulo);
+      const categoria = docArticulo?.data().categoria || "";
+
+      const fila = `
+        <tr>
+          <td>${categoria}</td>
+          <td>${articulo}</td>
+          <td class="text-center">${ingreso}</td>
+          <td class="text-center">${pedido}</td>
+          <td class="stock-actual text-center">${stock}</td>
+          <td class="text-center">${stockCajas}</td>
+          <td class="text-center">${rota}</td>
+        </tr>
+      `;
+      tabla.insertAdjacentHTML("beforeend", fila);
+    });
+  }
 }
 
 // Actualiza solo la diferencia ingreso - pedido en la tabla (visual)

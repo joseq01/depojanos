@@ -2335,14 +2335,14 @@ function generarContenidoPagina(paginaItems) {
   let contenido = `
     <div style="font-family: Arial, sans-serif; padding: 60px 40px; position: relative; min-height: 100vh; box-sizing: border-box;">
       <!-- Fecha -->
-      <div style="position: absolute; top: 27px; right: 114px; font-size: 16px;">
+      <div style="position: absolute; top: 47px; right: 104px; font-size: 16px;">
         <span style="display: inline-block; width: 1cm; text-align: center;">${dia || ""}</span>
         <span style="display: inline-block; width: 1cm; text-align: center;">${mes || ""}</span>
-        <span style="display: inline-block; width: 1cm; text-align: center;">${anio || ""}</span>
-      </div>
+       <span style="display: inline-block; width: 1cm; text-align: center; margin-left: 1cm;">${anio || ""}</span>
+    </div>
 
       <!-- Salón -->
-      <div style="margin-top: 208px; font-size: 16px; margin-left: 80px;">${salonNombre}</div>
+      <div style="margin-top: 190px; font-size: 16px; margin-left: 80px;">${salonNombre}</div>
 
       <!-- Dirección -->
       <div style="height: 32px;"></div>
@@ -2352,8 +2352,8 @@ function generarContenidoPagina(paginaItems) {
   `;
 
   // 🔹 Posición inicial de los artículos y altura de fila
-  const startY = 208 + 32 + 60 + 118; // salón + margen aprox + dirección + margin-top ul = 344px
-  const rowHeight = 32;              // altura de fila en px (≈1.2cm)
+  const startY = 208 + 32 + 60 + 118 - 8; // salón + margen aprox + dirección + margin-top ul = 344px
+  const rowHeight = 38;              // altura de fila en px (≈1.2cm)
   const maxArticulos = 10;
 
   for (let i = 0; i < maxArticulos; i++) {
@@ -2379,7 +2379,7 @@ function generarContenidoPagina(paginaItems) {
         display: flex;
         gap: 20px;
       ">
-        <span style="width: 160px; text-align: right; margin-left: -75px;">${detalles}</span>
+        <span style="width: 160px; text-align: right; margin-left: -70px;">${detalles}</span>
         <span style="flex: 1;">${articulo}</span>
       </div>
     `;
@@ -2391,14 +2391,14 @@ contenido += `
     
     <div style="text-align: right;">
       <!-- Primera línea: Marca, Modelo, Patente -->
-      <div style="display: flex; gap: 10px; justify-content: flex-end;">
+      <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: -4px;">
         <div>${modelo || "&nbsp;"}</div>
         <div>${marca || "&nbsp;"}</div>
         <div>${patente || "&nbsp;"}</div>
       </div>
 
       <!-- Segunda línea: Chofer baja 2 líneas -->
-      <div style="margin-top: 32px;">${chofer || "&nbsp;"}</div>
+      <div style="margin-top: 72px;">${chofer || "&nbsp;"}</div>
 
       <!-- Tercera línea: DNI baja 1 línea más abajo -->
       <div style="margin-top: 16px;">${dni || "&nbsp;"}</div>
