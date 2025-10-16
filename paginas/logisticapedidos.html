@@ -2335,14 +2335,14 @@ function generarContenidoPagina(paginaItems) {
   let contenido = `
     <div style="font-family: Arial, sans-serif; padding: 60px 40px; position: relative; min-height: 100vh; box-sizing: border-box;">
       <!-- Fecha -->
-      <div style="position: absolute; top: 47px; right: 104px; font-size: 16px;">
+      <div style="position: absolute; top: 60px; right: 104px; font-size: 16px;">
         <span style="display: inline-block; width: 1cm; text-align: center;">${dia || ""}</span>
         <span style="display: inline-block; width: 1cm; text-align: center;">${mes || ""}</span>
        <span style="display: inline-block; width: 1cm; text-align: center; margin-left: 1cm;">${anio || ""}</span>
     </div>
 
       <!-- Salón -->
-      <div style="margin-top: 190px; font-size: 16px; margin-left: 80px;">${salonNombre}</div>
+      <div style="margin-top: 180px; font-size: 16px; margin-left: 80px;">${salonNombre}</div>
 
       <!-- Dirección -->
       <div style="height: 32px;"></div>
@@ -2380,28 +2380,28 @@ function generarContenidoPagina(paginaItems) {
         gap: 20px;
       ">
         <span style="width: 160px; text-align: right; margin-left: -70px;">${detalles}</span>
-        <span style="flex: 1;">${articulo}</span>
+        <span style="flex: 1; margin-left: 8px;">${articulo}</span>
       </div>
     `;
   }
 
   // 🔹 Pie de página
 contenido += `
-  <div style="position: absolute; bottom: 105px; left: 40px; right: 40px; border-top: 1px solid #ccc; padding-top: 12px; font-size: 14px; display: flex; justify-content: flex-end;">
+  <div style="position: absolute; bottom: 55px; left: 40px; right: 40px; border-top: 1px solid #ccc; padding-top: 12px; font-size: 14px; display: flex; justify-content: flex-end;">
     
     <div style="text-align: right;">
       <!-- Primera línea: Marca, Modelo, Patente -->
-      <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: -4px;">
+      <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: -3px;">
         <div>${modelo || "&nbsp;"}</div>
         <div>${marca || "&nbsp;"}</div>
         <div>${patente || "&nbsp;"}</div>
       </div>
 
       <!-- Segunda línea: Chofer baja 2 líneas -->
-      <div style="margin-top: 72px;">${chofer || "&nbsp;"}</div>
+      <div style="margin-top: 90px;">${chofer || "&nbsp;"}</div>
 
       <!-- Tercera línea: DNI baja 1 línea más abajo -->
-      <div style="margin-top: 16px;">${dni || "&nbsp;"}</div>
+      <div style="margin-top: 32px;">${dni || "&nbsp;"}</div>
     </div>
 
   </div>
