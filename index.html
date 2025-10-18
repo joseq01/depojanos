@@ -853,140 +853,136 @@ export async function cargarSalones() {
 }
 
 // Estructura de stock actual por salón
-let unsubIngresos = null;
-let unsubPedidos = null;
-let unsubStockTotal = null;
+let unsubscribeIngresos = null;
+let unsubscribePedidos = null;
+let unsubscribeTotal = null;
 
 export async function cargarStockActual() {
   const selector = document.getElementById("selectorSalon");
   const salon = selector?.value;
-
   const tabla = document.getElementById("tablaStockActual");
   tabla.innerHTML = "";
 
+  // Evitar suscripciones duplicadas
+  if (unsubscribeIngresos) unsubscribeIngresos();
+  if (unsubscribePedidos) unsubscribePedidos();
+  if (unsubscribeTotal) unsubscribeTotal();
+
+  // === Mapas de datos en memoria ===
   const ingresos = new Map();
-  const cajasIngresadas = new Map();
-  const rotas = new Map();
   const pedidos = new Map();
-  const cajasPedidas = new Map();
-  const articulosOficialesSet = new Set();
+  const rotas = new Map();
+  const stockTotalMap = new Map();
+  const categoriasMap = new Map();
   const unidadesPorCajaMap = new Map();
+  const articulosValidos = new Set();
 
-  const db = getFirestore();
-
-  // 🔹 Cargar artículos oficiales (una sola vez)
+  // === Cachear artículos oficiales una sola vez ===
   const articulosSnap = await getDocs(collection(db, "stock-articulos"));
-  articulosSnap.forEach(doc => {
+  articulosSnap.forEach((doc) => {
     const data = doc.data();
     if (data.articulo) {
       const nombre = data.articulo.trim().toLowerCase();
-      articulosOficialesSet.add(nombre);
-      if (data["unixcajapack"]) {
-        unidadesPorCajaMap.set(nombre, parseInt(data["unixcajapack"]) || 0);
-      }
+      articulosValidos.add(nombre);
+      categoriasMap.set(nombre, data.categoria || "");
+      unidadesPorCajaMap.set(nombre, parseInt(data.unixcajapack) || 0);
     }
   });
 
-  // 🧹 Detener listeners anteriores antes de crear nuevos
-  if (unsubIngresos) unsubIngresos();
-  if (unsubPedidos) unsubPedidos();
-  if (unsubStockTotal) unsubStockTotal();
+  // === Función para actualizar o crear filas ===
+  function actualizarFila(articulo) {
+    // No mostrar si no existe oficialmente
+    if (!articulosValidos.has(articulo)) return;
 
-  // 🔹 Escuchar ingresos
-  unsubIngresos = onSnapshot(collection(db, "stock-ingreso"), (ingresoSnap) => {
+    const filaExistente = tabla.querySelector(`[data-articulo="${CSS.escape(articulo)}"]`);
+    const categoria = categoriasMap.get(articulo) || "";
+    const ingreso = ingresos.get(articulo) || 0;
+    const pedido = pedidos.get(articulo) || 0;
+    const stockData = stockTotalMap.get(articulo) || { unidades: 0, cajas: 0 };
+    const rota = rotas.get(articulo) || 0;
+
+    const html = `
+      <td>${categoria}</td>
+      <td>${articulo}</td>
+      <td class="text-center">${ingreso}</td>
+      <td class="text-center">${pedido}</td>
+      <td class="text-center stock-actual">${stockData.unidades}</td>
+      <td class="text-center">${stockData.cajas}</td>
+      <td class="text-center">${rota}</td>
+    `;
+
+    if (filaExistente) {
+      filaExistente.innerHTML = html;
+    } else {
+      const fila = document.createElement("tr");
+      fila.dataset.articulo = articulo;
+      fila.innerHTML = html;
+      tabla.appendChild(fila);
+    }
+  }
+
+  // === Escucha en tiempo real: stock-ingreso ===
+  const qIngresos = query(collection(db, "stock-ingreso"), where("origen", "==", salon));
+  unsubscribeIngresos = onSnapshot(qIngresos, (snapshot) => {
     ingresos.clear();
-    cajasIngresadas.clear();
     rotas.clear();
 
-    ingresoSnap.forEach(doc => {
+    snapshot.forEach((doc) => {
       const data = doc.data();
       const art = data.articulo?.trim().toLowerCase();
-      if (data.origen === salon && articulosOficialesSet.has(art)) {
-        const cantUnidades = parseInt(data.unidades) || 0;
-        const cantCajas = parseInt(data.cajas) || 0;
-        const cantRotas = parseInt(data.rotas) || 0;
-        const unidadesPorCaja = unidadesPorCajaMap.get(art) || 0;
-        const totalUnidades = cantUnidades + (cantCajas * unidadesPorCaja);
+      if (!art || !articulosValidos.has(art)) return;
 
-        ingresos.set(art, (ingresos.get(art) || 0) + totalUnidades);
-        cajasIngresadas.set(art, (cajasIngresadas.get(art) || 0) + cantCajas);
-        rotas.set(art, (rotas.get(art) || 0) + cantRotas);
-      }
+      const unidades = parseInt(data.unidades) || 0;
+      const cajas = parseInt(data.cajas) || 0;
+      const rotasCant = parseInt(data.rotas) || 0;
+      const uxc = unidadesPorCajaMap.get(art) || 0;
+      const total = unidades + cajas * uxc;
+
+      ingresos.set(art, (ingresos.get(art) || 0) + total);
+      rotas.set(art, (rotas.get(art) || 0) + rotasCant);
     });
 
-    actualizarTabla();
+    ingresos.forEach((_, art) => actualizarFila(art));
   });
 
-  // 🔹 Escuchar pedidos
-  unsubPedidos = onSnapshot(collection(db, "stock-pedidos"), (pedidosSnap) => {
+  // === Escucha en tiempo real: stock-pedidos ===
+  const qPedidos = query(collection(db, "stock-pedidos"), where("origen", "==", salon));
+  unsubscribePedidos = onSnapshot(qPedidos, (snapshot) => {
     pedidos.clear();
-    cajasPedidas.clear();
 
-    pedidosSnap.forEach(doc => {
+    snapshot.forEach((doc) => {
       const data = doc.data();
       const art = data.articulo?.trim().toLowerCase();
-      if (data.origen === salon && articulosOficialesSet.has(art)) {
-        const cantUnidades = parseInt(data.unidades) || 0;
-        const cantCajas = parseInt(data.cajas) || 0;
-        const unidadesPorCaja = unidadesPorCajaMap.get(art) || 0;
-        const totalUnidades = cantUnidades + (cantCajas * unidadesPorCaja);
+      if (!art || !articulosValidos.has(art)) return;
 
-        pedidos.set(art, (pedidos.get(art) || 0) + totalUnidades);
-        cajasPedidas.set(art, (cajasPedidas.get(art) || 0) + cantCajas);
-      }
+      const unidades = parseInt(data.unidades) || 0;
+      const cajas = parseInt(data.cajas) || 0;
+      const uxc = unidadesPorCajaMap.get(art) || 0;
+      const total = unidades + cajas * uxc;
+
+      pedidos.set(art, (pedidos.get(art) || 0) + total);
     });
 
-    actualizarTabla();
+    pedidos.forEach((_, art) => actualizarFila(art));
   });
 
-  // 🔹 Escuchar stock total
-  unsubStockTotal = onSnapshot(collection(db, "stock-total"), (stockTotalSnap) => {
-    const stockTotalMap = new Map();
+  // === Escucha en tiempo real: stock-total ===
+  unsubscribeTotal = onSnapshot(collection(db, "stock-total"), (snapshot) => {
+    stockTotalMap.clear();
 
-    stockTotalSnap.forEach(doc => {
+    snapshot.forEach((doc) => {
       const data = doc.data();
       const art = doc.id?.trim().toLowerCase();
-      if (data.salones && data.salones[salon]) {
-        stockTotalMap.set(art, {
-          unidades: parseInt(data.salones[salon].unidades) || 0,
-          cajas: parseInt(data.salones[salon].cajas) || 0
-        });
-      }
+      if (!art || !data.salones?.[salon] || !articulosValidos.has(art)) return;
+
+      stockTotalMap.set(art, {
+        unidades: parseInt(data.salones[salon].unidades) || 0,
+        cajas: parseInt(data.salones[salon].cajas) || 0,
+      });
     });
 
-    actualizarTabla(stockTotalMap);
+    stockTotalMap.forEach((_, art) => actualizarFila(art));
   });
-
-  // 🔹 Reconstruir tabla
-  function actualizarTabla(stockTotalMap = new Map()) {
-    tabla.innerHTML = "";
-    const articulos = new Set([...ingresos.keys(), ...pedidos.keys(), ...stockTotalMap.keys()]);
-
-    articulos.forEach(articulo => {
-      const ingreso = ingresos.get(articulo) || 0;
-      const pedido = pedidos.get(articulo) || 0;
-      const stockData = stockTotalMap.get(articulo) || { unidades: 0, cajas: 0 };
-      const stock = stockData.unidades;
-      const stockCajas = stockData.cajas;
-      const rota = rotas.get(articulo) || 0;
-
-      const docArticulo = articulosSnap.docs.find(d => d.data().articulo?.trim().toLowerCase() === articulo);
-      const categoria = docArticulo?.data().categoria || "";
-
-      const fila = `
-        <tr>
-          <td>${categoria}</td>
-          <td>${articulo}</td>
-          <td class="text-center">${ingreso}</td>
-          <td class="text-center">${pedido}</td>
-          <td class="stock-actual text-center">${stock}</td>
-          <td class="text-center">${stockCajas}</td>
-          <td class="text-center">${rota}</td>
-        </tr>
-      `;
-      tabla.insertAdjacentHTML("beforeend", fila);
-    });
-  }
 }
 
 // Actualiza solo la diferencia ingreso - pedido en la tabla (visual)
@@ -1002,6 +998,12 @@ window.addEventListener("DOMContentLoaded", async () => {
   await cargarSalones();
 });
 
+// 🧹 Limpia las suscripciones al salir de la página
+window.addEventListener("beforeunload", () => {
+  if (unsubscribeIngresos) unsubscribeIngresos();
+  if (unsubscribePedidos) unsubscribePedidos();
+  if (unsubscribeTotal) unsubscribeTotal();
+});
 
 async function cargarCategorias() {  //autocompletar categorias
   const categoriasSet = new Set(); // Evita duplicados

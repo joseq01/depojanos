@@ -2342,7 +2342,7 @@ function generarContenidoPagina(paginaItems) {
     </div>
 
       <!-- Salón -->
-      <div style="margin-top: 180px; font-size: 16px; margin-left: 80px;">${salonNombre}</div>
+      <div style="margin-top: 170px; font-size: 16px; margin-left: 80px;">${salonNombre}</div>
 
       <!-- Dirección -->
       <div style="height: 32px;"></div>
@@ -2352,7 +2352,7 @@ function generarContenidoPagina(paginaItems) {
   `;
 
   // 🔹 Posición inicial de los artículos y altura de fila
-  const startY = 208 + 32 + 60 + 118 - 8; // salón + margen aprox + dirección + margin-top ul = 344px
+  const startY = 208 + 32 + 60 + 108 - 8; // salón + margen aprox + dirección + margin-top ul = 344px
   const rowHeight = 38;              // altura de fila en px (≈1.2cm)
   const maxArticulos = 10;
 
@@ -2379,7 +2379,7 @@ function generarContenidoPagina(paginaItems) {
         display: flex;
         gap: 20px;
       ">
-        <span style="width: 160px; text-align: right; margin-left: -70px;">${detalles}</span>
+        <span style="width: 150px; text-align: right; margin-left: -55px;">${detalles}</span>
         <span style="flex: 1; margin-left: 8px;">${articulo}</span>
       </div>
     `;
@@ -2387,21 +2387,21 @@ function generarContenidoPagina(paginaItems) {
 
   // 🔹 Pie de página
 contenido += `
-  <div style="position: absolute; bottom: 55px; left: 40px; right: 40px; border-top: 1px solid #ccc; padding-top: 12px; font-size: 14px; display: flex; justify-content: flex-end;">
+  <div style="position: absolute; bottom: 75px; left: 40px; right: 40px; border-top: 1px solid #ccc; padding-top: 12px; font-size: 14px; display: flex; justify-content: flex-end;">
     
     <div style="text-align: right;">
       <!-- Primera línea: Marca, Modelo, Patente -->
-      <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: -3px;">
+      <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: -1px;">
         <div>${modelo || "&nbsp;"}</div>
         <div>${marca || "&nbsp;"}</div>
         <div>${patente || "&nbsp;"}</div>
       </div>
 
       <!-- Segunda línea: Chofer baja 2 líneas -->
-      <div style="margin-top: 90px;">${chofer || "&nbsp;"}</div>
+     <div style="margin-top: 75px; margin-right: 80px;">${chofer || "&nbsp;"}</div>
 
       <!-- Tercera línea: DNI baja 1 línea más abajo -->
-      <div style="margin-top: 32px;">${dni || "&nbsp;"}</div>
+      <div style="margin-top: 32px; margin-right: 80px;">${dni || "&nbsp;"}</div>
     </div>
 
   </div>
