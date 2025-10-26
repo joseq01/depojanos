@@ -92,51 +92,49 @@ table {
 }
 
 
-/* Flecha tipo triángulo */
+/* Contenedor tipo flecha mostaza, medio oculto */
 .proyector-arrow {
-  width: 0;
-  height: 0;
-  border-left: 30px solid transparent;
-  border-right: 30px solid transparent;
-  border-top: 30px solid #333;
-  margin: 10px auto 0 auto;
+  width: 60px;                        /* ancho total desplegado */
+  height: 48px;
+  background-color: #d4a017;          /* mostaza */
+  border-top-right-radius: 12px;
+  border-bottom-right-radius: 12px;
   cursor: pointer;
-  transition: transform 0.2s ease;
-}
-
-/* Cerrada: triángulo hacia abajo (igual que antes) */
-#proyectorFlecha.proyector-arrow{
-  width:0;height:0;
-  border-left:30px solid transparent;
-  border-right:30px solid transparent;
-  border-top:30px solid #333;
-  margin:0 auto;cursor:pointer;transition:all .3s ease;position:relative;
-}
-
-/* Abierta: doble chevron con degradado, misma altura y más ancho */
-#proyectorFlecha.proyector-arrow.up{
-  border:none; width:100px; height:30px; /* cambiá el ancho acá */
-  background:none; position:relative;
-}
-#proyectorFlecha.proyector-arrow.up::before{
-  content:""; position:absolute; inset:0;
-  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 24' preserveAspectRatio='none' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><defs><linearGradient id='g' x1='0%' y1='0%' x2='100%' y2='0%'><stop offset='0%' stop-color='%23ff00cc'/><stop offset='100%' stop-color='%236633ff'/></linearGradient></defs><path d='M6 16l18-12 18 12' stroke='url(%23g)' fill='none'/><path d='M6 24l18-12 18 12' stroke='url(%23g)' fill='none'/></svg>") no-repeat center;
-  background-size:100% 100%;
-}
-
-
-/* Hover efecto */
-.proyector-arrow:hover {
-  transform: scale(1.1) translateY(-2px);
-}
-
-/* Texto indicación */
-.proyector-text {
+  transition: all 0.35s ease;
+  position: fixed;
+  left: -45px;                        /* mitad oculta */
+  top: 80px;                          /* debajo del navbar */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: bold;
   font-size: 0.85rem;
-  color: #444;
-  transition: all 0.3s ease;
-  margin-top: 5px;
+  z-index: 9999;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  letter-spacing: 0.5px;
 }
+
+
+/* Cuando pasa el mouse o se activa, se despliega suavemente */
+.proyector-arrow:hover,
+.proyector-arrow.activa {
+  left: 0;                            /* se muestra completa */
+  transform: scale(1.05);
+  background-color: #e0b52b;
+}
+
+/* Texto centrado */
+.proyector-arrow span {
+  pointer-events: none;
+}
+
+
+/* Oculta el texto cuando el formulario está abierto */
+.formulario-abierto .proyector-text {
+  opacity: 0;
+}
+
 
 /* Encabezado siempre visible debajo del proyector */
 thead th {
@@ -445,58 +443,73 @@ footer {
 
 <!-- Proyector + Formulario -->
 <div class="proyector-box text-center" id="proyectorBox">
+
+  <!-- Botón mostaza (medio oculto, texto CARGAR) -->
+  <div id="proyectorFlecha" class="proyector-arrow">
+    CARGAR
+  </div>
+
+
   <!-- Formulario -->
   <div id="formularioIngreso" class="oculto container mt-0">
     <h6 class="mt-2 text-start">Ingresos</h6>
     <div class="card p-3">
       <div class="row align-items-end">
-       <div class="col-md-4">
-  <label for="articulo" class="form-label">Artículo:</label>
-  <input
-    type="text"
-    id="articulo"
-    class="form-control"
-    list="listaSugerencias"
-    name="articulo"
-    placeholder="Nombre del artículo"
-    autocomplete="off"
-    autocorrect="off"
-    autocapitalize="off"
-    spellcheck="false"
-  />
-  <datalist id="listaSugerencias"></datalist>
-</div>
+
+        <div class="col-md-4">
+          <label for="articulo" class="form-label">Artículo:</label>
+          <input
+            type="text"
+            id="articulo"
+            class="form-control"
+            list="listaSugerencias"
+            name="articulo"
+            placeholder="Nombre del artículo"
+            autocomplete="off"
+            autocorrect="off"
+            autocapitalize="off"
+            spellcheck="false"
+          />
+          <datalist id="listaSugerencias"></datalist>
+        </div>
 
         <div class="col-auto">
           <label for="unidades" class="form-label">Uni.</label>
           <input type="number" id="unidades" class="form-control" style="width: 80px;" />
         </div>
+
         <div class="col-auto">
           <label for="cajas" class="form-label">Caj./Pack</label>
           <input type="number" id="cajas" class="form-control" style="width: 80px;" />
         </div>
+
         <div class="col-auto">
           <label for="rotas" class="form-label">Uni. Rotas</label>
           <input type="number" id="rotas" class="form-control" style="width: 80px;" />
         </div>
+
         <div class="col-auto">
           <label for="salonIngreso" class="form-label">Salón Origen</label>
           <input type="text" id="salonIngreso" class="form-control" list="listaSalonesIngreso" style="width: 120px;" />
           <datalist id="listaSalonesIngreso"></datalist>
         </div>
-         <div class="col-auto">
+
+        <div class="col-auto">
           <label for="salonEnviar" class="form-label">Salón a Enviar</label>
           <input type="text" id="salonEnviar" class="form-control" list="listaSalonesIngreso" style="width: 100px;" />
           <datalist id="listaSalonesIngreso"></datalist>
         </div>
+
         <div class="col-auto">
           <label for="salonDestino" class="form-label">Salón actual</label>
           <div id="salonDestino" class="form-control bg-light" style="width: 120px; pointer-events: none;">Deposito Janos</div>
         </div>
+
         <div class="col-auto">
           <label for="notas" class="form-label"> </label>
           <input type="text" id="notas" class="form-control" placeholder="Observaciones..." style="width: 450px;" />
         </div>
+
         <div class="col-auto align-self-end">
           <button class="btn btn-sm btn-primary" onclick="agregarArticulo()">Agregar</button>
           <button id="botonAgregarCombos" class="btn btn-sm btn-warning">Agregar Combos</button>
@@ -504,13 +517,6 @@ footer {
       </div>
     </div>
   </div>
-
- <div id="proyectorFlecha" class="proyector-arrow"></div>
-
-
-
-  <!-- Mensaje final -->
-  <div class="proyector-text" id="proyectorMensaje">deslice hacia abajo</div>
 </div>
 
 <!-- Tabla con encabezado sticky y scroll solo en celulares -->
@@ -991,44 +997,64 @@ async function actualizarStockTotal(articulo, unidades, cajas, origen) {
   return true;
 }
 
-let articulosCache = []; // cache para stock-articulos
+let articulosCache = [];       // array de objetos completos
+let nombresArticulosCache = []; // solo nombres para datalist y includes
+
 async function cargarArticulosDesdeFirestore() {
-  const cache = sessionStorage.getItem("articulosCache");
+  const cache = sessionStorage.getItem("articulosOficialesCache");
   if (cache) {
     articulosCache = JSON.parse(cache);
+    nombresArticulosCache = articulosCache.map(a => a.articulo?.trim().toLowerCase());
     console.log("✅ Artículos cargados desde cache (ingreso)");
-    llenarDatalistArticulos(); // 👈 agregamos esto
+    llenarDatalistArticulos();
     return;
   }
+
   const snapshot = await getDocs(collection(db, "stock-articulos"));
-  articulosCache = snapshot.docs.map(doc => doc.data().articulo.trim().toLowerCase());
-  sessionStorage.setItem("articulosCache", JSON.stringify(articulosCache));
+  articulosCache = snapshot.docs.map(doc => {
+    const data = doc.data();
+    return {
+      articulo: data.articulo?.trim().toLowerCase() || "",
+      categoria: data.categoria || "",
+      unixcajapack: data.unixcajapack || 0
+    };
+  });
+
+  nombresArticulosCache = articulosCache.map(a => a.articulo);
+
+  sessionStorage.setItem("articulosOficialesCache", JSON.stringify(articulosCache));
   console.log("📦 Artículos cargados desde Firestore y cacheados (ingreso)");
-  llenarDatalistArticulos(); // 👈 agregamos esto
+  llenarDatalistArticulos();
 }
+
+// Función que usa solo el array de nombres
 async function existeArticuloEnStockArticulos(nombreArticulo) {
   const nombreNormalizado = nombreArticulo.trim().toLowerCase();
-  if (articulosCache.length === 0) {
+  if (nombresArticulosCache.length === 0) {
     await cargarArticulosDesdeFirestore();
   }
-  return articulosCache.includes(nombreNormalizado);
+  return nombresArticulosCache.includes(nombreNormalizado);
 }
-// 👇 NUEVA función para llenar el datalist
+
+// Llenar datalist
 function llenarDatalistArticulos() {
   const datalist = document.getElementById("listaSugerencias");
   if (!datalist) return;
 
   datalist.innerHTML = "";
-  articulosCache.forEach(nombre => {
-    const option = document.createElement("option");
-    option.value = nombre;
-    datalist.appendChild(option);
+  nombresArticulosCache.forEach(nombre => {
+    if (nombre) {
+      const option = document.createElement("option");
+      option.value = nombre;
+      datalist.appendChild(option);
+    }
   });
 }
-// 👇 Llamada al cargar la página
+
 document.addEventListener("DOMContentLoaded", () => {
-  cargarArticulosDesdeFirestore(); // ya incluye llenar datalist
+  cargarArticulosDesdeFirestore();
 });
+
 
  
 async function agregarArticulo() {
@@ -1946,79 +1972,69 @@ function toggleBandeja() {
 
 //fina bandeja
 
-//oculta formulario
-const proyectorBox = document.getElementById("proyectorBox");
-const formulario = document.getElementById("formularioIngreso");
-const mensaje = document.getElementById("proyectorMensaje");
-const flecha = document.getElementById("proyectorFlecha");
+document.addEventListener("DOMContentLoaded", () => {
+  const formulario = document.getElementById("formularioIngreso");
+  const flecha = document.getElementById("proyectorFlecha");
 
-let animando = false; // 🔹 evita doble animación
+  let abierto = false;
+  let animando = false;
 
-// Mostrar al pasar el mouse (solo si está oculto)
-proyectorBox.addEventListener("mouseenter", () => {
-  if (!formulario.classList.contains("visible") && !animando) {
-    formulario.classList.remove("oculto");
-    formulario.classList.add("visible");
-    mensaje.textContent = "deslice hacia arriba";
-    flecha.classList.add("up");
-  }
-});
+  // Inicializar texto y clase
+  flecha.textContent = "CARGAR";
+  flecha.classList.add("boton-cargar");
 
-// Mostrar/Ocultar al hacer clic en la flecha
-flecha.addEventListener("click", () => {
-  if (animando) return; // 🔹 evita conflicto si ya está animando
-
-  const abierto = formulario.classList.contains("visible");
-
-  if (abierto) {
-    animando = true;
-    formulario.classList.remove("visible");
-    formulario.classList.add("desgranando");
-    mensaje.textContent = "deslice hacia abajo";
-    flecha.classList.remove("up");
-
-    // Espera al final de la animación
-    const onEnd = () => {
-      formulario.classList.remove("desgranando");
-      formulario.classList.add("oculto");
-      formulario.removeEventListener("animationend", onEnd);
-      animando = false;
-    };
-    formulario.addEventListener("animationend", onEnd, { once: true });
-
-  } else {
+  function abrirFormulario() {
+    if (abierto || animando) return;
     animando = true;
     formulario.classList.remove("oculto");
     formulario.classList.add("visible");
-    mensaje.textContent = "deslice hacia arriba";
-    flecha.classList.add("up");
-
-    const onEnd = () => {
+    flecha.classList.add("activa");
+    setTimeout(() => {
       animando = false;
-      formulario.removeEventListener("animationend", onEnd);
-    };
-    formulario.addEventListener("animationend", onEnd, { once: true });
+      abierto = true;
+    }, 400);
   }
-});
 
-// 🔹 Cerrar al pasar el mouse por la flecha (si ya está abierto)
-flecha.addEventListener("mouseenter", () => {
-  if (formulario.classList.contains("visible") && !animando) {
+  function cerrarFormulario() {
+    if (!abierto || animando) return;
     animando = true;
     formulario.classList.remove("visible");
-    formulario.classList.add("desgranando");
-    mensaje.textContent = "deslice hacia abajo";
-    flecha.classList.remove("up");
-
-    const onEnd = () => {
-      formulario.classList.remove("desgranando");
-      formulario.classList.add("oculto");
-      formulario.removeEventListener("animationend", onEnd);
+    formulario.classList.add("oculto");
+    flecha.classList.remove("activa");
+    setTimeout(() => {
       animando = false;
-    };
-    formulario.addEventListener("animationend", onEnd, { once: true });
+      abierto = false;
+    }, 400);
   }
+
+  // Click sobre la flecha
+  flecha.addEventListener("click", () => {
+    if (abierto) cerrarFormulario();
+    else abrirFormulario();
+  });
+
+  // Pasar el mouse sobre la flecha (hover)
+  flecha.addEventListener("mouseenter", () => {
+    if (abierto) cerrarFormulario();
+    else abrirFormulario();
+  });
+
+  // Swipe táctil (móvil)
+  let startX = 0;
+  flecha.addEventListener("touchstart", (e) => {
+    startX = e.touches[0].clientX;
+  });
+
+  flecha.addEventListener("touchend", (e) => {
+    const endX = e.changedTouches[0].clientX;
+    const deltaX = startX - endX;
+    if (Math.abs(deltaX) > 50) {
+      if (abierto) cerrarFormulario();
+      else abrirFormulario();
+    }
+  });
 });
+
 
   </script>
 

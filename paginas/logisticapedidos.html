@@ -72,56 +72,75 @@
   transition: all 0.4s ease;
 }
 
+/* Proyector PEDIDOS */
+.proyector-box {
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #ccc;
+  box-shadow: 0 5px 6px rgba(0,0,0,0.15);
+  position: relative;
+  z-index: 2;
+  transition: all 0.3s ease;
+  padding-bottom: 30px;
+  display: flex; /* para posicionar flecha y contenido */
+  align-items: flex-start;
+}
+
+/* Formulario oculto */
+#formularioPedidos.oculto {
+  height: 0;
+  opacity: 0;
+  overflow: hidden;
+  padding: 0 !important;
+  margin: 0 !important;
+  transition: all 0.4s ease;
+  flex: 1;
+}
+
 /* Formulario visible */
 #formularioPedidos.visible {
   opacity: 1;
   height: auto;
   padding-top: 20px;
-  padding-bottom: 50px; /* espacio para flecha colgando */
+  padding-bottom: 20px;
+  flex: 1;
 }
 
-/* --- Flecha cerrada: triángulo abajo --- */
+/* Flecha mostaza, medio oculta a la izquierda */
 .proyector-arrow {
-  width: 0;
-  height: 0;
-  border-left: 30px solid transparent;
-  border-right: 30px solid transparent;
-  border-top: 30px solid #333; /* negra como siempre */
-  margin: 0 auto;
+  width: 60px;                        /* ancho total desplegado */
+  height: 48px;
+  background-color: #d4a017;          /* mostaza */
+  border-top-right-radius: 12px;
+  border-bottom-right-radius: 12px;
   cursor: pointer;
-  transition: all 0.3s ease;
-  position: relative;
-}
-
-/* --- Flecha abierta: doble chevron con degradado, ancho configurable --- */
-.proyector-arrow.up {
-  border: none;          /* oculto el triángulo */
-  width: 100px;          /* << ajustá acá el ancho (doble, triple, etc.) */
-  height: 30px;          /* misma altura que el triángulo */
-  background: none;
-  position: relative;
-}
-
-.proyector-arrow.up::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 24' preserveAspectRatio='none' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><defs><linearGradient id='g' x1='0%' y1='0%' x2='100%' y2='0%'><stop offset='0%' stop-color='%23ff00cc'/><stop offset='100%' stop-color='%236633ff'/></linearGradient></defs><path d='M6 16l18-12 18 12' stroke='url(%23g)' fill='none'/><path d='M6 24l18-12 18 12' stroke='url(%23g)' fill='none'/></svg>") no-repeat center;
-  background-size: 100% 100%;  /* ocupa todo el contenedor */
-}
-
-/* Hover efecto */
-.proyector-arrow:hover {
-  transform: scale(1.1) translateY(-2px);
-}
-
-/* Texto indicación */
-.proyector-text {
+  transition: all 0.35s ease;
+  position: fixed;
+  left: -45px;                        /* mitad oculta */
+  top: 80px;                          /* debajo del navbar */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: bold;
   font-size: 0.85rem;
-  color: #444;
-  transition: all 0.3s ease;
-  margin-top: 5px;
+  z-index: 9999;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  letter-spacing: 0.5px;
 }
+
+/* Cuando pasa el mouse o se activa, se despliega suavemente */
+.proyector-arrow:hover,
+.proyector-arrow.activa {
+  left: 0;                            /* se muestra completa */
+  transform: scale(1.05);
+  background-color: #e0b52b;
+}
+
+/* Texto centrado */
+.proyector-arrow span {
+  pointer-events: none;
+}
+
 
 /* Encabezado visible debajo del proyector */
 thead th {
@@ -488,28 +507,33 @@ footer {
 
   <!-- Formulario -->
     
- <!-- Pantalla proyector desplegable para PEDIDOS -->
-<div class="proyector-box text-center" id="proyectorBoxPedidos">
+<!-- Pantalla proyector desplegable para PEDIDOS -->
+<div class="proyector-box" id="proyectorBoxPedidos">
+  
+  <!-- Flecha izquierda -->
+  <div class="proyector-arrow" id="proyectorFlechaPedidos">CARGA</div>
+
+  <!-- Formulario de pedidos -->
   <div id="formularioPedidos" class="oculto container mt-3">
     <h6 class="mt-2 text-start">Pedidos:</h6>
     <div class="card p-3">
       <div class="row align-items-end">
-      <div class="col-md-4">
-  <label for="articulo" class="form-label">Artículo:</label>
-  <input
-    type="text"
-    id="articulo"
-    class="form-control"
-    list="listaSugerencias"
-    name="articulo"
-    placeholder="Nombre del artículo"
-    autocomplete="off"
-    autocorrect="off"
-    autocapitalize="off"
-    spellcheck="false"
-  />
-  <datalist id="listaSugerencias"></datalist>
-</div>
+        <div class="col-md-4">
+          <label for="articulo" class="form-label">Artículo:</label>
+          <input
+            type="text"
+            id="articulo"
+            class="form-control"
+            list="listaSugerencias"
+            name="articulo"
+            placeholder="Nombre del artículo"
+            autocomplete="off"
+            autocorrect="off"
+            autocapitalize="off"
+            spellcheck="false"
+          />
+          <datalist id="listaSugerencias"></datalist>
+        </div>
 
         <div class="col-auto">
           <label for="unidades" class="form-label">Uni.</label>
@@ -536,10 +560,10 @@ footer {
     </div>
   </div>
 
-  <!-- Flecha colgando abajo -->
-  <div class="proyector-arrow" id="proyectorFlechaPedidos"></div>
-  <div class="proyector-text" id="proyectorMensajePedidos">deslice hacia abajo</div>
+  <!-- Texto indicación -->
+  <div class="proyector-text" id="proyectorMensajePedidos"></div>
 </div>
+
 
 <!-- 📌 Tabla pedidos -->
 <div class="container px-0"> <!-- Quitamos padding horizontal en móviles -->
@@ -1036,44 +1060,60 @@ async function obtenerStockDisponible() {
 
   return stock;
 }
-let articulosCache = []; // arreglo global
+let articulosCache = [];       // array de objetos completos
+let nombresArticulosCache = []; // array solo con strings para autocompletar y includes
 
 async function cargarArticulosDesdeFirestore() {
-  const cache = sessionStorage.getItem("articulosCache");
+  const cache = sessionStorage.getItem("articulosOficialesCache");
   if (cache) {
     articulosCache = JSON.parse(cache);
+    nombresArticulosCache = articulosCache.map(a => a.articulo?.trim() || "");
     console.log("✅ Artículos cargados desde cache");
     llenarDatalistArticulos();
     return;
   }
 
   const snapshot = await getDocs(collection(db, "stock-articulos"));
-  articulosCache = snapshot.docs.map(doc => doc.data().articulo);
-  sessionStorage.setItem("articulosCache", JSON.stringify(articulosCache));
+  articulosCache = snapshot.docs.map(doc => {
+    const data = doc.data();
+    return {
+      articulo: data.articulo?.trim() || "",
+      categoria: data.categoria || "",
+      unixcajapack: data.unixcajapack || 0
+    };
+  });
+
+  nombresArticulosCache = articulosCache.map(a => a.articulo);
+
+  // Guardamos en sessionStorage
+  sessionStorage.setItem("articulosOficialesCache", JSON.stringify(articulosCache));
   console.log("📦 Artículos cargados desde Firestore y cacheados");
   llenarDatalistArticulos();
 }
 
-// ✅ Esta función llena el <datalist> para autocompletar
+// Llenar datalist
 function llenarDatalistArticulos() {
   const datalist = document.getElementById("listaSugerencias");
   if (!datalist) return;
 
-  datalist.innerHTML = ""; // limpia por si ya había opciones
-  articulosCache.forEach(nombre => {
-    const option = document.createElement("option");
-    option.value = nombre;
-    datalist.appendChild(option);
+  datalist.innerHTML = "";
+  nombresArticulosCache.forEach(nombre => {
+    if (nombre) {
+      const option = document.createElement("option");
+      option.value = nombre;
+      datalist.appendChild(option);
+    }
   });
 }
 
-// Función que usa el cache
+// Función que usa cache solo de nombres
 async function existeArticulo(nombreArticulo) {
-  if (articulosCache.length === 0) {
+  if (nombresArticulosCache.length === 0) {
     await cargarArticulosDesdeFirestore();
   }
-  return articulosCache.includes(nombreArticulo);
+  return nombresArticulosCache.includes(nombreArticulo);
 }
+
 
 // Ejecutar al cargar la página
 document.addEventListener("DOMContentLoaded", () => {
@@ -2920,72 +2960,40 @@ function limpiarFiltro() {
   }, 2000);
 }
 
-const proyectorBoxPedidos = document.getElementById("proyectorBoxPedidos");
-const formularioPedidos = document.getElementById("formularioPedidos");
-const flechaPedidos = document.getElementById("proyectorFlechaPedidos");
-const mensajePedidos = document.getElementById("proyectorMensajePedidos");
-
-// Al pasar el mouse por el box, mostrar el formulario (si está oculto)
-proyectorBoxPedidos.addEventListener("mouseenter", () => {
-  if (!formularioPedidos.classList.contains("visible")) {
-    formularioPedidos.classList.remove("oculto");
-    formularioPedidos.classList.add("visible");
-    flechaPedidos.classList.add("up");
-    mensajePedidos.textContent = "deslice hacia arriba";
-  }
-});
-
-// Al hacer clic en la flecha, alternar mostrar/ocultar
 document.addEventListener("DOMContentLoaded", () => {
   const formularioPedidos = document.getElementById("formularioPedidos");
   const flechaPedidos = document.getElementById("proyectorFlechaPedidos");
   const mensajePedidos = document.getElementById("proyectorMensajePedidos");
 
+  let abierto = false;
   let animando = false;
 
   function abrirFormulario() {
+    if (abierto || animando) return;
     animando = true;
     formularioPedidos.classList.remove("oculto");
     formularioPedidos.classList.add("visible");
-    flechaPedidos.classList.add("up");
-    mensajePedidos.textContent = "deslice hacia arriba";
-
-    const onEnd = () => {
-      formularioPedidos.removeEventListener("animationend", onEnd);
-      animando = false;
-    };
-    formularioPedidos.addEventListener("animationend", onEnd, { once: true });
+    flechaPedidos.classList.add("abierto");
+    // mensajePedidos.textContent = "deslice hacia arriba";
+    setTimeout(() => { animando = false; abierto = true; }, 400);
   }
 
   function cerrarFormulario() {
+    if (!abierto || animando) return;
     animando = true;
     formularioPedidos.classList.remove("visible");
-    formularioPedidos.classList.add("desgranando");
-    flechaPedidos.classList.remove("up");
-    mensajePedidos.textContent = "deslice hacia abajo";
-
-    const onEnd = () => {
-      formularioPedidos.classList.remove("desgranando");
-      formularioPedidos.classList.add("oculto");
-      formularioPedidos.removeEventListener("animationend", onEnd);
-      animando = false;
-    };
-    formularioPedidos.addEventListener("animationend", onEnd, { once: true });
+    formularioPedidos.classList.add("oculto");
+    flechaPedidos.classList.remove("abierto");
+    // mensajePedidos.textContent = "deslice hacia abajo";
+    setTimeout(() => { animando = false; abierto = false; }, 400);
   }
 
-  // Click en la flecha: alterna mostrar/ocultar
-  flechaPedidos.addEventListener("click", () => {
-    if (formularioPedidos.classList.contains("visible")) {
+  // Hover horizontal sobre la flecha: alterna abrir/cerrar
+  flechaPedidos.addEventListener("mouseenter", () => {
+    if (abierto) {
       cerrarFormulario();
     } else {
       abrirFormulario();
-    }
-  });
-
-  // Hover sobre la flecha: cierra si está abierto
-  flechaPedidos.addEventListener("mouseenter", () => {
-    if (formularioPedidos.classList.contains("visible")) {
-      cerrarFormulario();
     }
   });
 });

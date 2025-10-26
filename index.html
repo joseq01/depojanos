@@ -857,11 +857,57 @@ let unsubscribeIngresos = null;
 let unsubscribePedidos = null;
 let unsubscribeTotal = null;
 
+// Cache global para autocompletar
+let articulosCache = [];
+
 export async function cargarStockActual() {
   const selector = document.getElementById("selectorSalon");
   const salon = selector?.value;
   const tabla = document.getElementById("tablaStockActual");
   tabla.innerHTML = "";
+
+  // === 🔹 Mostrar cartel "Cargando..." ===
+  let overlay = document.getElementById("overlayCarga");
+  if (!overlay) {
+    overlay = document.createElement("div");
+    overlay.id = "overlayCarga";
+    overlay.innerHTML = `
+      <div style="
+        background: rgba(0,0,0,0.6);
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        transition: opacity 0.3s ease;
+      ">
+        <div style="
+          background: #fff;
+          padding: 25px 40px;
+          border-radius: 15px;
+          box-shadow: 0 0 15px rgba(0,0,0,0.3);
+          font-family: Arial, sans-serif;
+          font-size: 18px;
+          text-align: center;
+          color: #333;
+          animation: pulse 1.2s infinite ease-in-out;
+        ">
+          🔄 Cargando datos del salón...
+        </div>
+      </div>
+      <style>
+        @keyframes pulse {
+          0%, 100% { opacity: 0.8; transform: scale(1); }
+          50% { opacity: 1; transform: scale(1.05); }
+        }
+      </style>
+    `;
+    document.body.appendChild(overlay);
+  } else {
+    overlay.style.display = "flex";
+    overlay.style.opacity = "1";
+  }
 
   // Evitar suscripciones duplicadas
   if (unsubscribeIngresos) unsubscribeIngresos();
@@ -877,10 +923,37 @@ export async function cargarStockActual() {
   const unidadesPorCajaMap = new Map();
   const articulosValidos = new Set();
 
-  // === Cachear artículos oficiales una sola vez ===
-  const articulosSnap = await getDocs(collection(db, "stock-articulos"));
-  articulosSnap.forEach((doc) => {
-    const data = doc.data();
+  console.time("⏱ Tiempo de carga de stock");
+
+  // === Cachear artículos oficiales ===
+  const cacheArticulos = sessionStorage.getItem("articulosCache");
+  let listaArticulos = [];
+
+  if (cacheArticulos) {
+    console.log("✅ Artículos desde cache local");
+    listaArticulos = JSON.parse(cacheArticulos);
+  } else {
+    console.log("⚠️ Cache vacío, cargando artículos...");
+    const articulosSnap = await getDocs(collection(db, "stock-articulos"));
+    articulosSnap.forEach(doc => listaArticulos.push(doc.data()));
+    sessionStorage.setItem("articulosCache", JSON.stringify(listaArticulos));
+  }
+
+  articulosCache = listaArticulos.map(a => a.articulo?.trim() || "");
+
+  // Autocompletado
+  const datalist = document.getElementById("listaSugerencias");
+  if (datalist) {
+    datalist.innerHTML = "";
+    articulosCache.forEach(nombre => {
+      const option = document.createElement("option");
+      option.value = nombre;
+      datalist.appendChild(option);
+    });
+  }
+
+  // === Preparar mapas ===
+  listaArticulos.forEach(data => {
     if (data.articulo) {
       const nombre = data.articulo.trim().toLowerCase();
       articulosValidos.add(nombre);
@@ -889,11 +962,8 @@ export async function cargarStockActual() {
     }
   });
 
-  // === Función para actualizar o crear filas ===
   function actualizarFila(articulo) {
-    // No mostrar si no existe oficialmente
     if (!articulosValidos.has(articulo)) return;
-
     const filaExistente = tabla.querySelector(`[data-articulo="${CSS.escape(articulo)}"]`);
     const categoria = categoriasMap.get(articulo) || "";
     const ingreso = ingresos.get(articulo) || 0;
@@ -911,9 +981,8 @@ export async function cargarStockActual() {
       <td class="text-center">${rota}</td>
     `;
 
-    if (filaExistente) {
-      filaExistente.innerHTML = html;
-    } else {
+    if (filaExistente) filaExistente.innerHTML = html;
+    else {
       const fila = document.createElement("tr");
       fila.dataset.articulo = articulo;
       fila.innerHTML = html;
@@ -921,68 +990,57 @@ export async function cargarStockActual() {
     }
   }
 
-  // === Escucha en tiempo real: stock-ingreso ===
+  // === Escucha en tiempo real ===
   const qIngresos = query(collection(db, "stock-ingreso"), where("origen", "==", salon));
-  unsubscribeIngresos = onSnapshot(qIngresos, (snapshot) => {
-    ingresos.clear();
-    rotas.clear();
+  const qPedidos = query(collection(db, "stock-pedidos"), where("origen", "==", salon));
 
-    snapshot.forEach((doc) => {
-      const data = doc.data();
-      const art = data.articulo?.trim().toLowerCase();
+  unsubscribeIngresos = onSnapshot(qIngresos, snapshot => {
+    ingresos.clear(); rotas.clear();
+    snapshot.forEach(doc => {
+      const d = doc.data(); const art = d.articulo?.trim().toLowerCase();
       if (!art || !articulosValidos.has(art)) return;
-
-      const unidades = parseInt(data.unidades) || 0;
-      const cajas = parseInt(data.cajas) || 0;
-      const rotasCant = parseInt(data.rotas) || 0;
+      const u = parseInt(d.unidades) || 0;
+      const c = parseInt(d.cajas) || 0;
+      const rot = parseInt(d.rotas) || 0;
       const uxc = unidadesPorCajaMap.get(art) || 0;
-      const total = unidades + cajas * uxc;
-
-      ingresos.set(art, (ingresos.get(art) || 0) + total);
-      rotas.set(art, (rotas.get(art) || 0) + rotasCant);
+      ingresos.set(art, (ingresos.get(art) || 0) + u + c * uxc);
+      rotas.set(art, (rotas.get(art) || 0) + rot);
     });
-
     ingresos.forEach((_, art) => actualizarFila(art));
   });
 
-  // === Escucha en tiempo real: stock-pedidos ===
-  const qPedidos = query(collection(db, "stock-pedidos"), where("origen", "==", salon));
-  unsubscribePedidos = onSnapshot(qPedidos, (snapshot) => {
+  unsubscribePedidos = onSnapshot(qPedidos, snapshot => {
     pedidos.clear();
-
-    snapshot.forEach((doc) => {
-      const data = doc.data();
-      const art = data.articulo?.trim().toLowerCase();
+    snapshot.forEach(doc => {
+      const d = doc.data(); const art = d.articulo?.trim().toLowerCase();
       if (!art || !articulosValidos.has(art)) return;
-
-      const unidades = parseInt(data.unidades) || 0;
-      const cajas = parseInt(data.cajas) || 0;
+      const u = parseInt(d.unidades) || 0;
+      const c = parseInt(d.cajas) || 0;
       const uxc = unidadesPorCajaMap.get(art) || 0;
-      const total = unidades + cajas * uxc;
-
-      pedidos.set(art, (pedidos.get(art) || 0) + total);
+      pedidos.set(art, (pedidos.get(art) || 0) + u + c * uxc);
     });
-
     pedidos.forEach((_, art) => actualizarFila(art));
   });
 
-  // === Escucha en tiempo real: stock-total ===
-  unsubscribeTotal = onSnapshot(collection(db, "stock-total"), (snapshot) => {
+  unsubscribeTotal = onSnapshot(collection(db, "stock-total"), snapshot => {
     stockTotalMap.clear();
-
-    snapshot.forEach((doc) => {
+    snapshot.forEach(doc => {
       const data = doc.data();
       const art = doc.id?.trim().toLowerCase();
       if (!art || !data.salones?.[salon] || !articulosValidos.has(art)) return;
-
       stockTotalMap.set(art, {
         unidades: parseInt(data.salones[salon].unidades) || 0,
         cajas: parseInt(data.salones[salon].cajas) || 0,
       });
     });
-
     stockTotalMap.forEach((_, art) => actualizarFila(art));
+
+    // ✅ Ocultar el cartel de carga cuando ya hay datos
+    overlay.style.opacity = "0";
+    setTimeout(() => (overlay.style.display = "none"), 400);
   });
+
+  console.timeEnd("⏱ Tiempo de carga de stock");
 }
 
 // Actualiza solo la diferencia ingreso - pedido en la tabla (visual)
