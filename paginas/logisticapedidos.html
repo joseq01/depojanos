@@ -2375,9 +2375,9 @@ function generarContenidoPagina(paginaItems) {
   let contenido = `
     <div style="font-family: Arial, sans-serif; padding: 60px 40px; position: relative; min-height: 100vh; box-sizing: border-box;">
       <!-- Fecha -->
-      <div style="position: absolute; top: 60px; right: 74px; font-size: 16px;">
-        <span style="display: inline-block; width: 1cm; text-align: center;">${dia || ""}</span>
-      <span style="display: inline-block; width: 1cm; text-align: center;">${mes || ""}</span>
+      <div style="position: absolute; top: 60px; right: 40px; font-size: 16px;">
+        <span style="display: inline-block; width: 1cm; text-align: center; margin-right: 0.5cm;">${dia || ""}</span>
+      <span style="display: inline-block; width: 1cm; text-align: center; margin-right: 0.3cm;">${mes || ""}</span>
       <span style="display: inline-block; width: 1cm; text-align: center; margin-left: 0.6cm;">${anio || ""}</span>
     </div>
 
@@ -2393,7 +2393,7 @@ function generarContenidoPagina(paginaItems) {
 
   // 🔹 Posición inicial de los artículos y altura de fila
   const startY = 208 + 32 + 60 + 108 - 8; // salón + margen aprox + dirección + margin-top ul = 344px
-  const rowHeight = 38;              // altura de fila en px (≈1.2cm)
+  const rowHeight = 40;              // altura de fila en px (≈1.2cm)
   const maxArticulos = 10;
 
   for (let i = 0; i < maxArticulos; i++) {
@@ -2438,10 +2438,10 @@ contenido += `
       </div>
 
       <!-- Segunda línea: Chofer baja 2 líneas -->
-     <div style="margin-top: 75px; margin-right: 80px;">${chofer || "&nbsp;"}</div>
+     <div style="margin-top: 49px; margin-right: 80px;">${chofer || "&nbsp;"}</div>
 
       <!-- Tercera línea: DNI baja 1 línea más abajo -->
-      <div style="margin-top: 24px; margin-right: 80px;">${dni || "&nbsp;"}</div>
+      <div style="margin-top: 48px; margin-right: 80px;">${dni || "&nbsp;"}</div>
     </div>
 
   </div>
