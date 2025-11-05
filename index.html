@@ -1034,11 +1034,30 @@ export async function cargarStockActual() {
       });
     });
     stockTotalMap.forEach((_, art) => actualizarFila(art));
-
+   ordenarTablaPorCategoria();
+   
     // ✅ Ocultar el cartel de carga cuando ya hay datos
     overlay.style.opacity = "0";
     setTimeout(() => (overlay.style.display = "none"), 400);
   });
+
+  // ✅ Ordenar la tabla por categoría alfanuméricamente
+function ordenarTablaPorCategoria() {
+  const filas = Array.from(tabla.querySelectorAll("tr"));
+  filas.sort((a, b) => {
+    const catA = a.children[0]?.textContent?.trim().toLowerCase() || "";
+    const catB = b.children[0]?.textContent?.trim().toLowerCase() || "";
+    if (catA < catB) return -1;
+    if (catA > catB) return 1;
+
+    // Si las categorías son iguales, ordenar por nombre de artículo
+    const artA = a.children[1]?.textContent?.trim().toLowerCase() || "";
+    const artB = b.children[1]?.textContent?.trim().toLowerCase() || "";
+    return artA.localeCompare(artB, 'es', { numeric: true });
+  });
+
+  filas.forEach(f => tabla.appendChild(f)); // reordenar en el DOM
+}
 
   console.timeEnd("⏱ Tiempo de carga de stock");
 }

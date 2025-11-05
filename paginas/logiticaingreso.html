@@ -1055,7 +1055,119 @@ document.addEventListener("DOMContentLoaded", () => {
   cargarArticulosDesdeFirestore();
 });
 
+//lector de barras
+// 🔹 Detección automática de escaneo con pistola en el input "articulo"
+const inputArticulo = document.getElementById("articulo");
 
+let lastInputTime = 0;
+let barcodeBuffer = "";
+
+inputArticulo.addEventListener("input", async (e) => {
+  const currentTime = Date.now();
+
+  // Detectar velocidad de tipeo (escaneo rápido)
+  if (currentTime - lastInputTime < 30) {
+    barcodeBuffer += e.data || "";
+  } else {
+    barcodeBuffer = e.data || "";
+  }
+  lastInputTime = currentTime;
+
+  // Esperar un breve tiempo para detectar fin del escaneo
+  setTimeout(async () => {
+    if (Date.now() - lastInputTime > 300 && barcodeBuffer.length > 4) {
+      // 🔹 Sanitizar el código
+      const barcode = barcodeBuffer.replace(/[\r\n]+/g, '').trim();
+
+      if (barcode) {
+        await buscarArticuloPorId(barcode);
+      }
+
+      barcodeBuffer = "";
+    }
+  }, 350);
+});
+
+// 🔹 Buscar artículo por el ID del documento (barcode)
+// 🔹 Buscar artículo por el ID del documento (barcode)
+async function buscarArticuloPorId(barcode) {
+  try {
+    const docRef = doc(db, "stock-articulos", barcode);
+    const docSnap = await getDoc(docRef);
+
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      const nombre = data.articulo || "(Sin nombre)";
+      inputArticulo.value = nombre;
+
+      // 🔹 Rellenar unidades o cajas automáticamente
+      const inputUnidades = document.getElementById("unidades");
+      const inputCajas = document.getElementById("cajas");
+
+      if (data.unixcajapack && parseInt(data.unixcajapack) > 0) {
+        inputCajas.value = 1;
+        inputUnidades.value = 0;
+      } else {
+        inputUnidades.value = 1;
+        inputCajas.value = 0;
+      }
+
+      // 🔹 Sonido de confirmación
+      reproducirBipCorrecto();
+
+      // 🔹 Llamar automáticamente a agregarArticulo
+      await agregarArticulo();
+
+    } else {
+      reproducirBipError();
+
+      Swal.fire({
+        icon: "warning",
+        title: "Código no encontrado",
+        text: `No se encontró ningún artículo con el código ${barcode}`,
+        timer: 2000,
+        showConfirmButton: false
+      });
+    }
+  } catch (error) {
+    reproducirBipError();
+    console.error("Error buscando artículo:", barcode, error);
+  }
+}
+
+// 🔊 Sonido correcto tipo “bip” de lector
+function reproducirBipCorrecto() {
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const oscillator = ctx.createOscillator();
+  const gain = ctx.createGain();
+
+  oscillator.type = "square";
+  oscillator.frequency.setValueAtTime(880, ctx.currentTime); // tono agudo
+  gain.gain.setValueAtTime(0.1, ctx.currentTime);
+
+  oscillator.connect(gain);
+  gain.connect(ctx.destination);
+  oscillator.start();
+  oscillator.stop(ctx.currentTime + 0.15); // duración 150 ms
+}
+
+// ❌ Sonido de error más grave
+function reproducirBipError() {
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const oscillator = ctx.createOscillator();
+  const gain = ctx.createGain();
+
+  oscillator.type = "sawtooth";
+  oscillator.frequency.setValueAtTime(220, ctx.currentTime); // tono grave
+  gain.gain.setValueAtTime(0.1, ctx.currentTime);
+
+  oscillator.connect(gain);
+  gain.connect(ctx.destination);
+  oscillator.start();
+  oscillator.stop(ctx.currentTime + 0.3); // duración 300 ms
+}
+
+//fin lector de barras
  
 async function agregarArticulo() {
   const articulo = document.getElementById("articulo").value.trim();
