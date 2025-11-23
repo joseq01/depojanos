@@ -1543,9 +1543,39 @@ window.guardarCambiosFilaSeleccionada = async function () {
     const diferenciaUnidades = nuevasUnidades - prevUnidades;
     const diferenciaCajas = nuevasCajas - prevCajas;
 
-    if (diferenciaUnidades !== 0 || diferenciaCajas !== 0) {
-      await sumarStockTotal(articulo, diferenciaUnidades, diferenciaCajas, origen);
+   // 🚫 Si diferencia es negativa → estás restando stock
+if (diferenciaUnidades < 0 || diferenciaCajas < 0) {
+
+  const stockTotalRef = doc(db, "stock-total", articulo);
+  const stockSnap = await getDoc(stockTotalRef);
+
+  if (stockSnap.exists()) {
+    const data = stockSnap.data();
+    const stockSalon = (data.salones && data.salones[origen]) || { unidades: 0, cajas: 0 };
+
+    const unidadesActuales = stockSalon.unidades || 0;
+    const cajasActuales = stockSalon.cajas || 0;
+
+    const nuevasUnidades = unidadesActuales + diferenciaUnidades; // diferencia es negativa
+    const nuevasCajas = cajasActuales + diferenciaCajas;
+
+    if (nuevasUnidades < 0 || nuevasCajas < 0) {
+      await Swal.fire({
+        icon: 'error',
+        title: 'Stock insuficiente',
+        text: `No se pueden restar más unidades/cajas de las disponibles en el salón.\n` +
+              `Disponibles: ${unidadesActuales} unidades / ${cajasActuales} cajas.`,
+      });
+      return; // ❌ Cancela la edición
     }
+  }
+}
+
+// 🟢 Si todo está OK, actualiza stock total
+if (diferenciaUnidades !== 0 || diferenciaCajas !== 0) {
+  await sumarStockTotal(articulo, diferenciaUnidades, diferenciaCajas, origen);
+}
+
   }
 
   // Actualizar Firestore con todos los campos modificables + usuario

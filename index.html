@@ -963,6 +963,13 @@ export async function cargarStockActual() {
   });
 
   function actualizarFila(articulo) {
+    // SI EL ARTÍCULO NO EXISTE EN STOCK-TOTAL PARA ESTE SALÓN → BORRAR FILA SI EXISTE
+if (!stockTotalMap.has(articulo)) {
+  const fila = tabla.querySelector(`[data-articulo="${CSS.escape(articulo)}"]`);
+  if (fila) fila.remove();
+  return;
+}
+
     if (!articulosValidos.has(articulo)) return;
     const filaExistente = tabla.querySelector(`[data-articulo="${CSS.escape(articulo)}"]`);
     const categoria = categoriasMap.get(articulo) || "";
