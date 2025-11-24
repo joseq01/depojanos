@@ -427,6 +427,20 @@ footer {
   cursor: pointer;
   user-select: none;
 }
+
+th.filtro-activo {
+  background-color: #e8f0ff !important;
+}
+
+th.filtro-activo::after {
+  content: " ▼";
+  font-weight: bold;
+  color: #0041c4;
+  display: inline-block;
+  transform: translateY(-1px); /* Ajuste fino */
+  margin-left: 4px;
+}
+
   </style>
 </head>
 <body class="d-flex flex-column min-vh-100">
@@ -2823,86 +2837,103 @@ function limpiarCamposChofer() {
 }
 
       
-    // Mostrar el filtro tipo dropdown
-    function mostrarFiltro(event, colIndex) {
-      const filtro = document.getElementById("filtroDropdown");
-      const opciones = document.getElementById("opcionesFiltro");
-      const input = document.getElementById("filtroInput");
-      opciones.innerHTML = "";
-      input.value = "";
-      columnaFiltrando = colIndex;
-    
-      const valores = new Set();
-      document.querySelectorAll(`#tablaArticulos tr`).forEach(row => {
-        const valor = row.cells[colIndex]?.innerText.trim();
-        if (valor) valores.add(valor);
-      });
-    
-      [...valores].sort().forEach(v => {
-        const opcion = document.createElement("div");
-        opcion.className = "form-check";
-        opcion.innerHTML = `
-          <input class="form-check-input" type="checkbox" value="${v}" id="check-${v}">
-          <label class="form-check-label" for="check-${v}">${v}</label>
-        `;
-        opciones.appendChild(opcion);
-      });
-    
-      const { left, bottom } = event.target.getBoundingClientRect();
-      filtro.style.left = `${left}px`;
-      filtro.style.top = `${bottom + window.scrollY}px`;
-      filtro.style.display = "block";
-    }
-    
-   
+ /**********************
+ * VARIABLES
+ **********************/
+let columnaActualIndex = null;
+let valorFiltroActual = "";
+let filtrosActivos = {};
+let todasOpcionesFiltro = [];
 
-   let columnaActualIndex = null;
-      let valorFiltroActual = "";
-       
-      document.querySelectorAll("thead th").forEach((th, index) => {
-        if (index === 0 || index === 7 ) return; 
-        th.style.cursor = "pointer";
-        th.addEventListener("click", (e) => {
-          columnaActualIndex = index;
-    
-          const dropdown = document.getElementById("filtroDropdown");
-          dropdown.style.left = `${e.pageX}px`;
-          dropdown.style.top = `${e.pageY}px`;
-          dropdown.style.display = "block";
-    
-          llenarOpcionesFiltro(index);
-        });
-        // 🔄 Manejo del comportamiento "Ver todos" vs múltiples checkboxes
+
+/**********************
+ * MOSTRAR DROPDOWN
+ **********************/
+function mostrarFiltro(event, colIndex) {
+  const filtro = document.getElementById("filtroDropdown");
+  const opciones = document.getElementById("opcionesFiltro");
+  const input = document.getElementById("filtroInput");
+
+  opciones.innerHTML = "";
+  input.value = "";
+  columnaActualIndex = colIndex;
+
+  const valores = new Set();
+  document.querySelectorAll(`#tablaArticulos tr`).forEach(row => {
+    const valor = row.cells[colIndex]?.innerText.trim();
+    if (valor) valores.add(valor);
+  });
+
+  [...valores].sort().forEach(v => {
+    const opcion = document.createElement("div");
+    opcion.className = "form-check";
+    opcion.innerHTML = `
+      <input class="form-check-input" type="checkbox" value="${v}" id="check-${v}">
+      <label class="form-check-label" for="check-${v}">${v}</label>
+    `;
+    opciones.appendChild(opcion);
+  });
+
+  const { left, bottom } = event.target.getBoundingClientRect();
+  filtro.style.left = `${left}px`;
+  filtro.style.top = `${bottom + window.scrollY}px`;
+  filtro.style.display = "block";
+}
+
+
+/**********************
+ * ACTIVAR CLICK EN ENCABEZADOS
+ **********************/
+document.querySelectorAll("thead th").forEach((th, index) => {
+  if (index === 0 || index === 7) return;
+
+  th.style.cursor = "pointer";
+  th.addEventListener("click", (e) => {
+    columnaActualIndex = index;
+
+    const dropdown = document.getElementById("filtroDropdown");
+    dropdown.style.left = `${e.pageX}px`;
+    dropdown.style.top = `${e.pageY}px`;
+    dropdown.style.display = "block";
+
+    llenarOpcionesFiltro(index);
+  });
+});
+
+
+/**********************
+ * MANEJO CHECKBOXES "VER TODOS"
+ **********************/
 document.addEventListener("change", (e) => {
   if (e.target.id === "checkTodos") {
-    // Si se marca "Ver todos", desmarca el resto
-    const checkboxes = document.querySelectorAll('#opcionesFiltro input[type="checkbox"]:not(#checkTodos)');
-    checkboxes.forEach(cb => cb.checked = false);
+    document.querySelectorAll('#opcionesFiltro input[type="checkbox"]:not(#checkTodos)')
+      .forEach(cb => cb.checked = false);
   } else if (e.target.type === "checkbox" && e.target.id !== "checkTodos") {
-    // Si se marca cualquier otro, desmarca "Ver todos"
-    document.getElementById("checkTodos")?.checked && (document.getElementById("checkTodos").checked = false);
+    const todos = document.getElementById("checkTodos");
+    if (todos?.checked) todos.checked = false;
   }
 });
 
-      }); 
-    
-      // Llenar opciones de filtro únicas
-      let todasOpcionesFiltro = []; // Guardamos todas las opciones para filtrar en tiempo real
-    
-    function llenarOpcionesFiltro(index) {
-      columnaActualIndex = index;
-      const opciones = new Set();
-      document.querySelectorAll(`#tablaArticulos tr`).forEach(tr => {
-        const celda = tr.cells[index];
-        if (celda) opciones.add(celda.textContent.trim());
-      });
-    
-      todasOpcionesFiltro = Array.from(opciones).sort(); // Guardamos todas
-      mostrarOpcionesFiltradas(); // Mostramos al inicio todas
-    }
-    
-      // Buscar dentro de las opciones del dropdown
-    function filtrarOpcionesDropdown(valor) {
+
+/**********************
+ * LLENAR OPCIONES
+ **********************/
+function llenarOpcionesFiltro(index) {
+  const opciones = new Set();
+  document.querySelectorAll(`#tablaArticulos tr`).forEach(tr => {
+    const celda = tr.cells[index];
+    if (celda) opciones.add(celda.textContent.trim());
+  });
+
+  todasOpcionesFiltro = Array.from(opciones).sort();
+  mostrarOpcionesFiltradas();
+}
+
+
+/**********************
+ * FILTRO EN TIEMPO REAL
+ **********************/
+function filtrarOpcionesDropdown(valor) {
   document.querySelectorAll("#opcionesFiltro .form-check").forEach(div => {
     const label = div.querySelector("label");
     const visible = label?.textContent.toLowerCase().includes(valor.toLowerCase());
@@ -2912,17 +2943,59 @@ document.addEventListener("change", (e) => {
 
 document.getElementById("filtroInput").addEventListener("input", (e) => {
   const valor = e.target.value.trim().toLowerCase();
-
-  if (valor === "") {
-    // ✅ Restaurar todas las opciones, no cerrar filtro
-    mostrarOpcionesFiltradas();
-  } else {
-    // ✅ Filtrar solo las opciones visibles
-    filtrarOpcionesDropdown(valor);
-  }
+  if (valor === "") mostrarOpcionesFiltradas();
+  else filtrarOpcionesDropdown(valor);
 });
-  
-      // este carga todos los articulos
+
+
+/**********************
+ * APLICAR FILTROS
+ **********************/
+function aplicarFiltrosMultiples() {
+  const columnas = Object.keys(filtrosActivos);
+
+  if (columnas.length === 0) {
+    document.querySelectorAll("#tablaArticulos tr").forEach(tr => tr.style.display = "");
+    ocultarContador();
+    return;
+  }
+
+  document.querySelectorAll("#tablaArticulos tr").forEach(tr => {
+    let visible = true;
+
+    for (const col of columnas) {
+      const celda = tr.cells[col];
+      const valor = celda?.textContent.trim() || "";
+      const opciones = filtrosActivos[col];
+
+      if (!opciones.includes(valor)) {
+        visible = false;
+        break;
+      }
+    }
+
+    tr.style.display = visible ? "" : "none";   // ← **CAMBIO CRÍTICO**
+  });
+
+  if (filtrosActivos["3"]) actualizarContador();
+  else ocultarContador();
+}
+
+
+/**********************
+ * MARCAR ENCABEZADOS ACTIVOS
+ **********************/
+function actualizarIndicadoresFiltro() {
+  document.querySelectorAll("thead th").forEach((th, index) => {
+    if (filtrosActivos[index]) th.classList.add("filtro-activo");
+    else th.classList.remove("filtro-activo");
+  });
+}
+
+
+/**********************
+ * BOTÓN APLICAR
+ **********************/
 function aplicarFiltro() {
   if (columnaActualIndex === null) return;
 
@@ -2932,46 +3005,31 @@ function aplicarFiltro() {
 
   const verTodos = seleccionados.includes("__TODOS__");
 
-  // Si "ver todos" está marcado y es columna FECHA, recarga desde Firestore
   if (columnaActualIndex === 2 && verTodos) {
+    delete filtrosActivos[columnaActualIndex];
     cargarTablaPedidos("todos");
     document.getElementById("filtroDropdown").style.display = "none";
     ocultarContador();
     return;
   }
 
-  // Mostrar / ocultar filas
-  document.querySelectorAll("#tablaArticulos tr").forEach(tr => {
-    const celda = tr.cells[columnaActualIndex];
-    const valorCelda = celda?.textContent.trim() || "";
-    const valorNorm = normalizarTexto(valorCelda);
+  if (verTodos) delete filtrosActivos[columnaActualIndex];
+  else filtrosActivos[columnaActualIndex] = seleccionados;
 
-    if (verTodos || (valorNorm && seleccionados.some(sel => normalizarTexto(sel) === valorNorm))) {
-      tr.style.display = "";
-    } else {
-      tr.style.display = "none";
-    }
-  });
-
-  // Si la columna es "Artículo" (index 3 → la cuarta columna), mostramos el contador
-  if (columnaActualIndex === 3 && !verTodos) {
-    actualizarContador();
-  } else {
-    ocultarContador();
-  }
+  aplicarFiltrosMultiples();
+  actualizarIndicadoresFiltro();
 
   document.getElementById("filtroDropdown").style.display = "none";
 }
 
-function normalizarTexto(txt) {
-  return txt.toLowerCase().replace(/['"]/g, "").replace(/\s+/g, " ").trim();
-}
 
+/**********************
+ * CONTADOR
+ **********************/
 function actualizarContador() {
   let totalUnidades = 0;
   let totalCajas = 0;
 
-  // recorrer solo las filas visibles
   document.querySelectorAll("#tablaArticulos tr").forEach(tr => {
     if (tr.style.display !== "none") {
       const unidades = parseFloat(tr.cells[4]?.textContent || "0");
@@ -2981,59 +3039,61 @@ function actualizarContador() {
     }
   });
 
-  const contadorDiv = document.getElementById("contadorArticulos");
+  const div = document.getElementById("contadorArticulos");
 
   if (totalUnidades > 0 || totalCajas > 0) {
-    contadorDiv.textContent = `Total: ${totalUnidades} unidades / ${totalCajas} cajas`;
-    contadorDiv.style.display = "block";
+    div.textContent = `Total: ${totalUnidades} unidades / ${totalCajas} cajas`;
+    div.style.display = "block";
   } else {
-    contadorDiv.style.display = "none";
+    div.style.display = "none";
   }
 }
 
+
 function ocultarContador() {
-  const contadorDiv = document.getElementById("contadorArticulos");
-  contadorDiv.style.display = "none";
-  contadorDiv.textContent = "";
+  const div = document.getElementById("contadorArticulos");
+  div.style.display = "none";
+  div.textContent = "";
 }
 
+
+/**********************
+ * LIMPIAR TODO
+ **********************/
 function limpiarFiltro() {
   document.querySelectorAll("#tablaArticulos tr").forEach(tr => tr.style.display = "");
   document.getElementById("filtroDropdown").style.display = "none";
   valorFiltroActual = "";
-
   ocultarContador();
 }
 
-    
-    // Ocultar menú de filtro al hacer clic fuera
-   document.addEventListener("click", (e) => {
-   const dropdown = document.getElementById("filtroDropdown");
-   if (dropdown.style.display === "block" && !dropdown.contains(e.target) && !e.target.closest("thead th")) {
-   dropdown.style.display = "none";
-   }
-   });
+
+/**********************
+ * OCULTAR DROPDOWN AL CLIC FUERA
+ **********************/
+document.addEventListener("click", (e) => {
+  const dropdown = document.getElementById("filtroDropdown");
+  if (dropdown.style.display === "block" &&
+      !dropdown.contains(e.target) &&
+      !e.target.closest("thead th")) {
+    dropdown.style.display = "none";
+  }
+});
 
 
-      function limpiarFiltro() {
-      document.querySelectorAll("#tablaArticulos tr").forEach(tr => tr.style.display = "");
-      document.getElementById("filtroDropdown").style.display = "none";
-      valorFiltroActual = "";
-     }
-
-    function mostrarOpcionesFiltradas() {
+/**********************
+ * MOSTRAR OPCIONES
+ **********************/
+function mostrarOpcionesFiltradas() {
   const filtroTexto = document.getElementById("filtroInput").value.toLowerCase();
   const opcionesDiv = document.getElementById("opcionesFiltro");
-  opcionesDiv.innerHTML = "";
 
-  // Opción "Ver todos"
-  const todosLabel = document.createElement("div");
-  todosLabel.className = "form-check fw-bold";
-  todosLabel.innerHTML = `
-    <input class="form-check-input" type="checkbox" id="checkTodos" value="__TODOS__">
-    <label class="form-check-label" for="checkTodos">Ver todos</label>
+  opcionesDiv.innerHTML = `
+    <div class="form-check fw-bold">
+      <input class="form-check-input" type="checkbox" id="checkTodos" value="__TODOS__">
+      <label class="form-check-label" for="checkTodos">Ver todos</label>
+    </div>
   `;
-  opcionesDiv.appendChild(todosLabel);
 
   todasOpcionesFiltro.forEach(valor => {
     if (valor.toLowerCase().includes(filtroTexto)) {

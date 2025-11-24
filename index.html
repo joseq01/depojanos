@@ -216,7 +216,20 @@ footer {
   max-height: 250px;   /* 🔹 ajustá según prefieras */
   overflow-y: auto;
   border: 1px solid #ddd;
-  border-radius: 6px;
+  border-radius: 6px;thead th {
+  position: relative;
+}
+
+.filtro-activo::after {
+  content: " ▼";
+  font-weight: bold;
+  color: #0041c4;
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%); /* ← centra la flecha verticalmente */
+}
+
   padding: 5px;
 }
 
