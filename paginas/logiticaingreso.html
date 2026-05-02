@@ -950,8 +950,8 @@ async function actualizarStockTotal(articulo, unidades, cajas, origen) {
   const existe = await existeArticuloEnStockArticulos(articulo);
 
   if (!existe) {
-    console.warn(`⚠️ El artículo "${articulo}" no existe en stock-articulos. No se actualiza stock-total.`);
-    return true; // ✅ Permitir ingreso sin validar stock para artículos inexistentes
+    console.warn(`⚠️ El artículo "${articulo}" no existe en stock-articulos.`);
+    return true;
   }
 
   const stockTotalRef = doc(db, "stock-total", articulo);
@@ -959,22 +959,51 @@ async function actualizarStockTotal(articulo, unidades, cajas, origen) {
   const data = stockSnap.exists() ? stockSnap.data() : null;
 
   const stockSalon = data?.salones?.[origen] || { unidades: 0, cajas: 0 };
-  const unidadesActuales = parseInt(stockSalon.unidades) || 0;
-  const cajasActuales = parseInt(stockSalon.cajas) || 0;
 
-  const nuevasUnidades = unidadesActuales + unidades;
-  const nuevasCajas = cajasActuales + cajas;
+  let unidadesActuales = parseInt(stockSalon.unidades) || 0;
+  let cajasActuales = parseInt(stockSalon.cajas) || 0;
 
+  let nuevasUnidades = unidadesActuales + unidades;
+  let nuevasCajas = cajasActuales + cajas;
+
+  // ✅ 1. OBTENER unidadesPorCaja PRIMERO
+  const articuloData = articulosCache.find(
+    a => a.articulo === articulo.trim().toLowerCase()
+  );
+
+  const unidadesPorCaja = articuloData
+    ? parseInt(articuloData.unixcajapack) || 0
+    : 0;
+
+  // 🔥 2. SI FALTAN UNIDADES → CONVERTIR CAJAS
+  if (unidadesPorCaja > 0 && nuevasUnidades < 0 && nuevasCajas > 0) {
+    const faltantes = Math.abs(nuevasUnidades);
+    const cajasNecesarias = Math.ceil(faltantes / unidadesPorCaja);
+    const cajasAConvertir = Math.min(cajasNecesarias, nuevasCajas);
+
+    nuevasUnidades += cajasAConvertir * unidadesPorCaja;
+    nuevasCajas -= cajasAConvertir;
+  }
+
+  // 🔥 3. NORMALIZAR (UNIDADES → CAJAS)
+  if (unidadesPorCaja > 0 && nuevasUnidades >= unidadesPorCaja) {
+    const cajasFormadas = Math.floor(nuevasUnidades / unidadesPorCaja);
+
+    nuevasUnidades -= cajasFormadas * unidadesPorCaja;
+    nuevasCajas += cajasFormadas;
+  }
+
+  // 🔴 VALIDACIÓN FINAL
   if (nuevasUnidades < 0 || nuevasCajas < 0) {
     await Swal.fire({
       icon: "error",
       title: "Stock insuficiente",
-    text: `No se puede modificar el stock de "${articulo}" ` +
-        `Stock actual: ${unidadesActuales} unidades / ${cajasActuales} cajas\n` 
-});
+      text: `Stock actual: ${unidadesActuales} unidades / ${cajasActuales} cajas`
+    });
     return false;
   }
 
+  // ✅ GUARDAR
   if (stockSnap.exists()) {
     await updateDoc(stockTotalRef, {
       [`salones.${origen}.unidades`]: nuevasUnidades,
@@ -987,8 +1016,8 @@ async function actualizarStockTotal(articulo, unidades, cajas, origen) {
       "caja-pack": cajas,
       salones: {
         [origen]: {
-          unidades,
-          cajas
+          unidades: nuevasUnidades,
+          cajas: nuevasCajas
         }
       }
     });
@@ -1335,10 +1364,25 @@ async function eliminarFila(btn, event) {
         const stockSalon = stockData.salones?.[origen] || { unidades: 0, cajas: 0 };
 
         // Verificar si hay stock suficiente para "devolver" lo que se eliminaría
-        const nuevasUnidades = (stockSalon.unidades || 0) - (parseInt(unidades) || 0);
-        const nuevasCajas = (stockSalon.cajas || 0) - (parseInt(cajas) || 0);
+        let unidadesActuales = parseInt(stockSalon.unidades) || 0;
+let cajasActuales = parseInt(stockSalon.cajas) || 0;
 
-        if (nuevasUnidades < 0 || nuevasCajas < 0) {
+// 🔹 traer unidades por caja (USÁ CACHE, no Firestore de nuevo)
+const articuloData = articulosCache.find(a => a.articulo === articulo.trim().toLowerCase());
+const unidadesPorCaja = articuloData ? parseInt(articuloData.unixcajapack) || 0 : 0;
+
+// 🔥 convertir cajas → unidades si falta
+if (unidadesPorCaja > 0 && unidades > unidadesActuales) {
+  const faltantes = unidades - unidadesActuales;
+  const cajasNecesarias = Math.ceil(faltantes / unidadesPorCaja);
+  const cajasAConvertir = Math.min(cajasNecesarias, cajasActuales);
+
+  unidadesActuales += cajasAConvertir * unidadesPorCaja;
+  cajasActuales -= cajasAConvertir;
+}
+
+// 🔴 VALIDACIÓN REAL
+if (unidades > unidadesActuales || cajas > cajasActuales) {
           await Swal.fire({
             icon: 'error',
             title: 'No se puede eliminar',
@@ -1367,37 +1411,52 @@ async function eliminarFila(btn, event) {
 
 async function restarStockTotal(articulo, unidades, cajas, origen) {
   const existe = await existeArticuloEnStockArticulos(articulo);
-
-  if (!existe) {
-    console.warn(`⚠️ El artículo "${articulo}" no existe en stock-articulos. No se descuenta stock-total.`);
-    return;
-  }
+  if (!existe) return;
 
   const stockTotalRef = doc(db, "stock-total", articulo);
   const stockSnap = await getDoc(stockTotalRef);
-
-  if (!stockSnap.exists()) {
-    console.warn(`⚠️ No se encontró "${articulo}" en stock-total.`);
-    return;
-  }
+  if (!stockSnap.exists()) return;
 
   const data = stockSnap.data();
-  const stockSalon = (data.salones && data.salones[origen]) || { unidades: 0, cajas: 0 };
+  let stockSalon = data.salones?.[origen] || { unidades: 0, cajas: 0 };
 
-  const unidadesActuales = parseInt(stockSalon.unidades) || 0;
-  const cajasActuales = parseInt(stockSalon.cajas) || 0;
+  let unidadesActuales = parseInt(stockSalon.unidades) || 0;
+  let cajasActuales = parseInt(stockSalon.cajas) || 0;
 
-  const nuevasUnidades = unidadesActuales - unidades;
-  const nuevasCajas = cajasActuales - cajas;
+  // 🔹 usar CACHE (NO Firestore)
+  const articuloData = articulosCache.find(a => a.articulo === articulo.trim().toLowerCase());
+  const unidadesPorCaja = articuloData ? parseInt(articuloData.unixcajapack) || 0 : 0;
 
-  if (nuevasUnidades < 0 || nuevasCajas < 0) {
-    console.warn(`❌ No se puede restar "${articulo}" en salón "${origen}": stock insuficiente.`);
+  // 🔥 1. CONVERTIR CAJAS → UNIDADES SI FALTA
+  if (unidadesPorCaja > 0 && unidades > unidadesActuales) {
+    const faltantes = unidades - unidadesActuales;
+    const cajasNecesarias = Math.ceil(faltantes / unidadesPorCaja);
+    const cajasAConvertir = Math.min(cajasNecesarias, cajasActuales);
+
+    unidadesActuales += cajasAConvertir * unidadesPorCaja;
+    cajasActuales -= cajasAConvertir;
+  }
+
+  // 🔴 VALIDACIÓN
+  if (unidades > unidadesActuales || cajas > cajasActuales) {
+    console.warn(`❌ Stock insuficiente`);
     return;
   }
 
-  // Descontar stock (ya validado)
+  // 🔹 DESCONTAR
+  let nuevasUnidades = unidadesActuales - unidades;
+  let nuevasCajas = cajasActuales - cajas;
+
+  // 🔥 2. REARMAR CAJAS AUTOMÁTICAMENTE
+  if (unidadesPorCaja > 0 && nuevasUnidades >= unidadesPorCaja) {
+    const cajasFormadas = Math.floor(nuevasUnidades / unidadesPorCaja);
+    nuevasUnidades -= cajasFormadas * unidadesPorCaja;
+    nuevasCajas += cajasFormadas;
+  }
+
+  // ✅ GUARDAR CORRECTO
   await updateDoc(stockTotalRef, {
-    "caja-pack": increment(-cajas),
+    "caja-pack": nuevasCajas,
     [`salones.${origen}.unidades`]: nuevasUnidades,
     [`salones.${origen}.cajas`]: nuevasCajas
   });
@@ -1634,18 +1693,36 @@ async function sumarStockTotal(articulo, unidades, cajas, origen) {
   const stockTotalRef = doc(db, "stock-total", articulo);
   const stockSnap = await getDoc(stockTotalRef);
 
-  if (stockSnap.exists()) {
-    const pathUnidades = `salones.${origen}.unidades`;
-    const pathCajas = `salones.${origen}.cajas`;
+  if (!stockSnap.exists()) return;
 
-    await updateDoc(stockTotalRef, {
-      "caja-pack": increment(cajas),
-      [pathUnidades]: increment(unidades),
-      [pathCajas]: increment(cajas)
-    });
-  } else {
-    console.warn(`⚠️ No se encontró "${articulo}" en stock-total.`);
+  const data = stockSnap.data();
+  let stockSalon = data.salones?.[origen] || { unidades: 0, cajas: 0 };
+
+  let unidadesActuales = parseInt(stockSalon.unidades) || 0;
+  let cajasActuales = parseInt(stockSalon.cajas) || 0;
+
+  let nuevasUnidades = unidadesActuales + unidades;
+  let nuevasCajas = cajasActuales + cajas;
+
+  // 🔹 unidades por caja
+  const artSnap = await getDocs(query(collection(db, "stock-articulos"), where("articulo", "==", articulo)));
+  let unidadesPorCaja = 0;
+  if (!artSnap.empty) {
+    unidadesPorCaja = parseInt(artSnap.docs[0].data().unixcajapack) || 0;
   }
+
+  // 🔥 NORMALIZAR (UNIDADES → CAJAS)
+  if (unidadesPorCaja > 0 && nuevasUnidades >= unidadesPorCaja) {
+    const cajasFormadas = Math.floor(nuevasUnidades / unidadesPorCaja);
+    nuevasUnidades -= cajasFormadas * unidadesPorCaja;
+    nuevasCajas += cajasFormadas;
+  }
+
+  await updateDoc(stockTotalRef, {
+    "caja-pack": increment(cajas),
+    [`salones.${origen}.unidades`]: nuevasUnidades,
+    [`salones.${origen}.cajas`]: nuevasCajas
+  });
 }
 
 //termina de editar celdas

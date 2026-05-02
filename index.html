@@ -244,6 +244,15 @@ footer {
   color: white;
 }
 
+#tablaStock td:nth-child(n+3) {
+  font-size: 13px;
+  padding: 4px;
+}
+
+#tablaStock td:nth-child(4) {
+  font-size: 13px;
+  color: #555;
+}
   </style>
 
 </head>
@@ -409,19 +418,22 @@ footer {
   </div>
 
   <!-- Tabla -->
- <table class="table table-bordered align-middle" id="tablaStock">
-  <thead>
-    <tr>
-      <th style="width: 28%;">Categoria</th>
-      <th style="width: 40%;">Artículo</th>
-      <th class="text-center" style="width: 8%;">Ingresos</th>
-      <th class="text-center" style="width: 8%;">Pedidos</th>
-      <th class="text-center" style="width: 8%;">Stock unid</th>
-      <th class="text-center" style="width: 8%;">Stock C/Pack</th>
-      <th class="text-center" style="width: 8%;">Rotas</th>
-    </tr>
-  </thead>
-  <tbody id="tablaStockActual"></tbody>
+<table class="table table-bordered align-middle" 
+       id="tablaStock" 
+       style="table-layout: fixed; width: 100%;">
+
+ <thead>
+  <tr>
+    <th style="width: 23%;">Categoría</th>
+    <th style="width: 45%;">Artículo</th>
+    <th class="text-center" style="width: 8%;">Unidades</th>
+    <th class="text-center" style="width: 8%;">Cajas / Packs</th>
+    <th class="text-center" style="width: 8%;">Total Dsiponibles </th>
+    <th class="text-center" style="width: 8%;">Unidades Rotas</th>
+  </tr>
+</thead>
+
+<tbody id="tablaStockActual"></tbody>
 </table>
 
 
@@ -975,40 +987,56 @@ export async function cargarStockActual() {
     }
   });
 
-  function actualizarFila(articulo) {
-    // SI EL ARTÍCULO NO EXISTE EN STOCK-TOTAL PARA ESTE SALÓN → BORRAR FILA SI EXISTE
-if (!stockTotalMap.has(articulo)) {
-  const fila = tabla.querySelector(`[data-articulo="${CSS.escape(articulo)}"]`);
-  if (fila) fila.remove();
-  return;
-}
+ function actualizarFila(articulo) {
 
-    if (!articulosValidos.has(articulo)) return;
-    const filaExistente = tabla.querySelector(`[data-articulo="${CSS.escape(articulo)}"]`);
-    const categoria = categoriasMap.get(articulo) || "";
-    const ingreso = ingresos.get(articulo) || 0;
-    const pedido = pedidos.get(articulo) || 0;
-    const stockData = stockTotalMap.get(articulo) || { unidades: 0, cajas: 0 };
-    const rota = rotas.get(articulo) || 0;
-
-    const html = `
-      <td>${categoria}</td>
-      <td>${articulo}</td>
-      <td class="text-center">${ingreso}</td>
-      <td class="text-center">${pedido}</td>
-      <td class="text-center stock-actual">${stockData.unidades}</td>
-      <td class="text-center">${stockData.cajas}</td>
-      <td class="text-center">${rota}</td>
-    `;
-
-    if (filaExistente) filaExistente.innerHTML = html;
-    else {
-      const fila = document.createElement("tr");
-      fila.dataset.articulo = articulo;
-      fila.innerHTML = html;
-      tabla.appendChild(fila);
-    }
+  // Si no existe en stock-total → eliminar fila
+  if (!stockTotalMap.has(articulo)) {
+    const fila = tabla.querySelector(`[data-articulo="${CSS.escape(articulo)}"]`);
+    if (fila) fila.remove();
+    return;
   }
+
+  if (!articulosValidos.has(articulo)) return;
+
+  const filaExistente = tabla.querySelector(`[data-articulo="${CSS.escape(articulo)}"]`);
+
+  const categoria = categoriasMap.get(articulo) || "";
+  const stockData = stockTotalMap.get(articulo) || { unidades: 0, cajas: 0 };
+  const rota = rotas.get(articulo) || 0;
+  const unidadesPorCaja = unidadesPorCajaMap.get(articulo) || 0;
+
+  // 👉 TOTAL EN UNIDADES (clave nueva)
+  const totalUnidades = stockData.unidades + (stockData.cajas * unidadesPorCaja);
+
+ const html = `
+  <td>${categoria}</td>
+  <td>${articulo}</td>
+  <td class="text-center">${stockData.unidades}</td>
+
+ <td class="text-center">
+  ${stockData.cajas > 0
+    ? `<strong>${stockData.cajas}</strong>
+       ${unidadesPorCaja > 0
+         ? `<span style="font-size:11px; color:#888;">
+              (${unidadesPorCaja} c/u)
+            </span>`
+         : ``}`
+    : ``}
+</td>
+
+  <td class="text-center fw-bold">${totalUnidades}</td>
+  <td class="text-center">${rota}</td>
+`;
+
+  if (filaExistente) {
+    filaExistente.innerHTML = html;
+  } else {
+    const fila = document.createElement("tr");
+    fila.dataset.articulo = articulo;
+    fila.innerHTML = html;
+    tabla.appendChild(fila);
+  }
+}
 
   // === Escucha en tiempo real ===
   const qIngresos = query(collection(db, "stock-ingreso"), where("origen", "==", salon));
