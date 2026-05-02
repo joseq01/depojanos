@@ -253,6 +253,32 @@ footer {
   font-size: 13px;
   color: #555;
 }
+
+.tabla-scroll {
+  width: 100%;
+  overflow-x: auto;
+}
+
+#tablaStock {
+  min-width: 1000px; /* 🔥 clave: evita que se achique */
+ 
+}
+
+#tablaStock th:nth-child(3),
+#tablaStock td:nth-child(3) {
+  min-width: 100px; /* unidades */
+}
+
+#tablaStock th:nth-child(4),
+#tablaStock td:nth-child(4) {
+  min-width: 100px; /* cajas */
+}
+
+#tablaStock th:nth-child(5),
+#tablaStock td:nth-child(5) {
+  min-width: 140px; /* total */
+}
+
   </style>
 
 </head>
@@ -418,24 +444,25 @@ footer {
   </div>
 
   <!-- Tabla -->
+   <div class="tabla-scroll"></div>
 <table class="table table-bordered align-middle" 
        id="tablaStock" 
        style="table-layout: fixed; width: 100%;">
 
  <thead>
   <tr>
-    <th style="width: 23%;">Categoría</th>
-    <th style="width: 45%;">Artículo</th>
+    <th style="width: 21%;">Categoría</th>
+    <th style="width: 44%;">Artículo</th>
     <th class="text-center" style="width: 8%;">Unidades</th>
     <th class="text-center" style="width: 8%;">Cajas / Packs</th>
-    <th class="text-center" style="width: 8%;">Total Dsiponibles </th>
+    <th class="text-center" style="width: 10%;">Total Disponibles </th>
     <th class="text-center" style="width: 8%;">Unidades Rotas</th>
   </tr>
 </thead>
 
 <tbody id="tablaStockActual"></tbody>
 </table>
-
+</div>
 
  
 <!-- Filtro flotante -->
