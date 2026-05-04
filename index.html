@@ -274,28 +274,6 @@ footer {
 
 }
 
-@media (max-width: 768px) {
-
-  .modal-login {
-    position: fixed;
-    top: 70px;           /* debajo del navbar */
-    left: 0;
-    width: 100%;
-    height: calc(100% - 70px); /* 🔥 evita que tape el navbar */
-
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
-
-    padding-top: 20px;
-  }
-
-  .modal-content-login {
-    width: 90%;
-    max-width: 350px;
-  }
-
-}
 
 /* MOBILE CHICO */
 @media (max-width: 468px) {
@@ -328,6 +306,26 @@ footer {
   #navbarNavMobile {
     display: none !important;
   }
+}
+
+/* 🔒 FIX DEFINITIVO LOGIN MOBILE */
+@media (max-width: 768px) {
+
+  .modal-login {
+    position: fixed !important;   /* 🔥 fuerza a flotar */
+    top: 70px;                    /* debajo navbar */
+    left: 0;
+    width: 100%;
+    height: calc(100% - 70px);
+
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+
+    padding-top: 20px;
+    z-index: 9999;
+  }
+
 }
 </style>
 
