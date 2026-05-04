@@ -308,22 +308,27 @@ footer {
   }
 }
 
-/* 🔒 FIX DEFINITIVO LOGIN MOBILE */
 @media (max-width: 768px) {
 
   .modal-login {
-    position: fixed !important;   /* 🔥 fuerza a flotar */
-    top: 10px;                    /* debajo navbar */
+    position: fixed !important;
+
+    top: 70px;        /* 🔥 pegado al navbar */
     left: 0;
     width: 100%;
-    height: calc(100% - 30px);
+    height: auto;
 
     display: flex;
     justify-content: center;
-    align-items: flex-start;
+    align-items: flex-start; /* 🔥 clave */
 
-    padding-top: 5px;
+    padding-top: 10px;       /* separación mínima */
     z-index: 9999;
+  }
+
+  .modal-content-login {
+    width: 90%;
+    max-width: 350px;
   }
 
 }
