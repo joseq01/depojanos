@@ -310,25 +310,22 @@ footer {
 
 @media (max-width: 768px) {
 
-  .modal-login {
+  #loginInicial {
     position: fixed !important;
-
-    top: 70px;        /* 🔥 pegado al navbar */
+    top: 70px; /* debajo del navbar */
     left: 0;
     width: 100%;
-    height: auto;
+    height: calc(100vh - 70px); /* pantalla menos navbar */
 
     display: flex;
+    align-items: flex-start; /* 🔥 importante */
     justify-content: center;
-    align-items: flex-start; /* 🔥 clave */
 
-    padding-top: 10px;       /* separación mínima */
-    z-index: 9999;
+    padding-top: 20px; /* espacio desde navbar */
   }
 
-  .modal-content-login {
-    width: 90%;
-    max-width: 350px;
+  #loginInicial .modal-dialog {
+    margin: 0 auto;
   }
 
 }
