@@ -13,57 +13,58 @@
 
    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 
-  <style>
-      #loginInicial.invisible {
-    visibility: hidden;
-  }
+ <style>
+#loginInicial.invisible {
+  visibility: hidden;
+}
 
-    .nav-link:hover {
-      color: #ffc107 !important;
-    }
+.nav-link:hover {
+  color: #ffc107 !important;
+}
 
-    .navbar {
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    }
+.navbar {
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
 
-    #logo {
-      max-height: 50px;
-    }
+#logo {
+  max-height: 50px;
+}
 
-    /* Menú desplegable personalizado */
-    .dropdown-ajuste {
-      position: relative;
-    }
+/* dropdown */
+.dropdown-ajuste {
+  position: relative;
+}
 
-    .dropdown-ajuste .dropdown-menu {
-      display: none;
-      position: absolute;
-      top: 0;
-      right: 100%; /* posiciona el menú hacia la izquierda del botón */
-      background-color: rgba(0, 0, 0, 0.85);
-      color: white;
-      border-radius: 0.5rem;
-      box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.2);
-      min-width: 180px;
-      z-index: 1050;
-    }
+.dropdown-ajuste .dropdown-menu {
+  display: none;
+  position: absolute;
+  top: 0;
+  right: 100%;
+  background-color: rgba(0, 0, 0, 0.85);
+  color: white;
+  border-radius: 0.5rem;
+  box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.2);
+  min-width: 180px;
+  z-index: 1050;
+}
 
-    .dropdown-ajuste:hover .dropdown-menu {
-      display: block;
-    }
+.dropdown-ajuste:hover .dropdown-menu {
+  display: block;
+}
 
-    .dropdown-ajuste .dropdown-menu a {
-      color: white;
-      text-decoration: none;
-      padding: 10px 15px;
-      display: block;
-    }
+.dropdown-ajuste .dropdown-menu a {
+  color: white;
+  text-decoration: none;
+  padding: 10px 15px;
+  display: block;
+}
 
-    .dropdown-ajuste .dropdown-menu a:hover {
-      background-color: rgba(255, 193, 7, 0.3);
-    }
+.dropdown-ajuste .dropdown-menu a:hover {
+  background-color: rgba(255, 193, 7, 0.3);
+}
 
-    #filtroDropdown {
+/* filtros */
+#filtroDropdown {
   display: none;
   position: absolute;
   z-index: 3000;
@@ -78,12 +79,13 @@
 }
 
 .sticky-bottom {
-  z-index: 999; /* menor que el 3000 del filtro */
-  position: sticky; /* asegurate que se mantenga sticky */
+  z-index: 999;
+  position: sticky;
   bottom: 0;
 }
 
-    .pantalla-flotante {
+/* modal */
+.pantalla-flotante {
   position: fixed;
   top: 0;
   left: 0;
@@ -106,7 +108,6 @@
   overflow-y: auto;
 }
 
-
 .combo-card {
   background-color: #f8f9fa;
   padding: 15px;
@@ -119,10 +120,18 @@
   z-index: 11000 !important;
 }
 
+/* BODY */
 body {
-  padding-top: 70px; /* Ajustá este valor si tu navbar es más alto o más bajo */
+  padding-top: 70px;
+  overflow-x: auto;   /* lo dejás como te funciona */
+  display: flex;      /* 🔥 agregado */
+  flex-direction: column; /* 🔥 agregado */
+  min-height: 100vh;  /* 🔥 agregado */
 }
 
+
+
+/* LOGIN */
 .modal-login {
   position: fixed;
   top: 0;
@@ -151,105 +160,30 @@ body {
   margin: 10px 0;
 }
 
-#loginInicial {
-  position: fixed;
-  inset: 0; /* 🔥 mejor que top/left/width/height */
-  z-index: 20000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+
+#tablaStock tbody tr {
+  background: white;
+}
+/* TABLA STOCK */
+#tablaStock {
+  min-width: 1000px;
+  border-collapse: collapse; /* 🔥 ESTE ES EL FIX */
 }
 
-thead th {
-  background-color: white;
-  position: sticky;
-  top: 60px; /* Altura del navbar */
-  z-index: 10;
-}
-@media (min-width: 992px) {
-  #navbarNavMobile {
-    display: none !important;
-  }
-}
-
-
-@media (max-width: 991px) {
-  .navbar-collapse.show {
-    position: fixed;
-    top: 56px;
-    left: 0;
-    right: 0;
-    background-color: #212529;
-    z-index: 1040;
-    padding: 1rem;
-    box-sizing: border-box;
-    max-height: calc(100vh - 56px);
-    overflow-y: auto;
-    overflow-x: auto;
-    white-space: nowrap;
-  }
-
-
-  .navbar-nav {
-    flex-wrap: nowrap !important;
-  }
-
-  .navbar-nav .nav-item {
-    flex: 0 0 auto;
-  }
-
-  .dropdown-ajuste {
-    margin-top: 1rem;
-  }
-}
-
-footer {
+.tabla-scroll {
   width: 100%;
-  background-color: #212529;
-  color: white;
-  text-align: center;
-  padding: 1rem 0;
+  overflow: visible; /* 🔥 CAMBIAR ESTO */
 }
 
-@media (max-width: 700px) and (orientation: portrait) {
-  footer {
-    min-width: 700px; /* Igual que el ancho mínimo de la tabla */
-  }
+#tablaStock thead th {
+  position: sticky;
+  top: 66px; /* altura del navbar */
+  background: white;
+  z-index: 100;
 }
 
-/* Caja de salones con límite de altura */
-.lista-salones {
-  max-height: 250px;   /* 🔹 ajustá según prefieras */
-  overflow-y: auto;
-  border: 1px solid #ddd;
-  border-radius: 6px;thead th {
-  position: relative;
-}
 
-.filtro-activo::after {
-  content: " ▼";
-  font-weight: bold;
-  color: #0041c4;
-  position: absolute;
-  right: 8px;
-  top: 50%;
-  transform: translateY(-50%); /* ← centra la flecha verticalmente */
-}
-
-  padding: 5px;
-}
-
-/* Estilo de cada item */
-.lista-salones .salon-item {
-  padding: 6px 10px;
-  cursor: pointer;
-  border-radius: 4px;
-}
-.lista-salones .salon-item:hover {
-  background: #007bff;
-  color: white;
-}
-
+/* columnas */
 #tablaStock td:nth-child(n+3) {
   font-size: 13px;
   padding: 4px;
@@ -260,32 +194,120 @@ footer {
   color: #555;
 }
 
-.tabla-scroll {
-  width: 100%;
-  overflow-x: auto;
-}
-
-#tablaStock {
-  min-width: 1000px; /* 🔥 clave: evita que se achique */
- 
-}
-
 #tablaStock th:nth-child(3),
-#tablaStock td:nth-child(3) {
-  min-width: 100px; /* unidades */
-}
-
+#tablaStock td:nth-child(3),
 #tablaStock th:nth-child(4),
-#tablaStock td:nth-child(4) {
-  min-width: 100px; /* cajas */
-}
-
+#tablaStock td:nth-child(4),
 #tablaStock th:nth-child(5),
 #tablaStock td:nth-child(5) {
-  min-width: 140px; /* total */
+  min-width: 100px;
 }
 
-  </style>
+/* SALONES */
+.lista-salones {
+  max-height: 250px;
+  overflow-y: auto;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 5px;
+}
+
+.lista-salones .salon-item {
+  padding: 6px 10px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.lista-salones .salon-item:hover {
+  background: #007bff;
+  color: white;
+}
+
+/* FOOTER CORREGIDO (ESTO ES LO IMPORTANTE) */
+footer {
+  width: 100%;
+  background-color: #212529;
+  color: white;
+  text-align: center;
+  padding: 1rem 0;
+  box-sizing: border-box;
+   min-width: 1400px; /* 🔥 agregado */
+}
+
+main {
+  flex: 1 0 auto;
+}
+
+footer {
+  flex-shrink: 0;
+}
+/* MOBILE CHICO */
+@media (max-width: 768px) {
+
+    main {
+    min-width: 100% !important;
+  }
+
+  body {
+    overflow-x: auto;
+    width: 100%;
+  }
+
+  .tabla-scroll {
+         /* scroll horizontal */
+    overflow-y: visible;    /* 🔥 clave para que sticky funcione */
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #tablaStock {
+    min-width: 1200px;
+    border-collapse: collapse;
+    /* ❌ IMPORTANTE: NO display:block */
+  }
+
+  #tablaStock thead th {
+    position: sticky;
+    top: 70px; /* navbar */
+    z-index: 1000;
+    background: white;
+  }
+
+}
+
+/* MOBILE CHICO */
+@media (max-width: 468px) {
+
+ 
+
+  .tabla-scroll {
+         /* scroll horizontal */
+    overflow-y: visible;    /* 🔥 clave para que sticky funcione */
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #tablaStock {
+    min-width: 1200px;
+    border-collapse: collapse;
+    /* ❌ IMPORTANTE: NO display:block */
+  }
+
+  #tablaStock thead th {
+    position: sticky;
+    top: 76px; /* navbar */
+    z-index: 1000;
+    background: white;
+  }
+
+}
+
+/* 🔒 FORZAR que el menú mobile NO exista en desktop */
+@media (min-width: 992px) {
+  #navbarNavMobile {
+    display: none !important;
+  }
+}
+</style>
+
 
 </head>
 <body class="d-flex flex-column min-vh-100">
@@ -398,7 +420,7 @@ footer {
   </div>
 </nav>
 
-
+<main class="flex-grow-1" style="min-width: 700px;">
 
   <!-- 🔒 Modal login Ajuste -->
   <div id="loginModal" class="modal-login" style="display: none;">
@@ -450,24 +472,25 @@ footer {
   </div>
 
   <!-- Tabla -->
-   <div class="tabla-scroll"></div>
-<table class="table table-bordered align-middle" 
-       id="tablaStock" 
-       style="table-layout: fixed; width: 100%;">
+   <div class="tabla-scroll">
+  <table class="table table-bordered align-middle"
+         id="tablaStock"
+         style="table-layout: fixed; width: 100%;">
 
- <thead>
-  <tr>
-    <th style="width: 21%;">Categoría</th>
-    <th style="width: 44%;">Artículo</th>
-    <th class="text-center" style="width: 8%;">Unidades</th>
-    <th class="text-center" style="width: 8%;">Cajas / Packs</th>
-    <th class="text-center" style="width: 10%;">Total Disponibles </th>
-    <th class="text-center" style="width: 8%;">Unidades Rotas</th>
-  </tr>
-</thead>
+    <thead>
+      <tr>
+        <th style="width: 21%;">Categoría</th>
+        <th style="width: 44%;">Artículo</th>
+        <th class="text-center" style="width: 8%;">Unidades</th>
+        <th class="text-center" style="width: 8%;">Cajas / Packs</th>
+        <th class="text-center" style="width: 10%;">Total Disponibles</th>
+        <th class="text-center" style="width: 8%;">Unidades Rotas</th>
+      </tr>
+    </thead>
 
-<tbody id="tablaStockActual"></tbody>
-</table>
+    <tbody id="tablaStockActual"></tbody>
+
+  </table>
 </div>
 
  
