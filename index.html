@@ -272,18 +272,22 @@ footer {
     background: white;
   }
 
-   .modal-login {
-    position: absolute;   /* 🔥 clave: deja de ser fixed */
-    top: 80px;            /* 🔥 debajo del navbar */
-    left: 50%;
-    transform: translateX(-50%);
-    
+}
+
+@media (max-width: 768px) {
+
+  .modal-login {
+    position: fixed;
+    top: 70px;           /* debajo del navbar */
+    left: 0;
     width: 100%;
-    height: auto;
-    
-    background: transparent; /* opcional: saca el fondo oscuro */
-    align-items: flex-start;
+    height: calc(100% - 70px); /* 🔥 evita que tape el navbar */
+
+    display: flex;
     justify-content: center;
+    align-items: flex-start;
+
+    padding-top: 20px;
   }
 
   .modal-content-login {
