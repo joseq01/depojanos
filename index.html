@@ -1078,6 +1078,7 @@ export async function cargarStockActual() {
       categoriasMap.set(nombre, data.categoria || "");
       unidadesPorCajaMap.set(nombre, parseInt(data.unixcajapack) || 0);
     }
+    window.scrollTo(0, 0);
   });
 
  function actualizarFila(articulo) {
