@@ -328,6 +328,28 @@ footer {
     margin: 0 auto;
   }
 
+    #modalSeleccionSalon {
+    position: fixed !important;
+    top: 70px;
+    left: 0;
+
+    width: 100%;
+    height: calc(100vh - 70px);
+
+    display: flex !important;
+    align-items: flex-start !important;
+    justify-content: center !important;
+
+    padding-top: 20px;
+
+    overflow-y: auto;
+  }
+
+  #modalSeleccionSalon .modal-dialog {
+    margin: 0 auto !important;
+    width: 95%;
+    max-width: 500px;
+  }
 }
 </style>
 
@@ -981,8 +1003,7 @@ export async function cargarStockActual() {
         position: fixed;
         inset: 0;
         display: flex;
-        align-items: flex-start;
-padding-top: 90px;
+        align-items: center;
         justify-content: center;
         z-index: 9999;
         transition: opacity 0.3s ease;
