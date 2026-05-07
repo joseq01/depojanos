@@ -324,18 +324,24 @@ footer {
     padding-top: 20px; /* espacio desde navbar */
   }
 
- #modalSeleccionSalon {
-    position: fixed !important;
-    top: 70px;
-    left: 0;
-    width: 100%;
-    height: calc(100vh - 70px);
-    overflow-y: auto;
+  #loginInicial .modal-dialog {
+    margin: 0 auto;
   }
 
-  #modalSeleccionSalon .modal-dialog {
-    margin: 20px auto 0 auto;
+   #modalSeleccionSalon .modal-dialog {
+    margin-top: 90px;
+    margin-bottom: 0;
   }
+
+  #modalSeleccionSalon {
+  position: fixed !important;
+  top: 70px;
+  left: 0;
+  width: 100%;
+  height: calc(100vh - 70px);
+
+  z-index: 1055;
+}
 }
 </style>
 
