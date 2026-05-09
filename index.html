@@ -303,11 +303,6 @@ footer {
 
 /* 🔒 FORZAR que el menú mobile NO exista en desktop */
 @media (min-width: 992px) {
-  html,
-  body {
-    width: 100vw !important;
-    overflow-x: hidden !important;
-  }
   #navbarNavMobile {
     display: none !important;
   }
@@ -315,58 +310,72 @@ footer {
 
 @media (max-width: 768px) {
 
+  #overlayCarga {
+    position: fixed !important;
+    inset: 0 !important;
+
+    width: 100vw !important;
+    height: 100vh !important;
+
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+
+    z-index: 99998 !important;
+  }
+
   #loginInicial {
     position: fixed !important;
-    top: 70px; /* debajo del navbar */
+    top: 70px;
     left: 0;
     width: 100%;
-    height: calc(100vh - 70px); /* pantalla menos navbar */
+    height: calc(100vh - 70px);
 
     display: flex;
-    align-items: flex-start; /* 🔥 importante */
+    align-items: flex-start;
     justify-content: center;
 
-    padding-top: 20px; /* espacio desde navbar */
+    padding-top: 20px;
   }
 
   #loginInicial .modal-dialog {
     margin: 0 auto;
   }
 
- #modalSeleccionSalon {
-  position: fixed !important;
-  top: 70px;
-  left: 0;
-  width: 100%;
-  height: calc(100vh - 70px);
+  #modalSeleccionSalon {
+    position: fixed !important;
+    top: 70px;
+    left: 0;
+    width: 100%;
+    height: calc(100vh - 70px);
 
-  overflow-y: auto;
-  z-index: 1055;
-}
+    overflow-y: auto;
+    z-index: 1055;
+  }
 
-#modalSeleccionSalon .modal-dialog {
-  margin: 90px auto 0 auto;
-  width: 95%;
-  max-width: 500px;
-}
+  #modalSeleccionSalon .modal-dialog {
+    margin: 90px auto 0 auto;
+    width: 95%;
+    max-width: 500px;
+  }
 
-#mensajeCarga,
-#mensajeConfirmacion {
-  position: fixed !important;
+  #mensajeCarga,
+  #mensajeConfirmacion {
+    position: fixed !important;
 
-  top: 95px !important;
-  left: 50% !important;
+    top: 95px !important;
+    left: 50% !important;
 
-  transform: translateX(-50%) !important;
+    transform: translateX(-50%) !important;
 
-  width: 90% !important;
-  max-width: 400px !important;
+    width: 90% !important;
+    max-width: 400px !important;
 
-  margin-left: 0 !important;
-  margin-right: 0 !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
 
-  z-index: 999999 !important;
-}
+    z-index: 999999 !important;
+  }
 }
 
 footer {
@@ -378,10 +387,11 @@ body {
 }
 
 body.modal-open {
-    overflow: auto !important;
-    padding-right: 0 !important;
-    position: static !important;
-  }
+  overflow: auto !important;
+  padding-right: 0 !important;
+  position: static !important;
+}
+  
 </style>
 
 
