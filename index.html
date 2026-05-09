@@ -1029,7 +1029,8 @@ export async function cargarStockActual() {
         position: fixed;
         inset: 0;
         display: flex;
-        align-items: center;
+        align-items: ${window.innerWidth <= 768 ? "flex-start" : "center"};
+padding-top: ${window.innerWidth <= 768 ? "90px" : "0"};
         justify-content: center;
         z-index: 9999;
         transition: opacity 0.3s ease;
