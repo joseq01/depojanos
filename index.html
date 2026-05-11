@@ -373,7 +373,7 @@ body {
   width: auto !important;
 }
 
- #overlayCarga > div {
+ #overlayCarga {
     position: fixed !important;
     top: 70px !important;
     left: 0 !important;
@@ -385,6 +385,16 @@ body {
 
     z-index: 99998 !important;
   }
+
+  @media (max-width: 768px) {
+
+  html,
+  body {
+    height: 100dvh !important;
+    overflow-x: auto !important;
+  }
+
+}
 </style>
 
 
