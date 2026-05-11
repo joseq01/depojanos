@@ -241,6 +241,11 @@ main {
 footer {
   flex-shrink: 0;
 }
+
+.swal2-container {
+  z-index: 1000000 !important;
+}
+
 /* MOBILE CHICO */
 @media (max-width: 768px) {
 
@@ -303,7 +308,9 @@ footer {
 
 /* 🔒 FORZAR que el menú mobile NO exista en desktop */
 @media (min-width: 992px) {
-  #navbarNavMobile {
+  #navbarNavMobile,
+  #navbarNavMobile.show,
+  #navbarNavMobile.collapsing {
     display: none !important;
   }
 
