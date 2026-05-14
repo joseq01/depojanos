@@ -2501,12 +2501,12 @@ function generarContenidoPagina(paginaItems) {
   const [dia, mes, anio] = (fecha || "").split("/");
 
   // top: 60px hoja A4 para fecha mas arriba
-  // agregas  "margin-top: -20px;" para achicar direccion en hoja C5
+  // agregas  "margin-top: -20px;" para achicar direccion en hoja C5. margin-left: 80px
 
   let contenido = `
     <div style="font-family: Arial, sans-serif; padding: 60px 40px; position: relative; min-height: 100vh; box-sizing: border-box;">
       <!-- Fecha -->
-      <div style="position: absolute; top: 70px; right: 40px; font-size: 16px;"> 
+      <div style="position: absolute; top: 75px; right: 40px; font-size: 16px;"> 
         <span style="display: inline-block; width: 1cm; text-align: center; margin-right: 0.5cm;">${dia || ""}</span>
       <span style="display: inline-block; width: 1cm; text-align: center; margin-right: 0.3cm;">${mes || ""}</span>
       <span style="display: inline-block; width: 1cm; text-align: center; margin-left: 0.6cm;">${anio || ""}</span>
@@ -2517,13 +2517,13 @@ function generarContenidoPagina(paginaItems) {
 
       <!-- Dirección -->
       <div style="height: 28px;"></div>
-      <div style="margin-bottom: 60px;  margin-top: -20px; font-size: 14px; margin-left: 80px;">
+      <div style="margin-bottom: 60px;  margin-top: -5px; font-size: 14px; margin-left: 85px;">
         ${direccion}, ${localidad}, ${provincia} (${cp})
       </div>
   `;
 
   // 🔹 Posición inicial de los artículos y altura de fila
-  const startY = 208 + 32 + 60 + 108 - 48; // . 8 para que articulos empiece un renglo +abajo
+  const startY = 208 + 32 + 60 + 108 - 28; // . 8 para que articulos empiece un renglo +abajo
   const rowHeight = 40;              // altura de fila en px (≈1.2cm)
   const maxArticulos = 10;
 
@@ -2558,6 +2558,7 @@ function generarContenidoPagina(paginaItems) {
 
   // 🔹 Pie de página
   // "margin-top: 48px;" para subir dni en hoja A4
+  // "margin-top: 49pc" para linea Chofer
 contenido += `
   <div style="position: absolute; bottom: 75px; left: 40px; right: 40px; border-top: 1px solid #ccc; padding-top: 12px; font-size: 14px; display: flex; justify-content: flex-end;">
     
@@ -2570,10 +2571,10 @@ contenido += `
       </div>
 
       <!-- Segunda línea: Chofer baja 2 líneas -->
-     <div style="margin-top: 49px; margin-right: 80px;">${chofer || "&nbsp;"}</div>
+     <div style="margin-top: 41px; margin-right: 80px;">${chofer || "&nbsp;"}</div>
 
       <!-- Tercera línea: DNI baja 1 línea más abajo -->
-      <div style="margin-top: 68px; margin-right: 80px;">${dni || "&nbsp;"}</div>
+      <div style="margin-top: 48px; margin-right: 80px;">${dni || "&nbsp;"}</div>
     </div>
 
   </div>
