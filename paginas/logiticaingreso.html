@@ -1198,61 +1198,124 @@ function reproducirBipError() {
 
 //fin lector de barras
  
+let agregandoIngreso = false;
+
 async function agregarArticulo() {
-  const articulo = document.getElementById("articulo").value.trim();
-  const unidades = parseInt(document.getElementById("unidades").value) || 0;
-  const cajas = parseInt(document.getElementById("cajas").value) || 0;
-  const rotas = parseInt(document.getElementById("rotas").value) || 0; // Unidades Rotas
-  const notas = document.getElementById("notas").value.trim();
-  const ingreso = document.getElementById("salonIngreso").value;
-  const origen = document.getElementById("salonDestino").textContent;
-  const fecha = Timestamp.fromDate(new Date());
-  const usuario = sessionStorage.getItem("usuario");
-  const salonEnviar = document.getElementById("salonEnviar").value.trim();
 
-  if (articulo === "") return;
+  // 🚫 Evita múltiples clicks
+  if (agregandoIngreso) return;
 
-  // ⚠️ Primero verificar y actualizar stock antes de guardar
-  const actualizado = await actualizarStockTotal(articulo, unidades, cajas, origen);
-  if (!actualizado) return; // ❌ Detener el flujo si hay stock insuficiente
+  agregandoIngreso = true;
 
-  // ✅ Ahora sí, guardar en "stock-ingreso"
-  const docRef = await addDoc(collection(db, "stock-ingreso"), {
-    articulo,
-    unidades,
-    cajas,
-    rotas,
-    notas,
-    salones: ingreso,
-    origen,
-    usuario,
-    fecha
-  });
+  const btnAgregar = document.getElementById("btnAgregarIngreso");
 
-  const fechaFormateada = fecha.toDate().toLocaleDateString('es-AR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric'
-  });
+  if (btnAgregar) {
+    btnAgregar.disabled = true;
+  }
 
-  const fila = crearFila(ingreso, fechaFormateada, articulo, unidades, cajas,  notas, usuario, docRef.id);
-  document.getElementById("tablaArticulos").insertAdjacentHTML("beforeend", fila);
+  try {
 
-  mostrarMensajeGuardado();
+    const articulo = document.getElementById("articulo").value.trim();
+    const unidades = parseInt(document.getElementById("unidades").value) || 0;
+    const cajas = parseInt(document.getElementById("cajas").value) || 0;
+    const rotas = parseInt(document.getElementById("rotas").value) || 0;
+    const notas = document.getElementById("notas").value.trim();
+    const ingreso = document.getElementById("salonIngreso").value;
+    const origen = document.getElementById("salonDestino").textContent;
+    const fecha = Timestamp.fromDate(new Date());
+    const usuario = sessionStorage.getItem("usuario");
+    const salonEnviar = document.getElementById("salonEnviar").value.trim();
 
-  // ✅ Guardar en bandeja
-  guardarEnBandeja({ articulo, unidades, cajas, rotas, salon: salonEnviar, notas });
+    if (articulo === "") return;
 
-  // ✅ Cargar últimos pedidos
-  await cargarTablaPedidos(true);
+    // ⚠️ Verificar y actualizar stock
+    const actualizado = await actualizarStockTotal(
+      articulo,
+      unidades,
+      cajas,
+      origen
+    );
 
-  // Limpiar inputs
-  document.getElementById("articulo").value = "";
-  document.getElementById("unidades").value = "";
-  document.getElementById("cajas").value = "";
-  document.getElementById("notas").value = "";
-  document.getElementById("salonIngreso").value = "";
-  document.getElementById("rotas").value = "";
+    // ❌ Stock insuficiente
+    if (!actualizado) return;
+
+    // ✅ Guardar ingreso
+    const docRef = await addDoc(collection(db, "stock-ingreso"), {
+      articulo,
+      unidades,
+      cajas,
+      rotas,
+      notas,
+      salones: ingreso,
+      origen,
+      usuario,
+      fecha
+    });
+
+    const fechaFormateada = fecha.toDate().toLocaleDateString('es-AR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+
+    const fila = crearFila(
+      ingreso,
+      fechaFormateada,
+      articulo,
+      unidades,
+      cajas,
+      notas,
+      usuario,
+      docRef.id
+    );
+
+    document
+      .getElementById("tablaArticulos")
+      .insertAdjacentHTML("beforeend", fila);
+
+    mostrarMensajeGuardado();
+
+    // ✅ Guardar bandeja
+    guardarEnBandeja({
+      articulo,
+      unidades,
+      cajas,
+      rotas,
+      salon: salonEnviar,
+      notas
+    });
+
+    // ✅ Recargar tabla
+    await cargarTablaPedidos(true);
+
+    // ✅ Limpiar formulario
+    document.getElementById("articulo").value = "";
+    document.getElementById("unidades").value = "";
+    document.getElementById("cajas").value = "";
+    document.getElementById("notas").value = "";
+    document.getElementById("salonIngreso").value = "";
+    document.getElementById("rotas").value = "";
+
+  } catch (error) {
+
+    console.error("Error al agregar artículo:", error);
+
+    Swal.fire({
+      icon: 'error',
+      title: 'Error',
+      text: 'No se pudo guardar el ingreso'
+    });
+
+  } finally {
+
+    // ✅ Liberar bloqueo
+    agregandoIngreso = false;
+
+    // ✅ Reactivar botón
+    if (btnAgregar) {
+      btnAgregar.disabled = false;
+    }
+  }
 }
 
 async function cargarTablaPedidos(soloUltimosDias = true) {
@@ -1462,78 +1525,129 @@ async function restarStockTotal(articulo, unidades, cajas, origen) {
   });
 }
 
+let guardandoSeleccion = false;
+
 async function guardarSeleccion() {
-  const contenedor = document.getElementById("contenedorCombos");
-  const comboCards = document.querySelectorAll(".combo-card");
 
-  for (let card of comboCards) {
-    const checkbox = card.querySelector(".combo-checkbox");
-    if (!checkbox.checked) continue; // ✅ Solo procesa combos seleccionados
+  // 🚫 Evita doble click
+  if (guardandoSeleccion) return;
 
-    const comboNombre = checkbox.dataset.nombre;
-    const rows = card.getElementsByClassName("row");
+  guardandoSeleccion = true;
 
-    for (let row of rows) {
-      const articuloInput = row.querySelector(".articulo");
-      const unidadesInput = row.querySelector(".unidades");
-      const cajasInput = row.querySelector(".cajas");
-      const notasInput = row.querySelector(".notas");
+  const boton = document.getElementById("btnGuardarSeleccion");
 
-      if (articuloInput && unidadesInput && cajasInput && notasInput) {
-       const articulo = articuloInput.value.trim();
-       const unidades = parseInt(unidadesInput.value) || 0;
-       const cajas = parseInt(cajasInput.value) || 0;
-       const notas = notasInput.value.trim();
-       const rotas = 0; // ✅ ← agregado
-
-    // 🚫 No registrar si no hay nada cargado
-    if (!articulo || (unidades <= 0 && cajas <= 0 && !notas)) continue;
-
-        const fecha = Timestamp.fromDate(new Date()); //cambio 21/6
-        const usuario = sessionStorage.getItem("usuario");
-        const ingreso = document.getElementById("salonIngreso").value;
-        const origen = document.getElementById("salonDestino").textContent;
-
-       try {
-  const actualizado = await actualizarStockTotal(articulo, unidades, cajas, origen);
-  if (!actualizado) return; // ❌ Detener si no hay stock suficiente
-
-  // ✅ Solo guarda si hay stock suficiente
-  const docRef = await addDoc(collection(db, "stock-ingreso"), {
-    combo: comboNombre,
-    articulo,
-    unidades,
-    cajas,
-    rotas,
-    notas,
-    fecha: fecha,
-    usuario,
-    salones: ingreso,
-    origen
-  });
-
-  const fechaFormateada = fecha.toDate().toLocaleDateString('es-AR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric'
-  });
-
-  const filaHTML = crearFila(ingreso, fechaFormateada, articulo, unidades, cajas, rotas, notas, usuario, docRef.id);
-  document.getElementById("tablaArticulos").insertAdjacentHTML("beforeend", filaHTML);
-
-  mostrarMensajeGuardado();
-
-} catch (error) {
-  console.error("❌ Error al guardar en Firestore:", error);
-}
-
-      }
-    }
+  if (boton) {
+    boton.disabled = true;
+    boton.textContent = "Guardando...";
   }
 
-  cerrarFlotante();
-}
+  try {
 
+    const contenedor = document.getElementById("contenedorCombos");
+    const comboCards = document.querySelectorAll(".combo-card");
+
+    for (let card of comboCards) {
+
+      const checkbox = card.querySelector(".combo-checkbox");
+
+      if (!checkbox.checked) continue;
+
+      const comboNombre = checkbox.dataset.nombre;
+      const rows = card.getElementsByClassName("row");
+
+      for (let row of rows) {
+
+        const articuloInput = row.querySelector(".articulo");
+        const unidadesInput = row.querySelector(".unidades");
+        const cajasInput = row.querySelector(".cajas");
+        const notasInput = row.querySelector(".notas");
+
+        if (articuloInput && unidadesInput && cajasInput && notasInput) {
+
+          const articulo = articuloInput.value.trim();
+          const unidades = parseInt(unidadesInput.value) || 0;
+          const cajas = parseInt(cajasInput.value) || 0;
+          const notas = notasInput.value.trim();
+          const rotas = 0;
+
+          // 🚫 No registrar si no hay nada cargado
+          if (!articulo || (unidades <= 0 && cajas <= 0 && !notas)) continue;
+
+          const fecha = Timestamp.fromDate(new Date());
+          const usuario = sessionStorage.getItem("usuario");
+          const ingreso = document.getElementById("salonIngreso").value;
+          const origen = document.getElementById("salonDestino").textContent;
+
+          try {
+
+            const actualizado = await actualizarStockTotal(
+              articulo,
+              unidades,
+              cajas,
+              origen
+            );
+
+            if (!actualizado) return;
+
+            const docRef = await addDoc(collection(db, "stock-ingreso"), {
+              combo: comboNombre,
+              articulo,
+              unidades,
+              cajas,
+              rotas,
+              notas,
+              fecha,
+              usuario,
+              salones: ingreso,
+              origen
+            });
+
+            const fechaFormateada = fecha.toDate().toLocaleDateString('es-AR', {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric'
+            });
+
+            const filaHTML = crearFila(
+              ingreso,
+              fechaFormateada,
+              articulo,
+              unidades,
+              cajas,
+              rotas,
+              notas,
+              usuario,
+              docRef.id
+            );
+
+            document
+              .getElementById("tablaArticulos")
+              .insertAdjacentHTML("beforeend", filaHTML);
+
+            mostrarMensajeGuardado();
+
+          } catch (error) {
+
+            console.error("❌ Error al guardar en Firestore:", error);
+
+          }
+        }
+      }
+    }
+
+    cerrarFlotante();
+
+  } finally {
+
+    // ✅ Libera nuevamente el botón
+    guardandoSeleccion = false;
+
+    if (boton) {
+      boton.disabled = false;
+      boton.textContent = "Guardar";
+    }
+  }
+}
 
 window.addEventListener("DOMContentLoaded", async () => {
   await cargarTablaPedidos(true);
