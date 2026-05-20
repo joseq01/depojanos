@@ -286,6 +286,44 @@ body {
   
 }
 
+@media (max-width: 768px) {
+
+  html,
+  body {
+    height: 100dvh !important;
+    overflow-x: auto !important;
+  }
+
+  #overlayCarga {
+    position: fixed !important;
+    top: 70px !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+
+    width: 100vw !important;
+    height: calc(100vh - 70px) !important;
+
+    z-index: 99998 !important;
+  }
+
+  #mensajeCarga,
+  #mensajeConfirmacion {
+    position: fixed !important;
+    top: 85px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+
+    z-index: 99999 !important;
+
+    width: auto;
+    max-width: 90%;
+
+    margin: 0 !important;
+  }
+
+}
+
 .footer-flotante {
   position: sticky;
   bottom: 0;
