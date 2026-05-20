@@ -2233,14 +2233,30 @@ function ocultarLoginModal() {
 }
 
 // restaurar usuario/salón de sessionStorage al cargar
-window.addEventListener('load', () => {
+// restaurar usuario/salón de sessionStorage al cargar
+window.addEventListener('load', async () => {
+
   const usuarioGuardado = sessionStorage.getItem("usuario");
   const salonGuardado = sessionStorage.getItem("salon");
+
   const loginModal = document.getElementById("loginInicial");
+  const selectorSalon = document.getElementById("selectorSalon");
+
+  // 🔹 cargar salones primero
+  await cargarSalones();
 
   if (usuarioGuardado && salonGuardado) {
+
     usuarioActual = usuarioGuardado;
     salonActual = salonGuardado;
+
+    // 🔹 restaurar selector visual REAL
+    if (selectorSalon) {
+      selectorSalon.value = salonActual;
+    }
+
+    // 🔹 cargar stock del salón correcto
+    await cargarStockActual();
 
     // Ocultar modal login
     loginModal.classList.remove("show", "d-flex");
@@ -2248,14 +2264,15 @@ window.addEventListener('load', () => {
     loginModal.style.display = "none";
 
     console.log(`Usuario restaurado: ${usuarioActual}, salón: ${salonActual}`);
+
   } else {
+
     // Mostrar modal login
     loginModal.classList.remove("d-none");
     loginModal.classList.add("show", "d-flex");
     loginModal.classList.remove("invisible");
   }
 });
-
 
 //clave acceso fin
 

@@ -2116,7 +2116,8 @@ function llenarOpcionesFiltro(index) {
   }
 
   // Aplicar filtro seleccionado
-function aplicarFiltro() {
+async function aplicarFiltro() {
+
   if (columnaActualIndex === null) return;
 
   const seleccionados = Array.from(
@@ -2125,20 +2126,121 @@ function aplicarFiltro() {
 
   const verTodos = seleccionados.includes("__TODOS__");
 
-  // Si es la columna FECHA (índice 2) y se eligió "ver todos", recarga desde Firestore
+  // ✅ FECHA → VER TODOS
   if (columnaActualIndex === 2 && verTodos) {
-    cargarTablaPedidos(false); // ❗Mostrá todos los días
+
+    // ✅ Cerrar dropdown inmediatamente
     document.getElementById("filtroDropdown").style.display = "none";
+
+    // 🔹 Mostrar overlay
+    let overlay = document.getElementById("overlayCarga");
+
+    if (!overlay) {
+
+      overlay = document.createElement("div");
+
+      overlay.id = "overlayCarga";
+
+      overlay.innerHTML = `
+        <div style="
+          background: rgba(0,0,0,0.6);
+          position: fixed;
+          inset: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 9999;
+        ">
+          <div style="
+            background: #fff;
+            padding: 25px 40px;
+            border-radius: 15px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.3);
+            font-family: Arial, sans-serif;
+            font-size: 18px;
+            text-align: center;
+            color: #333;
+            animation: pulse 1.2s infinite ease-in-out;
+          ">
+            🔄 Cargando datos...
+          </div>
+        </div>
+
+        <style>
+          @keyframes pulse {
+            0%, 100% {
+              opacity: 0.8;
+              transform: scale(1);
+            }
+
+            50% {
+              opacity: 1;
+              transform: scale(1.05);
+            }
+          }
+        </style>
+      `;
+
+      document.body.appendChild(overlay);
+
+    } else {
+
+      overlay.style.display = "flex";
+    }
+
+    // ✅ Esperar carga REAL
+    await cargarTablaPedidos(false);
+
+    // ✅ ORDENAR FECHAS
+    const tbody = document.getElementById("tablaArticulos");
+
+    const filas = Array.from(tbody.querySelectorAll("tr"));
+
+    filas.sort((a, b) => {
+
+      const fechaA = a.cells[2]?.textContent.trim() || "";
+      const fechaB = b.cells[2]?.textContent.trim() || "";
+
+      function convertirFecha(fecha) {
+
+        const partes = fecha.split("/");
+
+        if (partes.length !== 3) return new Date(0);
+
+        let [dia, mes, anio] = partes;
+
+        dia = dia.padStart(2, "0");
+        mes = mes.padStart(2, "0");
+
+        return new Date(`${anio}-${mes}-${dia}T00:00:00`);
+      }
+
+      return convertirFecha(fechaA) - convertirFecha(fechaB);
+
+    });
+
+    tbody.innerHTML = "";
+
+    filas.forEach(fila => tbody.appendChild(fila));
+
+    // ✅ Ocultar overlay
+    overlay.style.display = "none";
+
     return;
   }
 
   document.querySelectorAll("#tablaArticulos tr").forEach(tr => {
+
     const celda = tr.cells[columnaActualIndex];
+
     const valorCelda = celda?.textContent.trim();
 
     if (verTodos || (valorCelda && seleccionados.includes(valorCelda))) {
+
       tr.style.display = "";
+
     } else {
+
       tr.style.display = "none";
     }
   });
