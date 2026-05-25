@@ -417,10 +417,14 @@ footer {
   user-select: none;
 }
 
-@media (max-width: 468px) {
+@media (max-width: 468px) and (orientation: portrait) {
 
   thead th {
-    top: 98px !important;
+    height: auto !important;
+    line-height: normal !important;
+    padding-top: 8px !important;
+    padding-bottom: 8px !important;
+    vertical-align: middle !important;
   }
 
 }
