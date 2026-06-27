@@ -51,6 +51,7 @@
   padding-top: 70px; /* Ajustá este valor si tu navbar es más alto o más bajo */
 }
 
+
 /* Proyector PEDIDOS */
 .proyector-box {
   background-color: #f8f9fa;
@@ -376,8 +377,6 @@ body {
 
 }
 
-
-
 .footer-flotante {
   position: sticky;
   bottom: 0;
@@ -483,7 +482,16 @@ th.filtro-activo::after {
   margin-left: 4px;
 }
 
+@media (max-width: 468px) and (orientation: portrait) {
+
+  thead th {
+    top: 70px !important;
+  }
+
+}
+
   </style>
+  
 </head>
 <body class="d-flex flex-column min-vh-100">
 
@@ -3126,10 +3134,19 @@ document.addEventListener("change", (e) => {
  * LLENAR OPCIONES
  **********************/
 function llenarOpcionesFiltro(index) {
+  columnaActualIndex = index;
+
   const opciones = new Set();
-  document.querySelectorAll(`#tablaArticulos tr`).forEach(tr => {
+
+  document.querySelectorAll("#tablaArticulos tr").forEach(tr => {
+
+    // ✅ Solo tomar filas visibles
+    if (tr.style.display === "none") return;
+
     const celda = tr.cells[index];
-    if (celda) opciones.add(celda.textContent.trim());
+    if (celda) {
+      opciones.add(celda.textContent.trim());
+    }
   });
 
   todasOpcionesFiltro = Array.from(opciones).sort();

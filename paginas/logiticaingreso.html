@@ -781,6 +781,7 @@ cargarSalonesEnDatalistIngreso();
   sessionStorage.setItem("combosCache", JSON.stringify(combos));
   console.log("📦 Combos guardados en cache");
 }
+
 async function abrirModalCombos() {
   await cargarCombosDesdeFirestore();
   mostrarFlotante();
@@ -2142,15 +2143,28 @@ let columnaActualIndex = null;
   let todasOpcionesFiltro = []; // Guardamos todas las opciones para filtrar en tiempo real
 
 function llenarOpcionesFiltro(index) {
+
   columnaActualIndex = index;
+
   const opciones = new Set();
-  document.querySelectorAll(`#tablaArticulos tr`).forEach(tr => {
+
+  document.querySelectorAll("#tablaArticulos tr").forEach(tr => {
+
+    // ✅ Solo tomar las filas visibles
+    if (tr.style.display === "none") return;
+
     const celda = tr.cells[index];
-    if (celda) opciones.add(celda.textContent.trim());
+
+    if (celda) {
+      const valor = celda.textContent.trim();
+      if (valor !== "") opciones.add(valor);
+    }
+
   });
 
-  todasOpcionesFiltro = Array.from(opciones).sort(); // Guardamos todas
-  mostrarOpcionesFiltradas(); // Mostramos al inicio todas
+  todasOpcionesFiltro = Array.from(opciones).sort();
+
+  mostrarOpcionesFiltradas();
 }
 
   // Buscar dentro de las opciones del dropdown
