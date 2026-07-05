@@ -1489,12 +1489,12 @@ document.getElementById("btnEliminarArticulo").addEventListener("click", async (
   cargarListaArticulos();
 
   // 🔴 Cerrar modal de forma segura
-  const modal = bootstrap.Modal.getInstance(document.getElementById("modalArticulos"));
-  if (modal) modal.hide();
+  // const modal = bootstrap.Modal.getInstance(document.getElementById("modalArticulos"));
+  // if (modal) modal.hide();
 
   // 🔴 Eliminar fondo gris si quedó
-  document.body.classList.remove('modal-open');
-  document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+ //  document.body.classList.remove('modal-open');
+  // document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
 
 } catch (error) {
   console.error("Error al eliminar:", error);
@@ -1509,6 +1509,27 @@ document.addEventListener("DOMContentLoaded", () => {
   cargarCategorias(); // 👈 Agregás esta línea
 });
 
+document.addEventListener("DOMContentLoaded", () => {
+
+  const modal = document.getElementById("modalArticulos");
+
+  modal.addEventListener("hidden.bs.modal", async () => {
+
+    const snapshot = await getDocs(collection(db, "stock-articulos"));
+
+    const lista = [];
+
+    snapshot.forEach(doc => {
+      lista.push({
+        id: doc.id,
+        ...doc.data()
+      });
+    });
+
+    sessionStorage.setItem("articulosCache", JSON.stringify(lista));
+  });
+
+});
 //finaliza articulos
 
 // Carga salones
@@ -1877,9 +1898,41 @@ window.eliminarComboConConfirmacion = async function() {
 }}; 
 
 // 🔹 Cada vez que se cierre el modal, limpiamos el campo y el contenedor
-document.getElementById("modalEditarCombos").addEventListener("hidden.bs.modal", () => {
-  document.getElementById("nombreCombo").value = "";
-  document.getElementById("contenedorNuevosCombos").innerHTML = "";
+// document.getElementById("modalEditarCombos").addEventListener("hidden.bs.modal", () => {
+//  document.getElementById("nombreCombo").value = "";
+//  document.getElementById("contenedorNuevosCombos").innerHTML = "";
+// });
+document.getElementById("modalEditarCombos")
+  .addEventListener("hidden.bs.modal", async () => {
+
+    // 🔹 1. Limpiar campos del modal
+    document.getElementById("nombreCombo").value = "";
+    document.getElementById("contenedorNuevosCombos").innerHTML = "";
+
+    try {
+      // 🔹 2. Actualizar cache de combos
+      const snapshot = await getDocs(collection(db, "stock-combos"));
+
+      const combos = {};
+
+snapshot.forEach(doc => {
+  const data = doc.data();
+
+  combos[doc.id] = Array.isArray(data.productos)
+    ? data.productos.map(item => ({
+        articulo: item.articulo || "",
+        unidades: item.unidades ?? 0,
+        cajaPack: item.cajaPack ?? 0,
+        nota: item.nota || ""
+      }))
+    : [];
+});
+
+sessionStorage.setItem("combosCache", JSON.stringify(combos));
+
+    } catch (error) {
+      console.error("Error actualizando cache de combos:", error);
+    }
 });
 
 //finaliza modal combos
