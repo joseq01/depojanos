@@ -1527,6 +1527,9 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     sessionStorage.setItem("articulosCache", JSON.stringify(lista));
+
+      // 🔄 Forzar que Ingreso y Pedidos vuelvan a cargar artículos
+  sessionStorage.removeItem("articulosOficialesCache");
   });
 
 });

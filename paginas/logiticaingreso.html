@@ -203,6 +203,7 @@ body {
   overflow-x: auto;
 }
 
+
 @media (max-width: 991px) {
   .navbar {
     position: fixed !important;
@@ -424,6 +425,15 @@ footer {
   }
 
 }
+
+.texto-cajapack {
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    pointer-events: none;
+}
+
   </style>
 
 </head>
@@ -719,6 +729,7 @@ footer {
     measurementId: "G-DGXEE6YHFX"
   };
 
+  console.log("ENTRO A INGRESO", new Date().toLocaleTimeString());
   // Inicializar Firebase
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
@@ -976,7 +987,8 @@ function crearFila(ingreso, fecha, articulo, unidades, cajas, rotas, notas, usua
       <td contenteditable="true" class="text-center">${fecha}</td>
       <td contenteditable="true">${articulo}</td>
       <td contenteditable="true" class="text-center">${unidades}</td>
-      <td contenteditable="true" class="text-center">${cajas}</td>
+      <td contenteditable="true" class="text-center" data-cajas="${cajas}">
+  ${formatearCajas(articulo, cajas)} </td>
       <td contenteditable="true" class="text-center">${rotas}</td>
       <td contenteditable="true">${notas}</td>
       <td><button class="btn btn-sm btn-danger" onclick="eliminarFila(this, event)">✕</button></td>
@@ -1809,9 +1821,22 @@ if (diferenciaUnidades !== 0 || diferenciaCajas !== 0) {
 
   await updateDoc(doc(db, "stock-ingreso", id), updateData);
 
+    // Restaurar formato visual de la columna cajas
+celdas[5].dataset.cajas = nuevasCajas;
+celdas[5].innerHTML = formatearCajas(articulo, nuevasCajas);
+ultimaCeldaCajas = null;
+
+  if (usuarioActual !== usuarioLogueado) {
+    updateData.usuario = usuarioLogueado;
+    celdas[8].textContent = usuarioLogueado;
+  }
+
+
   // ✅ Actualizar visualmente las celdas
   celdas[4].textContent = nuevasUnidades;
-  celdas[5].textContent = nuevasCajas;
+   celdas[5].dataset.cajas = nuevasCajas;
+celdas[5].innerHTML = formatearCajas(articulo, nuevasCajas);
+  ultimaCeldaCajas = null;
   celdas[6].textContent = nuevasRotas;
   celdas[7].textContent = nuevasNotas;
   celdas[9].textContent = usuarioLogueado;  // ✅ Refrescar usuario
@@ -2009,6 +2034,56 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 //fin bandeja
+
+//funcion para mostrar unidades de cajas
+function formatearCajas(articulo, cajas) {
+
+  cajas = parseInt(cajas) || 0;
+
+  // Si no hay cajas, no mostrar nada
+  if (cajas <= 0) {
+    return "";
+  }
+
+  const articuloInfo = JSON.parse(sessionStorage.getItem("articulosCache") || "[]")
+    .find(a => a.articulo?.trim().toLowerCase() === articulo.trim().toLowerCase());
+
+  const unidadesPorCaja = parseInt(articuloInfo?.unixcajapack) || 0;
+
+  // Si no tiene unidades por caja, mostrar sólo las cajas
+  if (unidadesPorCaja <= 0) {
+    return `${cajas}`;
+  }
+
+  return `
+    ${cajas}
+     <span class="texto-cajapack">(${unidadesPorCaja} c/u)</span>
+  `;
+}
+
+let ultimaCeldaCajas = null;
+
+// Al hacer foco en la columna Cajas, mostrar solo el número para editar
+document.addEventListener("focusin", function (e) {
+  const celda = e.target;
+
+  if (!celda.matches("td[contenteditable][data-cajas]")) return;
+
+  // Restaurar la celda anterior si era distinta
+  if (ultimaCeldaCajas && ultimaCeldaCajas !== celda) {
+    const fila = ultimaCeldaCajas.closest("tr");
+    const articulo = fila.children[3].textContent.trim();
+    const cajas = parseInt(ultimaCeldaCajas.dataset.cajas) || 0;
+
+    ultimaCeldaCajas.innerHTML = formatearCajas(articulo, cajas);
+  }
+
+  // Mostrar solo el número en la celda actual
+  celda.textContent = celda.dataset.cajas;
+
+  ultimaCeldaCajas = celda;
+});
+
 
 </script>
 
