@@ -540,7 +540,7 @@ footer {
         </div>
 
         <div class="col-auto">
-          <label for="rotas" class="form-label">Uni. Rotas</label>
+          <label for="rotas" class="form-label">Uni. Dañadas</label>
           <input type="number" id="rotas" class="form-control" style="width: 80px;" />
         </div>
 
@@ -561,10 +561,72 @@ footer {
           <div id="salonDestino" class="form-control bg-light" style="width: 120px; pointer-events: none;">Deposito Janos</div>
         </div>
 
-        <div class="col-auto">
-          <label for="notas" class="form-label"> </label>
-          <input type="text" id="notas" class="form-control" placeholder="Observaciones..." style="width: 450px;" />
-        </div>
+  <div class="col-auto">
+  <label for="notas" class="form-label">&nbsp;</label>
+
+  <div class="dropdown" style="width: 450px;">
+
+    <div class="input-group">
+
+      <!-- Campo de observaciones -->
+      <input
+        type="text"
+        id="notas"
+        class="form-control"
+        placeholder="Observaciones..."
+        autocomplete="off"
+      >
+
+      <!-- Botón con flecha -->
+      <button
+        type="button"
+        class="btn btn-outline-secondary dropdown-toggle"
+        data-bs-toggle="dropdown"
+        aria-expanded="false"
+      ></button>
+
+      <!-- Opciones -->
+      <ul class="dropdown-menu dropdown-menu-end p-2">
+
+        <li>
+          <label class="dropdown-item">
+            <input
+              type="checkbox"
+              class="form-check-input me-2 tipoDanio"
+              value="Rotas"
+            >
+            Rotas
+          </label>
+        </li>
+
+        <li>
+          <label class="dropdown-item">
+            <input
+              type="checkbox"
+              class="form-check-input me-2 tipoDanio"
+              value="Mojadas"
+            >
+            Mojadas
+          </label>
+        </li>
+
+        <li>
+          <label class="dropdown-item">
+            <input
+              type="checkbox"
+              class="form-check-input me-2 tipoDanio"
+              value="Despintadas"
+            >
+            Despintadas
+          </label>
+        </li>
+
+      </ul>
+
+    </div>
+
+  </div>
+</div>
 
         <div class="col-auto align-self-end">
           <button class="btn btn-sm btn-primary" onclick="agregarArticulo()">Agregar</button>
@@ -1278,12 +1340,39 @@ async function agregarArticulo() {
     const unidades = parseInt(document.getElementById("unidades").value) || 0;
     const cajas = parseInt(document.getElementById("cajas").value) || 0;
     const rotas = parseInt(document.getElementById("rotas").value) || 0;
-    const notas = document.getElementById("notas").value.trim();
+    const notasOriginales  = document.getElementById("notas").value.trim();
     const ingreso = document.getElementById("salonIngreso").value;
     const origen = document.getElementById("salonDestino").textContent;
     const fecha = Timestamp.fromDate(new Date());
     const usuario = sessionStorage.getItem("usuario");
     const salonEnviar = document.getElementById("salonEnviar").value.trim();
+
+    // ==========================================
+    // OBTENER MULTIPLE CHOICE DE DAÑOS
+    // ==========================================
+
+    const tiposDanio = Array.from(
+      document.querySelectorAll(".tipoDanio:checked")
+    ).map(checkbox => checkbox.value);
+
+
+    // ==========================================
+    // ARMAR OBSERVACIONES PARA LA TABLA
+    // ==========================================
+
+    let notas = notasOriginales;
+
+    if (tiposDanio.length > 0) {
+
+      const textoDanios = tiposDanio.join(", ");
+
+      if (notas) {
+        notas += " | " + textoDanios;
+      } else {
+        notas = textoDanios;
+      }
+    }
+
 
     if (articulo === "") return;
 
@@ -1311,23 +1400,55 @@ async function agregarArticulo() {
       fecha
     });
 
+        // ==========================================
+    // GUARDAR DATOS DE DAÑOS
+    // EN LA NUEVA COLECCIÓN
+    // ==========================================
+
+    if (tiposDanio.length > 0) {
+
+      const ahora = new Date();
+
+      const hora = ahora.toLocaleTimeString("es-AR", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false
+      });
+
+
+      await addDoc(
+        collection(db, "stock-danios"),
+        {
+          articulo,
+          unidades: rotas,
+          tiposDanio,
+          fecha,
+          hora,
+          salonIngreso: ingreso,
+          salonEnviar
+        }
+      );
+    }
+
+
     const fechaFormateada = fecha.toDate().toLocaleDateString('es-AR', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric'
     });
 
-    const fila = crearFila(
-      ingreso,
-      fechaFormateada,
-      articulo,
-      unidades,
-      cajas,
-      notas,
-      usuario,
-      docRef.id
-    );
-
+  const fila = crearFila(
+  ingreso,
+  fechaFormateada,
+  articulo,
+  unidades,
+  cajas,
+  rotas,
+  notas,
+  usuario,
+  docRef.id
+);
     document
       .getElementById("tablaArticulos")
       .insertAdjacentHTML("beforeend", fila);

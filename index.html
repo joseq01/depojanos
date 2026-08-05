@@ -528,6 +528,7 @@ body {
           <a class="dropdown-item" href="#" onclick="abrirFlotanteProtegido('modalArticulos')">agr/elim articulo</a>
           <a class="dropdown-item" href="#" onclick="abrirFlotanteProtegido('modalAgregarSalon')">agregar salones</a>
           <a class="dropdown-item" href="#" onclick="abrirFlotanteProtegido('modalUsuarios')">agregar usuarios</a>
+          <a class="dropdown-item" href="#" onclick="abrirFlotanteProtegido('modalUnidadesDefectuosas')">unidades defectuosas</a>
         </div>
       </div>
     </div>
@@ -550,6 +551,7 @@ body {
           <li class="nav-item"><a class="nav-link" href="#" onclick="abrirFlotanteProtegido('modalArticulos')">agr/elim articulo</a></li>
           <li class="nav-item"><a class="nav-link" href="#" onclick="abrirFlotanteProtegido('modalAgregarSalon')">agregar salones</a></li>
           <li class="nav-item"><a class="nav-link" href="#" onclick="abrirFlotanteProtegido('modalUsuarios')">agregar usuarios</a></li>
+          <li class="nav-item"><a class="nav-link" href="#" onclick="abrirFlotanteProtegido('modalUnidadesDefectuosas')">unidades defectuosas</a></li>
         </ul>
       </li>
     </ul>
@@ -829,6 +831,73 @@ body {
   </div>
 </div>
 
+<!-- MODAL UNIDADES DEFECTUOSAS -->
+<div
+  class="modal fade"
+  id="modalUnidadesDefectuosas"
+  tabindex="-1"
+  aria-labelledby="modalUnidadesDefectuosasLabel"
+  aria-hidden="true"
+>
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalUnidadesDefectuosasLabel">
+          Unidades defectuosas
+        </h5>
+
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="modal"
+          aria-label="Cerrar"
+        ></button>
+      </div>
+
+      <div class="modal-body">
+
+        <div class="d-flex justify-content-between align-items-center mb-3">
+
+          <h6 class="mb-0">
+            Pendientes
+          </h6>
+
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-primary"
+            onclick="mostrarHistorialReparados()"
+          >
+            Ver historial
+          </button>
+
+        </div>
+
+        <div id="listaUnidadesDefectuosas">
+          <!-- Se carga desde Firestore -->
+        </div>
+
+        <div id="listaHistorialReparados" style="display: none;">
+          <!-- Historial -->
+        </div>
+
+      </div>
+
+      <div class="modal-footer">
+
+        <button
+          type="button"
+          class="btn btn-secondary"
+          data-bs-dismiss="modal"
+        >
+          Cerrar
+        </button>
+
+      </div>
+
+    </div>
+  </div>
+</div>
 
 <div id="mensajeGuardado" style="
   display: none;
@@ -870,7 +939,8 @@ body {
       deleteDoc,
       query, 
       where,
-      onSnapshot   
+      onSnapshot,
+      Timestamp  
       } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
    
     // Configuración Firebase
@@ -2376,10 +2446,2427 @@ window.addEventListener('load', () => {
     loginModal.classList.remove("invisible");
   }
 });
-
-
 //clave acceso fin
 
+// FUNCIONES PARA ARTICULOS REPARADOS
+document.addEventListener("DOMContentLoaded", () => {
+
+  const modal =
+    document.getElementById("modalUnidadesDefectuosas");
+
+  if (!modal) return;
+
+
+  modal.addEventListener(
+    "shown.bs.modal",
+    async () => {
+
+      await cargarUnidadesDefectuosas();
+
+    }
+  );
+
+});
+
+async function cargarUnidadesDefectuosas() {
+
+  const contenedor = document.getElementById(
+    "listaUnidadesDefectuosas"
+  );
+
+  if (!contenedor) {
+    console.error(
+      "❌ No existe el contenedor listaUnidadesDefectuosas"
+    );
+    return;
+  }
+
+  contenedor.innerHTML = `
+    <div class="text-center p-3">
+      Cargando unidades defectuosas...
+    </div>
+  `;
+
+  try {
+
+    const snapshot = await getDocs(
+      collection(db, "stock-danios")
+    );
+
+    console.log(
+      "📦 CANTIDAD DOCUMENTOS:",
+      snapshot.size
+    );
+
+    snapshot.forEach(docSnap => {
+
+      console.log(
+        "🆔 ID:",
+        docSnap.id
+      );
+
+      console.log(
+        "📄 DATOS:",
+        docSnap.data()
+      );
+
+    });
+
+
+    // ==========================================
+    // SIN REGISTROS
+    // ==========================================
+
+    if (snapshot.empty) {
+
+      contenedor.innerHTML = `
+        <div class="alert alert-info">
+          No hay unidades defectuosas pendientes.
+        </div>
+      `;
+
+      return;
+    }
+
+
+    // ==========================================
+    // CONSTRUIR TABLA
+    // ==========================================
+
+    let html = `
+
+      <div class="table-responsive">
+
+        <table class="table table-bordered table-hover align-middle">
+
+          <thead class="table-dark">
+
+            <tr>
+
+              <th>Artículo</th>
+
+              <th>Unidades</th>
+
+              <th>Daños</th>
+
+              <th>Origen</th>
+
+              <th>Destino</th>
+
+              <th>Estado</th>
+
+              <th>Fecha ingreso</th>
+
+              <th>Inicio reparación</th>
+
+              <th>Acciones</th>
+
+            </tr>
+
+          </thead>
+
+          <tbody>
+
+    `;
+
+
+    snapshot.forEach(docSnap => {
+
+      const data = docSnap.data();
+
+
+      console.log(
+        "➡️ ARTÍCULO PARA MOSTRAR:",
+        data.articulo
+      );
+
+
+      // ==========================================
+      // DAÑOS
+      // ==========================================
+
+      const tiposDanio =
+        Array.isArray(data.tiposDanio)
+          ? data.tiposDanio.join(", ")
+          : "Sin especificar";
+
+
+      // ==========================================
+      // FECHA INGRESO
+      // ==========================================
+
+      let fechaIngreso = "";
+
+      if (data.fecha?.toDate) {
+
+        fechaIngreso =
+          data.fecha
+            .toDate()
+            .toLocaleString("es-AR");
+
+      }
+
+
+      // ==========================================
+      // ESTADO
+      // ==========================================
+
+      let estadoTexto = "Pendiente";
+
+      let estadoClase = "text-bg-secondary";
+
+      if (data.estado === "reparacion") {
+
+        estadoTexto = "En reparación";
+
+        estadoClase = "text-bg-warning";
+
+      }
+
+
+      if (data.estado === "reparado") {
+
+        estadoTexto = "Reparado";
+
+        estadoClase = "text-bg-success";
+
+      }
+
+
+      // ==========================================
+      // INICIO REPARACIÓN
+      // ==========================================
+
+      let inicioReparacion = "";
+
+      if (data.fechaInicioReparacion?.toDate) {
+
+        inicioReparacion =
+          data.fechaInicioReparacion
+            .toDate()
+            .toLocaleString("es-AR");
+
+      }
+
+
+// ==========================================
+// BOTONES REPARAR Y TIRAR
+// ==========================================
+
+let botonesAcciones = "";
+
+if (data.estado !== "reparado") {
+
+  const funcionReparar =
+    data.estado === "reparacion"
+      ? `marcarReparado('${docSnap.id}')`
+      : `iniciarReparacion('${docSnap.id}')`;
+
+
+  botonesAcciones = `
+
+    <button
+      type="button"
+      class="btn ${
+        data.estado === "reparacion"
+          ? "btn-success"
+          : "btn-warning"
+      } btn-sm w-100 mb-1"
+      onclick="${funcionReparar}"
+    >
+      Reparar
+    </button>
+
+
+    <button
+      type="button"
+      class="btn btn-danger btn-sm w-100"
+      onclick="tirarArticulo('${docSnap.id}')"
+    >
+      Tirar
+    </button>
+
+  `;
+
+}
+
+      // ==========================================
+      // FILA
+      // ==========================================
+
+      html += `
+
+        <tr>
+
+          <td>
+            <strong>
+              ${data.articulo || ""}
+            </strong>
+          </td>
+
+
+          <td class="text-center">
+
+            <strong>
+              ${data.unidades ?? 0}
+            </strong>
+
+          </td>
+
+
+          <td>
+            ${tiposDanio}
+          </td>
+
+
+          <td>
+            ${data.salonIngreso || "—"}
+          </td>
+
+
+          <td>
+            ${data.salonEnviar || "—"}
+          </td>
+
+
+          <td class="text-center">
+
+            <span class="badge ${estadoClase}">
+              ${estadoTexto}
+            </span>
+
+          </td>
+
+
+          <td>
+            ${fechaIngreso || "—"}
+          </td>
+
+
+          <td>
+            ${inicioReparacion || "—"}
+          </td>
+
+
+          <td>
+
+            ${botonesAcciones}
+
+          </td>
+
+        </tr>
+
+      `;
+
+    });
+
+
+    html += `
+
+          </tbody>
+
+        </table>
+
+      </div>
+
+    `;
+
+
+    console.log(
+      "🧾 TABLA GENERADA:",
+      html
+    );
+
+
+    contenedor.innerHTML = html;
+
+
+  } catch (error) {
+
+    console.error(
+      "❌ ERROR REAL:",
+      error
+    );
+
+    console.error(
+      "Código:",
+      error.code
+    );
+
+    console.error(
+      "Mensaje:",
+      error.message
+    );
+
+
+    contenedor.innerHTML = `
+
+      <div class="alert alert-danger">
+
+        No se pudieron cargar las unidades defectuosas.
+
+        <br><br>
+
+        ${error.message || ""}
+
+      </div>
+
+    `;
+
+  }
+
+}
+// termina unidades defectuosas
+
+
+async function iniciarReparacion(id) {
+
+  try {
+
+    const ref = doc(
+      db,
+      "stock-danios",
+      id
+    );
+
+    const snap = await getDoc(ref);
+
+    if (!snap.exists()) {
+
+      await Swal.fire({
+        icon: "error",
+        title: "No encontrado",
+        text: "El registro de la unidad defectuosa ya no existe."
+      });
+
+      return;
+    }
+
+
+    const data = snap.data();
+
+
+    // ==========================================
+    // SI YA ESTÁ EN REPARACIÓN
+    // ==========================================
+
+    if (data.estado === "reparacion") {
+
+      await Swal.fire({
+        icon: "info",
+        title: "Ya está en reparación",
+        text: "Este artículo ya tiene registrada una fecha de inicio."
+      });
+
+      return;
+    }
+
+
+    // ==========================================
+    // SI YA ESTÁ REPARADO
+    // ==========================================
+
+    if (data.estado === "reparado") {
+
+      await Swal.fire({
+        icon: "info",
+        title: "Artículo reparado",
+        text: "Este artículo ya fue reparado."
+      });
+
+      return;
+    }
+
+
+    // ==========================================
+    // FECHA Y HORA INICIO
+    // ==========================================
+
+    const ahora = new Date();
+
+    const fechaInicio =
+      Timestamp.fromDate(ahora);
+
+    const horaInicio =
+      ahora.toLocaleTimeString("es-AR", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false
+      });
+
+
+    // ==========================================
+    // ACTUALIZAR STOCK-DANIOS
+    // ==========================================
+
+    await updateDoc(
+      ref,
+      {
+        estado: "reparacion",
+        fechaInicioReparacion: fechaInicio,
+        horaInicioReparacion: horaInicio
+      }
+    );
+
+
+    // ==========================================
+    // REGISTRAR HISTORIAL
+    // ==========================================
+
+    await addDoc(
+      collection(db, "stock-historial-danios"),
+      {
+
+        articulo:
+          data.articulo || "",
+
+        unidades:
+          parseInt(data.unidades) || 0,
+
+        tiposDanio:
+          Array.isArray(data.tiposDanio)
+            ? data.tiposDanio
+            : [],
+
+        salonIngreso:
+          data.salonIngreso || "",
+
+        salonEnviar:
+          data.salonEnviar || "",
+
+        estado:
+          "reparacion",
+
+        fechaIngreso:
+          data.fecha || null,
+
+        horaIngreso:
+          data.hora || "",
+
+        fechaInicioReparacion:
+          fechaInicio,
+
+        horaInicioReparacion:
+          horaInicio,
+
+        fechaReparado:
+          null,
+
+        horaReparado:
+          "",
+
+        tiempoHastaInicio:
+          "",
+
+        tiempoReparacion:
+          "",
+
+        tiempoTotal:
+          "",
+
+        comentarioReparacion:
+          "",
+
+        fechaRegistro:
+          fechaInicio
+
+      }
+    );
+
+
+    // ==========================================
+    // AVISO
+    // ==========================================
+
+    await Swal.fire({
+
+      icon: "success",
+
+      title: "Reparación iniciada",
+
+      text:
+        `Se registró el inicio de reparación de ${data.articulo}.`,
+
+      timer: 1800,
+
+      showConfirmButton: false
+
+    });
+
+
+    await cargarUnidadesDefectuosas();
+
+
+  } catch (error) {
+
+    console.error(
+      "❌ Error iniciando reparación:",
+      error
+    );
+
+    await Swal.fire({
+      icon: "error",
+      title: "Error",
+      text: "No se pudo registrar el inicio de reparación."
+    });
+
+  }
+
+}
+
+async function marcarReparado(id) {
+
+  try {
+
+    const ref = doc(
+      db,
+      "stock-danios",
+      id
+    );
+
+    const snap = await getDoc(ref);
+
+    if (!snap.exists()) {
+
+      await Swal.fire({
+        icon: "error",
+        title: "No encontrado",
+        text: "El registro ya no existe."
+      });
+
+      return;
+    }
+
+
+    const data = snap.data();
+
+
+    // ==========================================
+    // VERIFICAR ESTADO
+    // ==========================================
+
+    if (data.estado !== "reparacion") {
+
+      await Swal.fire({
+        icon: "warning",
+        title: "Reparación no iniciada",
+        text: "Primero tenés que iniciar la reparación."
+      });
+
+      return;
+    }
+
+
+    // ==========================================
+    // VERIFICAR UNIDADES
+    // ==========================================
+
+    const unidades =
+      parseInt(data.unidades) || 0;
+
+
+    if (unidades <= 0) {
+
+      await Swal.fire({
+        icon: "warning",
+        title: "Faltan unidades",
+        text: "Este registro no tiene unidades pendientes de reparar."
+      });
+
+      return;
+    }
+
+
+    // ==========================================
+    // PEDIR CANTIDAD A REPARAR
+    // ==========================================
+
+    let cantidadAReparar = 0;
+
+
+    if (unidades === 1) {
+
+      cantidadAReparar = 1;
+
+    } else {
+
+      const resultadoCantidad = await Swal.fire({
+
+        title: "¿Cuántas unidades querés reparar?",
+
+        html: `
+          <div class="mb-2">
+            <strong>${data.articulo || ""}</strong>
+          </div>
+
+          <div class="mb-3">
+            Hay <strong>${unidades}</strong>
+            unidades en reparación.
+          </div>
+
+          <input
+            id="cantidadReparar"
+            type="number"
+            class="swal2-input"
+            min="1"
+            max="${unidades}"
+            value="1"
+          >
+        `,
+
+        showCancelButton: true,
+
+        confirmButtonText: "Continuar",
+
+        cancelButtonText: "Cancelar",
+
+        focusConfirm: false,
+
+        preConfirm: () => {
+
+          const input =
+            document.getElementById("cantidadReparar");
+
+          const cantidad =
+            parseInt(input.value);
+
+          if (
+            !cantidad ||
+            cantidad < 1 ||
+            cantidad > unidades
+          ) {
+
+            Swal.showValidationMessage(
+              `Ingresá una cantidad entre 1 y ${unidades}.`
+            );
+
+            return false;
+          }
+
+          return cantidad;
+
+        }
+
+      });
+
+
+      if (!resultadoCantidad.isConfirmed) {
+        return;
+      }
+
+
+      cantidadAReparar =
+        resultadoCantidad.value;
+
+    }
+
+
+// ==========================================
+// CERRAR MODAL BOOTSTRAP ANTES DE SWEETALERT
+// ==========================================
+
+const modalUnidades =
+  document.getElementById("modalUnidadesDefectuosas");
+
+if (modalUnidades) {
+
+  const modalBootstrap =
+    bootstrap.Modal.getInstance(modalUnidades);
+
+  if (modalBootstrap) {
+    modalBootstrap.hide();
+  }
+}
+
+
+// ==========================================
+// PEDIR COMENTARIO OBLIGATORIO
+// ==========================================
+
+const resultadoComentario = await Swal.fire({
+
+  title: "Comentario de reparación",
+
+  html: `
+    <div class="mb-2 text-start">
+      <strong>${data.articulo || ""}</strong>
+    </div>
+
+    <div class="mb-3 text-start">
+      Unidades a reparar:
+      <strong>${cantidadAReparar}</strong>
+    </div>
+
+    <textarea
+      id="comentarioReparacion"
+      class="swal2-textarea"
+      placeholder="Escribí qué reparación se realizó..."
+      style="width: 80%; min-height: 100px; resize: vertical;"
+    ></textarea>
+  `,
+
+  showCancelButton: true,
+
+  confirmButtonText:
+    `Reparar ${cantidadAReparar}`,
+
+  cancelButtonText:
+    "Cancelar",
+
+  allowOutsideClick: false,
+
+  allowEscapeKey: false,
+
+  focusConfirm: false,
+
+  didOpen: () => {
+
+    const textarea =
+      document.getElementById(
+        "comentarioReparacion"
+      );
+
+    if (textarea) {
+      textarea.focus();
+    }
+
+  },
+
+  preConfirm: () => {
+
+    const textarea =
+      document.getElementById(
+        "comentarioReparacion"
+      );
+
+    const comentario =
+      textarea
+        ? textarea.value.trim()
+        : "";
+
+    if (!comentario) {
+
+      Swal.showValidationMessage(
+        "El comentario es obligatorio."
+      );
+
+      return false;
+    }
+
+    return comentario;
+  }
+
+});
+
+
+if (!resultadoComentario.isConfirmed) {
+  return;
+}
+
+
+const comentarioReparacion =
+  resultadoComentario.value;
+
+    // ==========================================
+    // FECHA Y HORA DE REPARACIÓN
+    // ==========================================
+
+    const ahora = new Date();
+
+    const fechaReparado =
+      Timestamp.fromDate(ahora);
+
+    const horaReparado =
+      ahora.toLocaleTimeString("es-AR", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false
+      });
+
+
+    // ==========================================
+    // CALCULAR TIEMPOS
+    // ==========================================
+
+    let tiempoHastaInicio = "";
+
+    let tiempoReparacion = "";
+
+    let tiempoTotal = "";
+
+
+    const fechaIngreso =
+      data.fecha?.toDate
+        ? data.fecha.toDate()
+        : null;
+
+
+    const fechaInicio =
+      data.fechaInicioReparacion?.toDate
+        ? data.fechaInicioReparacion.toDate()
+        : null;
+
+
+    if (fechaIngreso && fechaInicio) {
+
+      const diferenciaInicio =
+        fechaInicio.getTime() -
+        fechaIngreso.getTime();
+
+      tiempoHastaInicio =
+        formatearDuracion(
+          diferenciaInicio
+        );
+
+    }
+
+
+    if (fechaInicio) {
+
+      const diferenciaReparacion =
+        ahora.getTime() -
+        fechaInicio.getTime();
+
+      tiempoReparacion =
+        formatearDuracion(
+          diferenciaReparacion
+        );
+
+    }
+
+
+    if (fechaIngreso) {
+
+      const diferenciaTotal =
+        ahora.getTime() -
+        fechaIngreso.getTime();
+
+      tiempoTotal =
+        formatearDuracion(
+          diferenciaTotal
+        );
+
+    }
+
+
+    // ==========================================
+    // DEVOLVER SOLO LAS UNIDADES REPARADAS
+    // ==========================================
+
+   const salonActual = sessionStorage.getItem("salon");
+
+   const stockActualizado =
+  await devolverUnidadesReparadas(
+    data.articulo,
+    cantidadAReparar,
+    salonActual
+  );
+
+
+    if (!stockActualizado) {
+
+      await Swal.fire({
+        icon: "error",
+        title: "No se actualizó el stock",
+        text:
+          "No se pudieron devolver las unidades al stock-total. La reparación no fue registrada."
+      });
+
+      return;
+    }
+
+  // ==========================================
+// REGISTRAR REPARACIÓN EN STOCK-INGRESO
+// ==========================================
+// Este movimiento NO agrega unidades.
+// Solamente descuenta las unidades reparadas
+// del campo "rotas".
+
+if (!salonActual) {
+
+  await Swal.fire({
+    icon: "error",
+    title: "Salón no identificado",
+    text: "No se encontró el salón actual."
+  });
+
+  return;
+}
+
+await addDoc(
+  collection(db, "stock-ingreso"),
+  {
+    articulo:
+      data.articulo || "",
+
+    // No modifica unidades
+    unidades: 0,
+
+    // No modifica cajas
+    cajas: 0,
+
+    // Descontar las unidades que fueron reparadas
+    rotas:
+      -cantidadAReparar,
+
+    // Comentario obligatorio de la reparación
+    notas:
+      comentarioReparacion,
+
+      // Lo que se muestra como Salón origen
+    salones:
+      "Mov Int",
+
+    // Salón donde estoy trabajando
+    origen:
+      salonActual,
+
+    // Usuario que realizó la reparación
+    usuario:
+      sessionStorage.getItem("usuario") || "",
+
+    // Fecha y hora de la reparación
+    fecha:
+      fechaReparado
+  }
+);
+
+    // ==========================================
+    // GUARDAR EN STOCK-REPARADO
+    // ==========================================
+
+    await addDoc(
+      collection(db, "stock-reparado"),
+      {
+
+        articulo:
+          data.articulo || "",
+
+        unidades:
+          cantidadAReparar,
+
+        tiposDanio:
+          Array.isArray(data.tiposDanio)
+            ? data.tiposDanio
+            : [],
+
+        fechaIngreso:
+          data.fecha || null,
+
+        horaIngreso:
+          data.hora || "",
+
+        fechaInicioReparacion:
+          data.fechaInicioReparacion || null,
+
+        horaInicioReparacion:
+          data.horaInicioReparacion || "",
+
+        fechaReparado,
+
+        horaReparado,
+
+        salonIngreso:
+          data.salonIngreso || "",
+
+        salonEnviar:
+          data.salonEnviar || "",
+
+        tiempoHastaInicio,
+
+        tiempoReparacion,
+
+        tiempoTotal,
+
+        comentarioReparacion
+
+      }
+    );
+
+
+    // ==========================================
+    // GUARDAR EN HISTORIAL
+    // ==========================================
+
+    await addDoc(
+      collection(db, "stock-historial-danios"),
+      {
+
+        articulo:
+          data.articulo || "",
+
+        unidades:
+          cantidadAReparar,
+
+        tiposDanio:
+          Array.isArray(data.tiposDanio)
+            ? data.tiposDanio
+            : [],
+
+        salonIngreso:
+          data.salonIngreso || "",
+
+        salonEnviar:
+          data.salonEnviar || "",
+
+        estado:
+          "reparado",
+
+        fechaIngreso:
+          data.fecha || null,
+
+        horaIngreso:
+          data.hora || "",
+
+        fechaInicioReparacion:
+          data.fechaInicioReparacion || null,
+
+        horaInicioReparacion:
+          data.horaInicioReparacion || "",
+
+        fechaReparado,
+
+        horaReparado,
+
+        tiempoHastaInicio,
+
+        tiempoReparacion,
+
+        tiempoTotal,
+
+        comentarioReparacion,
+
+        fechaRegistro:
+          fechaReparado
+
+      }
+    );
+
+
+    // ==========================================
+    // CALCULAR UNIDADES RESTANTES
+    // ==========================================
+
+    const unidadesRestantes =
+      unidades - cantidadAReparar;
+
+
+// ==========================================
+// ACTUALIZAR STOCK-DANIOS
+// ==========================================
+
+if (unidadesRestantes > 0) {
+
+  // Todavía quedan unidades en reparación
+
+  await updateDoc(
+    ref,
+    {
+      unidades:
+        unidadesRestantes,
+
+      estado:
+        "reparacion"
+    }
+  );
+
+} else {
+
+  // ==========================================
+  // NO QUEDAN UNIDADES
+  // ELIMINAR DE PENDIENTES
+  // ==========================================
+
+  await deleteDoc(ref);
+
+}
+
+
+    // ==========================================
+    // MOSTRAR RESULTADO
+    // ==========================================
+
+    await Swal.fire({
+
+      icon: "success",
+
+      title: "Reparación registrada",
+
+      html: `
+
+        <strong>${data.articulo}</strong>
+
+        <br><br>
+
+        Unidades reparadas:
+        <strong>${cantidadAReparar}</strong>
+
+        <br>
+
+        Unidades restantes:
+        <strong>${unidadesRestantes}</strong>
+
+        <br><br>
+
+        Tiempo hasta iniciar:
+        ${tiempoHastaInicio || "No registrado"}
+
+        <br>
+
+        Tiempo de reparación:
+        ${tiempoReparacion || "No registrado"}
+
+        <br>
+
+        Tiempo total:
+        ${tiempoTotal || "No registrado"}
+
+      `,
+
+      confirmButtonText:
+        "Aceptar"
+
+    });
+
+
+    await cargarUnidadesDefectuosas();
+
+
+  } catch (error) {
+
+    console.error(
+      "❌ Error marcando artículo como reparado:",
+      error
+    );
+
+    await Swal.fire({
+      icon: "error",
+      title: "Error",
+      text: "No se pudo completar la reparación."
+    });
+
+  }
+
+}
+//termina las funciones reparacion y reparado
+
+function formatearDuracion(milisegundos) {
+
+  if (!milisegundos || milisegundos < 0) {
+    return "0 minutos";
+  }
+
+  const segundos =
+    Math.floor(milisegundos / 1000);
+
+  const dias =
+    Math.floor(segundos / 86400);
+
+  const horas =
+    Math.floor((segundos % 86400) / 3600);
+
+  const minutos =
+    Math.floor((segundos % 3600) / 60);
+
+  const seg =
+    segundos % 60;
+
+
+  const partes = [];
+
+
+  if (dias > 0) {
+    partes.push(
+      `${dias} día${dias !== 1 ? "s" : ""}`
+    );
+  }
+
+  if (horas > 0) {
+    partes.push(
+      `${horas} hora${horas !== 1 ? "s" : ""}`
+    );
+  }
+
+  if (minutos > 0) {
+    partes.push(
+      `${minutos} minuto${minutos !== 1 ? "s" : ""}`
+    );
+  }
+
+  if (seg > 0) {
+    partes.push(
+      `${seg} segundo${seg !== 1 ? "s" : ""}`
+    );
+  }
+
+
+  return partes.length > 0
+    ? partes.join(", ")
+    : "0 segundos";
+}
+
+async function devolverUnidadesReparadas(
+  articulo,
+  unidades,
+  salon
+) {
+
+  try {
+
+    // ==========================================
+    // VALIDAR DATOS
+    // ==========================================
+
+    const nombreArticulo =
+      (articulo || "").trim();
+
+    const nombreSalon =
+      (salon || "").trim();
+
+    const unidadesReparadas =
+      parseInt(unidades) || 0;
+
+
+    if (!nombreArticulo) {
+
+      console.error(
+        "❌ No se recibió el nombre del artículo."
+      );
+
+      return false;
+    }
+
+
+    if (!nombreSalon) {
+
+      console.error(
+        "❌ No se recibió el salón de ingreso."
+      );
+
+      return false;
+    }
+
+
+    if (unidadesReparadas <= 0) {
+
+      console.error(
+        "❌ La cantidad a devolver debe ser mayor a 0."
+      );
+
+      return false;
+    }
+
+
+    // ==========================================
+    // DOCUMENTO STOCK-TOTAL
+    // ==========================================
+
+    const stockTotalRef =
+      doc(
+        db,
+        "stock-total",
+        nombreArticulo
+      );
+
+
+    const stockSnap =
+      await getDoc(stockTotalRef);
+
+
+    // ==========================================
+    // VERIFICAR QUE EXISTA
+    // ==========================================
+
+    if (!stockSnap.exists()) {
+
+      console.error(
+        `❌ El artículo "${nombreArticulo}" no existe en stock-total.`
+      );
+
+      return false;
+    }
+
+
+    const data =
+      stockSnap.data();
+
+
+    // ==========================================
+    // OBTENER STOCK DEL SALÓN
+    // ==========================================
+
+    const stockSalon =
+      data?.salones?.[nombreSalon] || {
+        unidades: 0,
+        cajas: 0
+      };
+
+
+    let unidadesActuales =
+      parseInt(stockSalon.unidades) || 0;
+
+
+    let cajasActuales =
+      parseInt(stockSalon.cajas) || 0;
+
+
+    // ==========================================
+    // SUMAR UNIDADES REPARADAS
+    // ==========================================
+
+    let nuevasUnidades =
+      unidadesActuales +
+      unidadesReparadas;
+
+
+    let nuevasCajas =
+      cajasActuales;
+
+
+    // ==========================================
+    // BUSCAR UNIDADES POR CAJA
+    // ==========================================
+
+    let unidadesPorCaja = 0;
+
+
+    if (
+      typeof articulosCache !== "undefined" &&
+      Array.isArray(articulosCache)
+    ) {
+
+      const articuloNormalizado =
+        nombreArticulo
+          .trim()
+          .toLowerCase();
+
+
+      const articuloData =
+        articulosCache.find(
+          a =>
+            (a.articulo || "")
+              .trim()
+              .toLowerCase() ===
+            articuloNormalizado
+        );
+
+
+      if (articuloData) {
+
+        unidadesPorCaja =
+          parseInt(
+            articuloData.unixcajapack
+          ) || 0;
+
+      }
+
+    }
+
+
+    // ==========================================
+    // NORMALIZAR UNIDADES → CAJAS
+    // ==========================================
+
+    if (
+      unidadesPorCaja > 0 &&
+      nuevasUnidades >= unidadesPorCaja
+    ) {
+
+      const cajasFormadas =
+        Math.floor(
+          nuevasUnidades /
+          unidadesPorCaja
+        );
+
+
+      nuevasUnidades -=
+        cajasFormadas *
+        unidadesPorCaja;
+
+
+      nuevasCajas +=
+        cajasFormadas;
+
+    }
+
+
+    // ==========================================
+    // ACTUALIZAR STOCK-TOTAL
+    // ==========================================
+
+    await updateDoc(
+      stockTotalRef,
+      {
+        [`salones.${nombreSalon}.unidades`]:
+          nuevasUnidades,
+
+        [`salones.${nombreSalon}.cajas`]:
+          nuevasCajas
+      }
+    );
+
+
+    console.log(
+      `✅ Se devolvieron ${unidadesReparadas} unidades de "${nombreArticulo}" al salón "${nombreSalon}".`
+    );
+
+
+    return true;
+
+
+  } catch (error) {
+
+    console.error(
+      "❌ Error al devolver unidades reparadas:",
+      error
+    );
+
+    console.error(
+      "Artículo:",
+      articulo
+    );
+
+    console.error(
+      "Unidades:",
+      unidades
+    );
+
+    console.error(
+      "Salón:",
+      salon
+    );
+
+    return false;
+
+  }
+
+}
+
+//tirar articulos
+async function tirarArticulo(id) {
+
+  try {
+
+    // ==========================================
+    // OBTENER REGISTRO DE STOCK-DANIOS
+    // ==========================================
+
+    const ref = doc(
+      db,
+      "stock-danios",
+      id
+    );
+
+    const snap = await getDoc(ref);
+
+    if (!snap.exists()) {
+
+      await Swal.fire({
+        icon: "error",
+        title: "No encontrado",
+        text: "El registro de la unidad defectuosa ya no existe."
+      });
+
+      return;
+    }
+
+    const data = snap.data();
+
+
+    // ==========================================
+    // VERIFICAR ESTADO
+    // ==========================================
+
+    if (
+      data.estado === "reparado" ||
+      data.estado === "tirado"
+    ) {
+
+      await Swal.fire({
+        icon: "info",
+        title: "Registro finalizado",
+        text: "Este registro ya fue procesado."
+      });
+
+      return;
+    }
+
+
+    // ==========================================
+    // VERIFICAR UNIDADES
+    // ==========================================
+
+    const unidades =
+      parseInt(data.unidades) || 0;
+
+    if (unidades <= 0) {
+
+      await Swal.fire({
+        icon: "warning",
+        title: "Sin unidades",
+        text: "Este registro no tiene unidades pendientes."
+      });
+
+      return;
+    }
+
+
+    // ==========================================
+    // ELEGIR CANTIDAD A TIRAR
+    // ==========================================
+
+    let cantidadATirar = 0;
+
+    if (unidades === 1) {
+
+      cantidadATirar = 1;
+
+    } else {
+
+      const resultadoCantidad = await Swal.fire({
+
+        title: "¿Cuántas unidades querés tirar?",
+
+        html: `
+          <div class="mb-2">
+            <strong>${data.articulo || ""}</strong>
+          </div>
+
+          <div class="mb-3">
+            Hay
+            <strong>${unidades}</strong>
+            unidades disponibles.
+          </div>
+
+          <input
+            id="cantidadTirar"
+            type="number"
+            class="swal2-input"
+            min="1"
+            max="${unidades}"
+            value="1"
+          >
+        `,
+
+        showCancelButton: true,
+
+        confirmButtonText: "Continuar",
+
+        cancelButtonText: "Cancelar",
+
+        focusConfirm: false,
+
+        preConfirm: () => {
+
+          const input =
+            document.getElementById("cantidadTirar");
+
+          const cantidad =
+            parseInt(input.value);
+
+          if (
+            !cantidad ||
+            cantidad < 1 ||
+            cantidad > unidades
+          ) {
+
+            Swal.showValidationMessage(
+              `Ingresá una cantidad entre 1 y ${unidades}.`
+            );
+
+            return false;
+          }
+
+          return cantidad;
+        }
+
+      });
+
+
+      if (!resultadoCantidad.isConfirmed) {
+        return;
+      }
+
+      cantidadATirar =
+        resultadoCantidad.value;
+    }
+
+
+    // ==========================================
+    // COMENTARIO OBLIGATORIO
+    // ==========================================
+
+// ==========================================
+// CERRAR MODAL BOOTSTRAP ANTES DE SWEETALERT
+// ==========================================
+
+const modalUnidades =
+  document.getElementById("modalUnidadesDefectuosas");
+
+if (modalUnidades) {
+
+  const modalBootstrap =
+    bootstrap.Modal.getInstance(modalUnidades);
+
+  if (modalBootstrap) {
+    modalBootstrap.hide();
+  }
+}
+
+const resultadoComentario = await Swal.fire({
+
+  title: "Motivo del descarte",
+
+  html: `
+    <div class="mb-2 text-start">
+      <strong>${data.articulo || ""}</strong>
+    </div>
+
+    <div class="mb-3 text-start">
+      Unidades a tirar:
+      <strong>${cantidadATirar}</strong>
+    </div>
+
+    <textarea
+      id="comentarioTirar"
+      class="swal2-textarea"
+      placeholder="Escribí el motivo por el que no se puede reparar..."
+      style="width: 80%; min-height: 100px; resize: vertical;"
+    ></textarea>
+  `,
+
+  showCancelButton: true,
+
+  confirmButtonText:
+    `Tirar ${cantidadATirar}`,
+
+  cancelButtonText:
+    "Cancelar",
+
+  allowOutsideClick: false,
+
+  allowEscapeKey: false,
+
+  focusConfirm: false,
+
+  didOpen: () => {
+
+    const textarea =
+      document.getElementById("comentarioTirar");
+
+    if (textarea) {
+      textarea.focus();
+    }
+
+  },
+
+  preConfirm: () => {
+
+    const textarea =
+      document.getElementById("comentarioTirar");
+
+    const comentario =
+      textarea
+        ? textarea.value.trim()
+        : "";
+
+    if (!comentario) {
+
+      Swal.showValidationMessage(
+        "El comentario es obligatorio."
+      );
+
+      return false;
+    }
+
+    return comentario;
+  }
+
+});
+
+if (!resultadoComentario.isConfirmed) {
+  return;
+}
+
+const comentario =
+  resultadoComentario.value;
+
+    // ==========================================
+    // CONFIRMACIÓN FINAL
+    // ==========================================
+
+    const confirmar = await Swal.fire({
+
+      icon: "warning",
+
+      title: "¿Confirmar descarte?",
+
+      html: `
+        Artículo:
+        <strong>${data.articulo || ""}</strong>
+
+        <br><br>
+
+        Unidades a tirar:
+        <strong>${cantidadATirar}</strong>
+
+        <br><br>
+
+        <small>
+          Estas unidades no volverán al stock.
+        </small>
+      `,
+
+      showCancelButton: true,
+
+      confirmButtonText:
+        `Sí, tirar ${cantidadATirar}`,
+
+      cancelButtonText:
+        "Cancelar"
+
+    });
+
+
+    if (!confirmar.isConfirmed) {
+      return;
+    }
+
+
+    // ==========================================
+    // FECHA Y HORA
+    // ==========================================
+
+    const ahora = new Date();
+
+    const fechaTirado =
+      Timestamp.fromDate(ahora);
+
+    const horaTirado =
+      ahora.toLocaleTimeString(
+        "es-AR",
+        {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: false
+        }
+      );
+
+
+    // ==========================================
+    // USUARIO
+    // ==========================================
+
+    const usuario =
+      sessionStorage.getItem("usuario") || "";
+
+
+    // ==========================================
+// REGISTRAR DESCARTE EN STOCK-INGRESO
+// ==========================================
+// Este movimiento descuenta las unidades
+// rotas del salón donde estoy trabajando.
+// No agrega unidades ni cajas.
+
+const salonActual =
+  sessionStorage.getItem("salon");
+
+if (!salonActual) {
+
+  await Swal.fire({
+    icon: "error",
+    title: "Salón no identificado",
+    text: "No se encontró el salón actual."
+  });
+
+  return;
+}
+
+await addDoc(
+  collection(db, "stock-ingreso"),
+  {
+
+    articulo:
+      data.articulo || "",
+
+    // No modifica unidades
+    unidades:
+      0,
+
+    // No modifica cajas
+    cajas:
+      0,
+
+    // Descontar las unidades tiradas
+    rotas:
+      -cantidadATirar,
+
+    // Motivo del descarte
+    notas:
+      comentario,
+
+    // En la tabla debe aparecer Mov Int
+    salones:
+      "Mov Int",
+
+    // Salón donde estoy trabajando
+    // y que utiliza cargarTablaPedidos()
+    origen:
+      salonActual,
+
+    // Usuario logueado
+    usuario,
+
+    // Fecha del descarte
+    fecha:
+      fechaTirado
+
+  }
+);
+
+
+    // ==========================================
+    // GUARDAR EN HISTORIAL
+    // ==========================================
+
+    await addDoc(
+      collection(db, "stock-historial-danios"),
+      {
+
+        articulo:
+          data.articulo || "",
+
+        unidades:
+          cantidadATirar,
+
+        tiposDanio:
+          Array.isArray(data.tiposDanio)
+            ? data.tiposDanio
+            : [],
+
+        salonIngreso:
+          data.salonIngreso || "",
+
+        salonEnviar:
+          data.salonEnviar || "",
+
+        estado:
+          "tirado",
+
+        fechaIngreso:
+          data.fecha || null,
+
+        horaIngreso:
+          data.hora || "",
+
+        fechaInicioReparacion:
+          data.fechaInicioReparacion || null,
+
+        horaInicioReparacion:
+          data.horaInicioReparacion || "",
+
+        fechaReparado:
+          null,
+
+        horaReparado:
+          "",
+
+        fechaTirado,
+
+        horaTirado,
+
+        tiempoHastaInicio:
+          "",
+
+        tiempoReparacion:
+          "",
+
+        tiempoTotal:
+          "",
+
+        comentario:
+          comentario,
+
+        fechaRegistro:
+          fechaTirado
+
+      }
+    );
+
+
+    // ==========================================
+    // CALCULAR UNIDADES RESTANTES
+    // ==========================================
+
+    const unidadesRestantes =
+      unidades - cantidadATirar;
+
+
+ // ==========================================
+// ACTUALIZAR STOCK-DANIOS
+// ==========================================
+
+if (unidadesRestantes > 0) {
+
+  // Todavía quedan unidades pendientes
+
+  await updateDoc(
+    ref,
+    {
+      unidades: unidadesRestantes
+    }
+  );
+
+} else {
+
+  // No quedan unidades pendientes
+  // El registro sale de stock-danios
+
+  await deleteDoc(ref);
+
+}
+
+
+    // ==========================================
+    // RESULTADO
+    // ==========================================
+
+    await Swal.fire({
+
+      icon: "success",
+
+      title: "Descarte registrado",
+
+      html: `
+        <strong>
+          ${data.articulo || ""}
+        </strong>
+
+        <br><br>
+
+        Unidades tiradas:
+        <strong>
+          ${cantidadATirar}
+        </strong>
+
+        <br>
+
+        Unidades restantes:
+        <strong>
+          ${unidadesRestantes}
+        </strong>
+
+        <br><br>
+
+        Motivo:
+        <br>
+        ${comentario}
+      `,
+
+      confirmButtonText:
+        "Aceptar"
+
+    });
+
+
+    // ==========================================
+    // ACTUALIZAR TABLA
+    // ==========================================
+
+    await cargarUnidadesDefectuosas();
+
+
+  } catch (error) {
+
+    console.error(
+      "❌ Error tirando artículo:",
+      error
+    );
+
+    console.error(
+      "Código:",
+      error.code
+    );
+
+    console.error(
+      "Mensaje:",
+      error.message
+    );
+
+    await Swal.fire({
+
+      icon: "error",
+
+      title: "Error",
+
+      text:
+        "No se pudo registrar el descarte."
+
+    });
+
+  }
+
+}
+//termina tirar articulo
+
+
+function volverPendientesDefectuosas() {
+
+  const pendientes =
+    document.getElementById(
+      "listaUnidadesDefectuosas"
+    );
+
+  const historial =
+    document.getElementById(
+      "listaHistorialReparados"
+    );
+
+
+  if (historial) {
+    historial.style.display = "none";
+  }
+
+
+  if (pendientes) {
+    pendientes.style.display = "block";
+  }
+
+}
+//hstorial reparados
+async function mostrarHistorialReparados() {
+
+  const pendientes =
+    document.getElementById(
+      "listaUnidadesDefectuosas"
+    );
+
+  const historial =
+    document.getElementById(
+      "listaHistorialReparados"
+    );
+
+
+  if (!historial) {
+    console.error(
+      "❌ No existe listaHistorialReparados"
+    );
+    return;
+  }
+
+
+  // ==========================================
+  // OCULTAR PENDIENTES
+  // ==========================================
+
+  if (pendientes) {
+    pendientes.style.display = "none";
+  }
+
+
+  historial.style.display = "block";
+
+
+  historial.innerHTML = `
+    <div class="text-center p-3">
+      Cargando historial...
+    </div>
+  `;
+
+
+  try {
+
+    const snapshot =
+      await getDocs(
+        collection(
+          db,
+          "stock-historial-danios"
+        )
+      );
+
+
+    if (snapshot.empty) {
+
+      historial.innerHTML = `
+        <div class="alert alert-info">
+          No hay registros en el historial.
+        </div>
+      `;
+
+      return;
+    }
+
+
+    // ==========================================
+    // ORDENAR POR FECHA MÁS RECIENTE
+    // ==========================================
+
+    const registros =
+      snapshot.docs
+        .map(docSnap => ({
+          id: docSnap.id,
+          ...docSnap.data()
+        }))
+        .sort((a, b) => {
+
+          const fechaA =
+            a.fechaRegistro?.toDate
+              ? a.fechaRegistro.toDate()
+              : new Date(0);
+
+          const fechaB =
+            b.fechaRegistro?.toDate
+              ? b.fechaRegistro.toDate()
+              : new Date(0);
+
+          return (
+            fechaB.getTime() -
+            fechaA.getTime()
+          );
+
+        });
+
+
+    // ==========================================
+    // CONSTRUIR TABLA
+    // ==========================================
+
+    let html = `
+
+      <div class="d-flex justify-content-between align-items-center mb-3">
+
+        <h6 class="mb-0">
+          Historial de reparaciones y descartes
+        </h6>
+
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-secondary"
+          onclick="volverPendientesDefectuosas()"
+        >
+          Volver a pendientes
+        </button>
+
+      </div>
+
+
+      <div class="table-responsive">
+
+        <table class="table table-bordered table-hover align-middle">
+
+          <thead class="table-dark">
+
+            <tr>
+
+              <th>Artículo</th>
+
+              <th>Unidades</th>
+
+              <th>Daños</th>
+
+              <th>Origen</th>
+
+              <th>Destino</th>
+
+              <th>Estado</th>
+
+              <th>Fecha ingreso</th>
+
+              <th>Inicio reparación</th>
+
+              <th>Finalización</th>
+
+              <th>Comentario</th>
+
+            </tr>
+
+          </thead>
+
+          <tbody>
+    `;
+
+
+    registros.forEach(data => {
+
+      const tiposDanio =
+        Array.isArray(data.tiposDanio)
+          ? data.tiposDanio.join(", ")
+          : "";
+
+
+      const fechaIngreso =
+        data.fechaIngreso?.toDate
+          ? data.fechaIngreso
+              .toDate()
+              .toLocaleString("es-AR")
+          : "";
+
+
+      const fechaInicio =
+        data.fechaInicioReparacion?.toDate
+          ? data.fechaInicioReparacion
+              .toDate()
+              .toLocaleString("es-AR")
+          : "";
+
+
+      let fechaFinalizacion = "";
+
+
+      if (data.estado === "reparado") {
+
+        fechaFinalizacion =
+          data.fechaReparado?.toDate
+            ? data.fechaReparado
+                .toDate()
+                .toLocaleString("es-AR")
+            : "";
+
+      }
+
+
+      if (data.estado === "tirado") {
+
+        fechaFinalizacion =
+          data.fechaTirado?.toDate
+            ? data.fechaTirado
+                .toDate()
+                .toLocaleString("es-AR")
+            : "";
+
+      }
+
+
+      const estadoTexto =
+        data.estado === "reparado"
+          ? "Reparado"
+          : data.estado === "tirado"
+            ? "Tirado"
+            : data.estado || "";
+
+
+      const estadoClase =
+        data.estado === "reparado"
+          ? "text-bg-success"
+          : data.estado === "tirado"
+            ? "text-bg-danger"
+            : "text-bg-secondary";
+
+
+      const comentario =
+        data.comentarioReparacion ||
+        data.comentario ||
+        "";
+
+
+      html += `
+
+        <tr>
+
+          <td>
+            <strong>
+              ${data.articulo || ""}
+            </strong>
+          </td>
+
+          <td class="text-center">
+            ${data.unidades ?? 0}
+          </td>
+
+          <td>
+            ${tiposDanio || "—"}
+          </td>
+
+          <td>
+            ${data.salonIngreso || "—"}
+          </td>
+
+          <td>
+            ${data.salonEnviar || "—"}
+          </td>
+
+          <td class="text-center">
+
+            <span class="badge ${estadoClase}">
+              ${estadoTexto}
+            </span>
+
+          </td>
+
+          <td>
+            ${fechaIngreso || "—"}
+          </td>
+
+          <td>
+            ${fechaInicio || "—"}
+          </td>
+
+          <td>
+            ${fechaFinalizacion || "—"}
+          </td>
+
+          <td>
+            ${comentario || "—"}
+          </td>
+
+        </tr>
+
+      `;
+
+    });
+
+
+    html += `
+
+          </tbody>
+
+        </table>
+
+      </div>
+
+    `;
+
+
+    historial.innerHTML =
+      html;
+
+
+  } catch (error) {
+
+    console.error(
+      "❌ Error cargando historial:",
+      error
+    );
+
+
+    historial.innerHTML = `
+
+      <div class="alert alert-danger">
+
+        No se pudo cargar el historial.
+
+        <br><br>
+
+        ${error.message || ""}
+
+      </div>
+
+    `;
+
+  }
+
+}
+//fin historial reparados
+
+window.iniciarReparacion = iniciarReparacion;
+window.marcarReparado = marcarReparado;
+window.tirarArticulo = tirarArticulo;
+window.mostrarHistorialReparados =  mostrarHistorialReparados;
+window.volverPendientesDefectuosas =  volverPendientesDefectuosas;
+//FINALIZA RESTAURAR ARTICULOS
 </script>
   
 <script>
@@ -2695,7 +5182,7 @@ function mostrarMenuAjusteMobile() {
       ultimaPosicionScroll = posicionActual;
     });
   });
-  
+ 
 </script>
 
 
