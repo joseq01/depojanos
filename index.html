@@ -2512,6 +2512,13 @@ async function cargarUnidadesDefectuosas() {
 
     });
 
+    const salonActual = sessionStorage.getItem("salon");
+
+if (!salonActual) {
+  console.error("❌ No hay salón seleccionado.");
+  return;
+}
+
 
     // ==========================================
     // SIN REGISTROS
@@ -2572,14 +2579,16 @@ async function cargarUnidadesDefectuosas() {
 
     snapshot.forEach(docSnap => {
 
-      const data = docSnap.data();
+  const data = docSnap.data();
 
-
-      console.log(
-        "➡️ ARTÍCULO PARA MOSTRAR:",
-        data.articulo
-      );
-
+  // Mostrar solamente los registros cuyo ORIGEN
+  // corresponde al salón donde estoy trabajando
+  if (
+    (data.origen || "").trim().toLowerCase() !==
+    salonActual.trim().toLowerCase()
+  ) {
+    return;
+  }
 
       // ==========================================
       // DAÑOS
@@ -3468,6 +3477,9 @@ await addDoc(
 
         horaReparado,
 
+        origen:  // SALÓN QUE GENERÓ EL MOVIMIENTO
+          data.origen || "",
+
         salonIngreso:
           data.salonIngreso || "",
 
@@ -3504,6 +3516,9 @@ await addDoc(
           Array.isArray(data.tiposDanio)
             ? data.tiposDanio
             : [],
+      
+        origen:  // SALÓN QUE GENERÓ EL MOVIMIENTO
+          data.origen || "",
 
         salonIngreso:
           data.salonIngreso || "",
@@ -4549,14 +4564,12 @@ async function mostrarHistorialReparados() {
       "listaHistorialReparados"
     );
 
-
   if (!historial) {
     console.error(
       "❌ No existe listaHistorialReparados"
     );
     return;
   }
-
 
   // ==========================================
   // OCULTAR PENDIENTES
@@ -4566,16 +4579,13 @@ async function mostrarHistorialReparados() {
     pendientes.style.display = "none";
   }
 
-
   historial.style.display = "block";
-
 
   historial.innerHTML = `
     <div class="text-center p-3">
       Cargando historial...
     </div>
   `;
-
 
   try {
 
@@ -4587,7 +4597,6 @@ async function mostrarHistorialReparados() {
         )
       );
 
-
     if (snapshot.empty) {
 
       historial.innerHTML = `
@@ -4598,7 +4607,6 @@ async function mostrarHistorialReparados() {
 
       return;
     }
-
 
     // ==========================================
     // ORDENAR POR FECHA MÁS RECIENTE
@@ -4629,6 +4637,20 @@ async function mostrarHistorialReparados() {
 
         });
 
+    // ==========================================
+// OBTENER SALONES ÚNICOS
+// PARA EL FILTRO SE USA EL CAMPO "origen"
+// QUE ES EL SALÓN QUE GENERÓ EL MOVIMIENTO
+// ==========================================
+
+const salones =
+  [...new Set(
+    registros
+      .map(data =>
+        (data.origen || "").trim()
+      )
+      .filter(Boolean)
+  )].sort();
 
     // ==========================================
     // CONSTRUIR TABLA
@@ -4642,20 +4664,68 @@ async function mostrarHistorialReparados() {
           Historial de reparaciones y descartes
         </h6>
 
-        <button
-          type="button"
-          class="btn btn-sm btn-outline-secondary"
-          onclick="volverPendientesDefectuosas()"
-        >
-          Volver a pendientes
-        </button>
+        <div class="d-flex gap-2">
+
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-primary"
+            onclick="imprimirHistorialReparados()"
+          >
+            🖨️ Imprimir
+          </button>
+
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-secondary"
+            onclick="volverPendientesDefectuosas()"
+          >
+            Volver a pendientes
+          </button>
+
+        </div>
 
       </div>
 
+      <!-- ==========================================
+           FILTRO POR SALÓN
+           ========================================== -->
+
+      <div class="d-flex align-items-center gap-2 mb-3">
+
+        <label
+          for="filtroSalonHistorial"
+          class="fw-bold mb-0"
+        >
+          Salón:
+        </label>
+
+        <select
+          id="filtroSalonHistorial"
+          class="form-select form-select-sm"
+          style="max-width: 250px;"
+          onchange="filtrarHistorialPorSalon()"
+        >
+
+          <option value="__TODOS__">
+            Todos los salones
+          </option>
+
+          ${salones.map(salon => `
+            <option value="${salon}">
+              ${salon}
+            </option>
+          `).join("")}
+
+        </select>
+
+      </div>
 
       <div class="table-responsive">
 
-        <table class="table table-bordered table-hover align-middle">
+        <table
+          id="tablaHistorialReparados"
+          class="table table-bordered table-hover align-middle"
+        >
 
           <thead class="table-dark">
 
@@ -4688,14 +4758,12 @@ async function mostrarHistorialReparados() {
           <tbody>
     `;
 
-
     registros.forEach(data => {
 
       const tiposDanio =
         Array.isArray(data.tiposDanio)
           ? data.tiposDanio.join(", ")
           : "";
-
 
       const fechaIngreso =
         data.fechaIngreso?.toDate
@@ -4704,7 +4772,6 @@ async function mostrarHistorialReparados() {
               .toLocaleString("es-AR")
           : "";
 
-
       const fechaInicio =
         data.fechaInicioReparacion?.toDate
           ? data.fechaInicioReparacion
@@ -4712,9 +4779,7 @@ async function mostrarHistorialReparados() {
               .toLocaleString("es-AR")
           : "";
 
-
       let fechaFinalizacion = "";
-
 
       if (data.estado === "reparado") {
 
@@ -4727,7 +4792,6 @@ async function mostrarHistorialReparados() {
 
       }
 
-
       if (data.estado === "tirado") {
 
         fechaFinalizacion =
@@ -4739,14 +4803,12 @@ async function mostrarHistorialReparados() {
 
       }
 
-
       const estadoTexto =
         data.estado === "reparado"
           ? "Reparado"
           : data.estado === "tirado"
             ? "Tirado"
             : data.estado || "";
-
 
       const estadoClase =
         data.estado === "reparado"
@@ -4755,16 +4817,16 @@ async function mostrarHistorialReparados() {
             ? "text-bg-danger"
             : "text-bg-secondary";
 
-
       const comentario =
         data.comentarioReparacion ||
         data.comentario ||
         "";
 
-
       html += `
 
-        <tr>
+        <tr
+          data-origen="${data.origen || ""}"
+        >
 
           <td>
             <strong>
@@ -4818,7 +4880,6 @@ async function mostrarHistorialReparados() {
 
     });
 
-
     html += `
 
           </tbody>
@@ -4829,10 +4890,14 @@ async function mostrarHistorialReparados() {
 
     `;
 
-
     historial.innerHTML =
       html;
 
+    // ==========================================
+    // ACTIVAR FILTROS EN ENCABEZADOS
+    // ==========================================
+
+    activarFiltrosHistorial();
 
   } catch (error) {
 
@@ -4840,7 +4905,6 @@ async function mostrarHistorialReparados() {
       "❌ Error cargando historial:",
       error
     );
-
 
     historial.innerHTML = `
 
@@ -4859,12 +4923,828 @@ async function mostrarHistorialReparados() {
   }
 
 }
+
+
+// ==========================================
+// FILTRAR HISTORIAL POR SALÓN 1
+// ==========================================
+
+function filtrarHistorialPorSalon() {
+
+  const select =
+    document.getElementById(
+      "filtroSalonHistorial"
+    );
+
+  const tabla =
+    document.getElementById(
+      "tablaHistorialReparados"
+    );
+
+  if (!select || !tabla) {
+    return;
+  }
+
+  const salonSeleccionado =
+    select.value;
+
+  const filas =
+    tabla.querySelectorAll(
+      "tbody tr"
+    );
+
+  filas.forEach(fila => {
+
+    // Buscar el salón que GENERÓ EL MOVIMIENTO
+    const salon =
+      fila.dataset.origen || "";
+
+    if (
+      salonSeleccionado === "__TODOS__" ||
+      salon === salonSeleccionado
+    ) {
+
+      fila.style.display = "";
+
+    } else {
+
+      fila.style.display = "none";
+
+    }
+
+  });
+
+}
+
+// ==========================================
+// FILTROS DE ENCABEZADOS
+// ==========================================
+
+let columnaHistorialFiltrando = null;
+
+let todasOpcionesFiltroHistorial = [];
+
+
+function activarFiltrosHistorial() {
+
+  const tabla =
+    document.getElementById(
+      "tablaHistorialReparados"
+    );
+
+  if (!tabla) {
+    return;
+  }
+
+  const encabezados =
+    tabla.querySelectorAll(
+      "thead th"
+    );
+
+  encabezados.forEach(
+    (th, index) => {
+
+      th.style.cursor = "pointer";
+
+      th.title =
+        "Hacer clic para filtrar";
+
+      th.onclick = (event) => {
+
+        mostrarFiltroHistorial(
+          event,
+          index
+        );
+
+      };
+
+    }
+  );
+
+}
+
+
+// ==========================================
+// MOSTRAR DROPDOWN DEL FILTRO
+// ==========================================
+
+function mostrarFiltroHistorial(
+  event,
+  colIndex
+) {
+
+  let filtro =
+    document.getElementById(
+      "filtroDropdownHistorial"
+    );
+
+  if (!filtro) {
+
+    filtro =
+      document.createElement(
+        "div"
+      );
+
+    filtro.id =
+      "filtroDropdownHistorial";
+
+    filtro.style.position =
+      "absolute";
+
+    filtro.style.background =
+      "#fff";
+
+    filtro.style.border =
+      "1px solid #ccc";
+
+    filtro.style.borderRadius =
+      "8px";
+
+    filtro.style.padding =
+      "12px";
+
+    filtro.style.minWidth =
+      "220px";
+
+    filtro.style.maxHeight =
+      "350px";
+
+    filtro.style.overflowY =
+      "auto";
+
+    filtro.style.boxShadow =
+      "0 4px 12px rgba(0,0,0,0.2)";
+
+    filtro.style.zIndex =
+      "99999";
+
+    filtro.innerHTML = `
+
+      <input
+        type="text"
+        id="filtroInputHistorial"
+        class="form-control form-control-sm mb-2"
+        placeholder="Buscar..."
+      >
+
+      <div
+        id="opcionesFiltroHistorial"
+      ></div>
+
+      <div class="d-flex gap-2 mt-2">
+
+        <button
+          type="button"
+          class="btn btn-sm btn-primary"
+          onclick="aplicarFiltroHistorial()"
+        >
+          Aplicar
+        </button>
+
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-secondary"
+          onclick="limpiarFiltroHistorial()"
+        >
+          Limpiar
+        </button>
+
+      </div>
+
+    `;
+
+    document.body.appendChild(
+      filtro
+    );
+
+    document
+      .getElementById(
+        "filtroInputHistorial"
+      )
+      .addEventListener(
+        "input",
+        mostrarOpcionesFiltradasHistorial
+      );
+
+  }
+
+  columnaHistorialFiltrando =
+    colIndex;
+
+  const opciones =
+    new Set();
+
+  const tabla =
+    document.getElementById(
+      "tablaHistorialReparados"
+    );
+
+  tabla
+    .querySelectorAll(
+      "tbody tr"
+    )
+    .forEach(tr => {
+
+      if (
+        tr.style.display === "none"
+      ) {
+        return;
+      }
+
+      let valor = "";
+
+      // ==========================================
+      // COLUMNA ORIGEN
+      // ==========================================
+
+      if (colIndex === 3) {
+
+        valor =
+          tr.dataset.origen || "";
+
+      } else {
+
+        const celda =
+          tr.cells[colIndex];
+
+        if (celda) {
+
+          valor =
+            celda.textContent.trim();
+
+        }
+
+      }
+
+      if (valor) {
+
+        opciones.add(
+          valor
+        );
+
+      }
+
+    });
+
+  todasOpcionesFiltroHistorial =
+    Array.from(
+      opciones
+    ).sort();
+
+  document
+    .getElementById(
+      "filtroInputHistorial"
+    )
+    .value = "";
+
+  mostrarOpcionesFiltradasHistorial();
+
+  const rect =
+    event.target.getBoundingClientRect();
+
+  filtro.style.left =
+    `${rect.left + window.scrollX}px`;
+
+  filtro.style.top =
+    `${rect.bottom + window.scrollY}px`;
+
+  filtro.style.display =
+    "block";
+
+  document
+    .getElementById(
+      "filtroInputHistorial"
+    )
+    .focus();
+
+}
+
+// ==========================================
+// MOSTRAR OPCIONES DEL FILTRO
+// ==========================================
+
+function mostrarOpcionesFiltradasHistorial() {
+
+  const input =
+    document.getElementById(
+      "filtroInputHistorial"
+    );
+
+  const opcionesDiv =
+    document.getElementById(
+      "opcionesFiltroHistorial"
+    );
+
+  if (!input || !opcionesDiv) {
+    return;
+  }
+
+  const texto =
+    input.value
+      .toLowerCase();
+
+  opcionesDiv.innerHTML = "";
+
+  const todosLabel =
+    document.createElement(
+      "label"
+    );
+
+  todosLabel.className =
+    "d-block fw-bold mb-1";
+
+  todosLabel.innerHTML = `
+
+    <input
+      type="checkbox"
+      class="filtroCheckHistorial"
+      value="__TODOS__"
+    >
+
+    Ver todos
+
+  `;
+
+  opcionesDiv.appendChild(
+    todosLabel
+  );
+
+  todasOpcionesFiltroHistorial
+    .forEach(valor => {
+
+      if (
+        valor
+          .toLowerCase()
+          .includes(texto)
+      ) {
+
+        const label =
+          document.createElement(
+            "label"
+          );
+
+        label.className =
+          "d-block";
+
+        label.innerHTML = `
+
+          <input
+            type="checkbox"
+            class="filtroCheckHistorial"
+            value="${valor}"
+          >
+
+          ${valor}
+
+        `;
+
+        opcionesDiv.appendChild(
+          label
+        );
+
+      }
+
+    });
+
+}
+
+
+// ==========================================
+// APLICAR FILTRO
+// ==========================================
+
+// ==========================================
+// APLICAR FILTRO
+// ==========================================
+
+function aplicarFiltroHistorial() {
+
+  if (
+    columnaHistorialFiltrando ===
+    null
+  ) {
+    return;
+  }
+
+  const tabla =
+    document.getElementById(
+      "tablaHistorialReparados"
+    );
+
+  if (!tabla) {
+    return;
+  }
+
+  const seleccionados =
+    Array.from(
+      document.querySelectorAll(
+        "#opcionesFiltroHistorial input[type='checkbox']:checked"
+      )
+    )
+    .map(
+      input => input.value
+    );
+
+  const verTodos =
+    seleccionados.includes(
+      "__TODOS__"
+    );
+
+  tabla
+    .querySelectorAll(
+      "tbody tr"
+    )
+    .forEach(tr => {
+
+      let valor = "";
+
+      // ==========================================
+      // COLUMNA ORIGEN
+      // ==========================================
+
+      if (
+        columnaHistorialFiltrando === 3
+      ) {
+
+        valor =
+          tr.dataset.origen || "";
+
+      } else {
+
+        const celda =
+          tr.cells[
+            columnaHistorialFiltrando
+          ];
+
+        valor =
+          celda
+            ? celda.textContent.trim()
+            : "";
+
+      }
+
+      if (
+        verTodos ||
+        (
+          valor &&
+          seleccionados.includes(
+            valor
+          )
+        )
+      ) {
+
+        tr.style.display =
+          "";
+
+      } else {
+
+        tr.style.display =
+          "none";
+
+      }
+
+    });
+
+  const filtro =
+    document.getElementById(
+      "filtroDropdownHistorial"
+    );
+
+  if (filtro) {
+
+    filtro.style.display =
+      "none";
+
+  }
+
+}
+
+// ==========================================
+// LIMPIAR FILTRO
+// ==========================================
+
+function limpiarFiltroHistorial() {
+
+  const tabla =
+    document.getElementById(
+      "tablaHistorialReparados"
+    );
+
+  if (tabla) {
+
+    tabla
+      .querySelectorAll(
+        "tbody tr"
+      )
+      .forEach(tr => {
+
+        tr.style.display =
+          "";
+
+      });
+
+  }
+
+  const select =
+    document.getElementById(
+      "filtroSalonHistorial"
+    );
+
+  if (select) {
+    select.value =
+      "__TODOS__";
+  }
+
+  const filtro =
+    document.getElementById(
+      "filtroDropdownHistorial"
+    );
+
+  if (filtro) {
+    filtro.style.display =
+      "none";
+  }
+
+  columnaHistorialFiltrando =
+    null;
+
+}
+
+
+// ==========================================
+// CERRAR DROPDOWN AL HACER CLICK AFUERA
+// ==========================================
+
+document.addEventListener(
+  "click",
+  function (event) {
+
+    const filtro =
+      document.getElementById(
+        "filtroDropdownHistorial"
+      );
+
+    if (!filtro) {
+      return;
+    }
+
+    if (
+      !filtro.contains(event.target) &&
+      !event.target.closest(
+        "#tablaHistorialReparados thead th"
+      )
+    ) {
+
+      filtro.style.display =
+        "none";
+
+    }
+
+  }
+);
+
+
 //fin historial reparados
+
+// ==========================================
+// IMPRIMIR HISTORIAL
+// ==========================================
+
+function imprimirHistorialReparados() {
+
+  const filas =
+    Array.from(
+      document.querySelectorAll(
+        "#tablaHistorialReparados tbody tr"
+      )
+    )
+    .filter(
+      fila =>
+        fila.style.display !== "none"
+    );
+
+
+  if (filas.length === 0) {
+
+    Swal.fire({
+      icon: "warning",
+      title: "Sin registros",
+      text:
+        "No hay registros visibles para imprimir."
+    });
+
+    return;
+  }
+
+
+  let contenido = `
+
+    <table
+      border="1"
+      style="
+        border-collapse: collapse;
+        width: 100%;
+        text-align: left;
+      "
+    >
+
+      <thead>
+
+        <tr>
+
+          <th>Artículo</th>
+          <th>Unidades</th>
+          <th>Daños</th>
+          <th>Origen</th>
+          <th>Destino</th>
+          <th>Estado</th>
+          <th>Fecha ingreso</th>
+          <th>Inicio reparación</th>
+          <th>Finalización</th>
+          <th>Comentario</th>
+
+        </tr>
+
+      </thead>
+
+      <tbody>
+
+  `;
+
+
+  filas.forEach(fila => {
+
+    const celdas =
+      fila.querySelectorAll("td");
+
+
+    contenido += `
+
+      <tr>
+
+        <td>
+          ${celdas[0]?.innerText || ""}
+        </td>
+
+        <td>
+          ${celdas[1]?.innerText || ""}
+        </td>
+
+        <td>
+          ${celdas[2]?.innerText || ""}
+        </td>
+
+        <td>
+          ${celdas[3]?.innerText || ""}
+        </td>
+
+        <td>
+          ${celdas[4]?.innerText || ""}
+        </td>
+
+        <td>
+          ${celdas[5]?.innerText || ""}
+        </td>
+
+        <td>
+          ${celdas[6]?.innerText || ""}
+        </td>
+
+        <td>
+          ${celdas[7]?.innerText || ""}
+        </td>
+
+        <td>
+          ${celdas[8]?.innerText || ""}
+        </td>
+
+        <td>
+          ${celdas[9]?.innerText || ""}
+        </td>
+
+      </tr>
+
+    `;
+
+  });
+
+
+  contenido += `
+
+      </tbody>
+
+    </table>
+
+  `;
+
+
+  const ventana =
+    window.open(
+      "",
+      "_blank"
+    );
+
+
+  if (!ventana) {
+
+    Swal.fire({
+      icon: "error",
+      title: "No se pudo imprimir",
+      text:
+        "El navegador bloqueó la ventana de impresión."
+    });
+
+    return;
+  }
+
+
+  ventana.document.write(`
+
+    <html>
+
+      <head>
+
+        <title>
+          Historial de reparaciones
+        </title>
+
+        <style>
+
+          body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+          }
+
+          h2 {
+            margin-bottom: 20px;
+          }
+
+          table {
+            border-collapse: collapse;
+            width: 100%;
+          }
+
+          th,
+          td {
+            border: 1px solid #000;
+            padding: 7px;
+          }
+
+          th {
+            background: #eee;
+          }
+
+        </style>
+
+      </head>
+
+      <body>
+
+        <h2>
+          Historial de reparaciones y descartes
+        </h2>
+
+        ${contenido}
+
+      </body>
+
+    </html>
+
+  `);
+
+
+  ventana.document.close();
+
+
+  ventana.focus();
+
+
+  setTimeout(() => {
+
+    ventana.print();
+
+  }, 300);
+
+}
+
+
+// ==========================================
+// HACER LAS FUNCIONES GLOBALES
+// NECESARIO PARA onclick / onchange
+// DEL HTML
+// ==========================================
+
+window.filtrarHistorialPorSalon = filtrarHistorialPorSalon;
+
+window.aplicarFiltroHistorial = aplicarFiltroHistorial;
+
+window.imprimirHistorialReparados = imprimirHistorialReparados;
+//finaliza filtrados e imprimir para el historial
 
 window.iniciarReparacion = iniciarReparacion;
 window.marcarReparado = marcarReparado;
 window.tirarArticulo = tirarArticulo;
-window.mostrarHistorialReparados =  mostrarHistorialReparados;
+window.mostrarHistorialReparados = mostrarHistorialReparados;
 window.volverPendientesDefectuosas =  volverPendientesDefectuosas;
 //FINALIZA RESTAURAR ARTICULOS
 </script>
