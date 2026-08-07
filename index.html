@@ -1152,13 +1152,18 @@ export async function cargarStockActual() {
   const selector = document.getElementById("selectorSalon");
   const salon = selector?.value;
   const tabla = document.getElementById("tablaStockActual");
+
+  if (!tabla || !salon) return;
+
   tabla.innerHTML = "";
 
-  // === 🔹 Mostrar cartel "Cargando..." ===
+  // === Mostrar cartel "Cargando..." ===
   let overlay = document.getElementById("overlayCarga");
+
   if (!overlay) {
     overlay = document.createElement("div");
     overlay.id = "overlayCarga";
+
     overlay.innerHTML = `
       <div style="
         background: rgba(0,0,0,0.6);
@@ -1184,214 +1189,492 @@ export async function cargarStockActual() {
           🔄 Cargando datos del salón...
         </div>
       </div>
+
       <style>
         @keyframes pulse {
-          0%, 100% { opacity: 0.8; transform: scale(1); }
-          50% { opacity: 1; transform: scale(1.05); }
+          0%, 100% {
+            opacity: 0.8;
+            transform: scale(1);
+          }
+
+          50% {
+            opacity: 1;
+            transform: scale(1.05);
+          }
         }
       </style>
     `;
+
     document.body.appendChild(overlay);
   } else {
     overlay.style.display = "flex";
     overlay.style.opacity = "1";
   }
 
-  // Evitar suscripciones duplicadas
+  // === Evitar suscripciones duplicadas ===
   if (unsubscribeIngresos) unsubscribeIngresos();
   if (unsubscribePedidos) unsubscribePedidos();
   if (unsubscribeTotal) unsubscribeTotal();
 
-  // === Mapas de datos en memoria ===
-  const ingresos = new Map();
-  const pedidos = new Map();
+  // ==========================================================
+  // MAPAS EN MEMORIA
+  // ==========================================================
+
   const rotas = new Map();
   const stockTotalMap = new Map();
   const categoriasMap = new Map();
   const unidadesPorCajaMap = new Map();
   const articulosValidos = new Set();
 
-  console.time("⏱ Tiempo de carga de stock");
+  // Para saber cuándo ya llegaron los datos necesarios
+  let ingresosCargados = false;
+  let stockTotalCargado = false;
 
-  // === Cachear artículos oficiales ===
+  console.time("⏱ Preparación de carga de stock");
+
+  // ==========================================================
+  // CACHEAR ARTÍCULOS OFICIALES
+  // ==========================================================
+
+  console.time("⏱ Leer y procesar cache artículos");
+
   const cacheArticulos = sessionStorage.getItem("articulosCache");
+
   let listaArticulos = [];
 
   if (cacheArticulos) {
+
     console.log("✅ Artículos desde cache local");
+
     listaArticulos = JSON.parse(cacheArticulos);
+
+    console.timeEnd("⏱ Leer y procesar cache artículos");
+
   } else {
+
     console.log("⚠️ Cache vacío, cargando artículos...");
-    const articulosSnap = await getDocs(collection(db, "stock-articulos"));
-    articulosSnap.forEach(doc => listaArticulos.push(doc.data()));
-    sessionStorage.setItem("articulosCache", JSON.stringify(listaArticulos));
+
+    const articulosSnap = await getDocs(
+      collection(db, "stock-articulos")
+    );
+
+    articulosSnap.forEach(doc => {
+      listaArticulos.push(doc.data());
+    });
+
+    sessionStorage.setItem(
+      "articulosCache",
+      JSON.stringify(listaArticulos)
+    );
   }
 
-  articulosCache = listaArticulos.map(a => a.articulo?.trim() || "");
+   // ==========================================================
+  // CACHE PARA AUTOCOMPLETADO
+  // ==========================================================
 
-  // Autocompletado
+  articulosCache = listaArticulos.map(
+    a => a.articulo?.trim() || ""
+  );
+
+  console.time("⏱ Autocompletado");
+
   const datalist = document.getElementById("listaSugerencias");
+
   if (datalist) {
+
     datalist.innerHTML = "";
+
+    const fragment = document.createDocumentFragment();
+
     articulosCache.forEach(nombre => {
+
       const option = document.createElement("option");
+
       option.value = nombre;
-      datalist.appendChild(option);
+
+      fragment.appendChild(option);
     });
-  }
 
-  // === Preparar mapas ===
-  listaArticulos.forEach(data => {
-    if (data.articulo) {
-      const nombre = data.articulo.trim().toLowerCase();
-      articulosValidos.add(nombre);
-      categoriasMap.set(nombre, data.categoria || "");
-      unidadesPorCajaMap.set(nombre, parseInt(data.unixcajapack) || 0);
-    }
-  });
+    datalist.appendChild(fragment);
 
- function actualizarFila(articulo) {
+    console.timeEnd("⏱ Autocompletado");
 
-  // Si no existe en stock-total → eliminar fila
-  if (!stockTotalMap.has(articulo)) {
-    const fila = tabla.querySelector(`[data-articulo="${CSS.escape(articulo)}"]`);
-    if (fila) fila.remove();
-    return;
-  }
-
-  if (!articulosValidos.has(articulo)) return;
-
-  const filaExistente = tabla.querySelector(`[data-articulo="${CSS.escape(articulo)}"]`);
-
-  const categoria = categoriasMap.get(articulo) || "";
-  const stockData = stockTotalMap.get(articulo) || { unidades: 0, cajas: 0 };
-  const rota = rotas.get(articulo) || 0;
-  const unidadesPorCaja = unidadesPorCajaMap.get(articulo) || 0;
-
-  // 👉 TOTAL EN UNIDADES (clave nueva)
-  const totalUnidades = stockData.unidades + (stockData.cajas * unidadesPorCaja);
-
- const html = `
-  <td>${categoria}</td>
-  <td>${articulo}</td>
-  <td class="text-center">${stockData.unidades}</td>
-
- <td class="text-center">
-  ${stockData.cajas > 0
-    ? `<strong>${stockData.cajas}</strong>
-       ${unidadesPorCaja > 0
-         ? `<span style="font-size:11px; color:#888;">
-              (${unidadesPorCaja} c/u)
-            </span>`
-         : ``}`
-    : ``}
-</td>
-
-  <td class="text-center fw-bold">${totalUnidades}</td>
-  <td class="text-center">${rota}</td>
-`;
-
-  if (filaExistente) {
-    filaExistente.innerHTML = html;
   } else {
-    const fila = document.createElement("tr");
-    fila.dataset.articulo = articulo;
-    fila.innerHTML = html;
-    tabla.appendChild(fila);
+
+    console.timeEnd("⏱ Autocompletado");
+
   }
-}
 
-  // === Escucha en tiempo real ===
-  const qIngresos = query(collection(db, "stock-ingreso"), where("origen", "==", salon));
-  const qPedidos = query(collection(db, "stock-pedidos"), where("origen", "==", salon));
 
-  unsubscribeIngresos = onSnapshot(qIngresos, snapshot => {
-    ingresos.clear(); rotas.clear();
-    snapshot.forEach(doc => {
-      const d = doc.data(); const art = d.articulo?.trim().toLowerCase();
-      if (!art || !articulosValidos.has(art)) return;
-      const u = parseInt(d.unidades) || 0;
-      const c = parseInt(d.cajas) || 0;
-      const rot = parseInt(d.rotas) || 0;
-      const uxc = unidadesPorCajaMap.get(art) || 0;
-      ingresos.set(art, (ingresos.get(art) || 0) + u + c * uxc);
-      rotas.set(art, (rotas.get(art) || 0) + rot);
-    });
-    ingresos.forEach((_, art) => actualizarFila(art));
+  // ==========================================================
+  // PREPARAR MAPAS DE ARTÍCULOS
+  // ==========================================================
+
+  console.time("⏱ Preparar mapas artículos");
+
+  listaArticulos.forEach(data => {
+
+    if (!data.articulo) return;
+
+    const nombre = data.articulo
+      .trim()
+      .toLowerCase();
+
+    articulosValidos.add(nombre);
+
+    categoriasMap.set(
+      nombre,
+      data.categoria || ""
+    );
+
+    unidadesPorCajaMap.set(
+      nombre,
+      parseInt(data.unixcajapack) || 0
+    );
   });
 
-  unsubscribePedidos = onSnapshot(qPedidos, snapshot => {
-    pedidos.clear();
-    snapshot.forEach(doc => {
-      const d = doc.data(); const art = d.articulo?.trim().toLowerCase();
-      if (!art || !articulosValidos.has(art)) return;
-      const u = parseInt(d.unidades) || 0;
-      const c = parseInt(d.cajas) || 0;
-      const uxc = unidadesPorCajaMap.get(art) || 0;
-      pedidos.set(art, (pedidos.get(art) || 0) + u + c * uxc);
-    });
-    pedidos.forEach((_, art) => actualizarFila(art));
-  });
+  console.timeEnd("⏱ Preparar mapas artículos");
 
-  unsubscribeTotal = onSnapshot(collection(db, "stock-total"), snapshot => {
-    stockTotalMap.clear();
-    snapshot.forEach(doc => {
-      const data = doc.data();
-      const art = doc.id?.trim().toLowerCase();
-      if (!art || !data.salones?.[salon] || !articulosValidos.has(art)) return;
-      stockTotalMap.set(art, {
-        unidades: parseInt(data.salones[salon].unidades) || 0,
-        cajas: parseInt(data.salones[salon].cajas) || 0,
+  console.timeEnd("⏱ Preparación de carga de stock");
+
+  // ==========================================================
+  // RENDERIZAR TABLA
+  // ==========================================================
+
+  function renderizarTabla() {
+
+    if (!ingresosCargados || !stockTotalCargado) {
+      return;
+    }
+
+    console.time("⏱ Render tabla stock");
+
+    const filas = [];
+
+    // --------------------------------------------------------
+    // Recorrer solamente los artículos que realmente
+    // existen en stock-total para este salón.
+    // --------------------------------------------------------
+
+    stockTotalMap.forEach((stockData, articulo) => {
+
+      if (!articulosValidos.has(articulo)) return;
+
+      const categoria =
+        categoriasMap.get(articulo) || "";
+
+      const unidadesPorCaja =
+        unidadesPorCajaMap.get(articulo) || 0;
+
+      const rota =
+        rotas.get(articulo) || 0;
+
+      const unidades =
+        stockData.unidades || 0;
+
+      const cajas =
+        stockData.cajas || 0;
+
+      const totalUnidades =
+        unidades + (cajas * unidadesPorCaja);
+
+      filas.push({
+        articulo,
+        categoria,
+        unidades,
+        cajas,
+        unidadesPorCaja,
+        totalUnidades,
+        rota
       });
     });
-    stockTotalMap.forEach((_, art) => actualizarFila(art));
-   ordenarTablaPorCategoria();
-   
-    // ✅ Ocultar el cartel de carga cuando ya hay datos
+
+    // ========================================================
+    // ORDENAR EN MEMORIA
+    // ========================================================
+
+    filas.sort((a, b) => {
+
+      const categoriaA =
+        a.categoria.trim().toLowerCase();
+
+      const categoriaB =
+        b.categoria.trim().toLowerCase();
+
+      if (categoriaA < categoriaB) return -1;
+      if (categoriaA > categoriaB) return 1;
+
+      return a.articulo.localeCompare(
+        b.articulo,
+        "es",
+        {
+          numeric: true,
+          sensitivity: "base"
+        }
+      );
+    });
+
+    // ========================================================
+    // CREAR TODAS LAS FILAS EN MEMORIA
+    // ========================================================
+
+    const fragment = document.createDocumentFragment();
+
+    filas.forEach(data => {
+
+      const fila = document.createElement("tr");
+
+      fila.dataset.articulo = data.articulo;
+
+      fila.innerHTML = `
+        <td>${data.categoria}</td>
+
+        <td>${data.articulo}</td>
+
+        <td class="text-center">
+          ${data.unidades}
+        </td>
+
+        <td class="text-center">
+          ${
+            data.cajas > 0
+              ? `
+                <strong>${data.cajas}</strong>
+
+                ${
+                  data.unidadesPorCaja > 0
+                    ? `
+                      <span style="
+                        font-size:11px;
+                        color:#888;
+                      ">
+                        (${data.unidadesPorCaja} c/u)
+                      </span>
+                    `
+                    : ""
+                }
+              `
+              : ""
+          }
+        </td>
+
+        <td class="text-center fw-bold">
+          ${data.totalUnidades}
+        </td>
+
+        <td class="text-center">
+          ${data.rota}
+        </td>
+      `;
+
+      fragment.appendChild(fila);
+    });
+
+    // ========================================================
+    // UNA SOLA INSERCIÓN AL DOM
+    // ========================================================
+
+    tabla.innerHTML = "";
+
+    tabla.appendChild(fragment);
+
+    requestAnimationFrame(() => {
+  console.log("🖥️ TABLA YA FUE PINTADA POR EL NAVEGADOR");
+});
+
+    console.timeEnd("⏱ DESDE RESTAURAR USUARIO HASTA TABLA");
+
+    console.log(
+      "📊 Filas renderizadas:",
+      filas.length
+    );
+
+    console.timeEnd("⏱ Render tabla stock");
+
+    // ========================================================
+    // OCULTAR CARTEL
+    // ========================================================
+
     overlay.style.opacity = "0";
-    setTimeout(() => (overlay.style.display = "none"), 400);
-  });
 
-  // ✅ Ordenar la tabla por categoría alfanuméricamente
-function ordenarTablaPorCategoria() {
-  const filas = Array.from(tabla.querySelectorAll("tr"));
-  filas.sort((a, b) => {
-    const catA = a.children[0]?.textContent?.trim().toLowerCase() || "";
-    const catB = b.children[0]?.textContent?.trim().toLowerCase() || "";
-    if (catA < catB) return -1;
-    if (catA > catB) return 1;
+    setTimeout(() => {
+      overlay.style.display = "none";
+    }, 400);
+  }
 
-    // Si las categorías son iguales, ordenar por nombre de artículo
-    const artA = a.children[1]?.textContent?.trim().toLowerCase() || "";
-    const artB = b.children[1]?.textContent?.trim().toLowerCase() || "";
-    return artA.localeCompare(artB, 'es', { numeric: true });
-  });
+  // ==========================================================
+  // STOCK-INGRESO
+  //
+  // SOLO SE UTILIZA PARA OBTENER LAS ROTAS.
+  // YA NO CALCULAMOS INGRESOS.
+  // ==========================================================
 
-  filas.forEach(f => tabla.appendChild(f)); // reordenar en el DOM
+   const qIngresos = query(
+    collection(db, "stock-ingreso"),
+    where("origen", "==", salon)
+  );
+
+  const inicioSnapshots = performance.now();
+
+  console.log("🚀 Registrando snapshots...");
+
+  // ==========================================================
+  // STOCK-INGRESO
+  // Fuente de unidades rotas
+  // ==========================================================
+
+  unsubscribeIngresos = onSnapshot(
+    qIngresos,
+    snapshot => {
+
+      console.log(
+        "🟢 SNAPSHOT INGRESOS LLEGÓ",
+        snapshot.size,
+        "→ después de",
+        (performance.now() - inicioSnapshots).toFixed(0),
+        "ms"
+      );
+
+      console.time("⏱ Procesamiento stock-ingreso");
+
+      rotas.clear();
+
+      snapshot.forEach(doc => {
+
+        const d = doc.data();
+
+        const art =
+          d.articulo?.trim().toLowerCase();
+
+        if (
+          !art ||
+          !articulosValidos.has(art)
+        ) {
+          return;
+        }
+
+        const rot =
+          parseInt(d.rotas) || 0;
+
+        rotas.set(
+          art,
+          (rotas.get(art) || 0) + rot
+        );
+      });
+
+      ingresosCargados = true;
+
+      console.log(
+        "📦 Artículos con rotas:",
+        rotas.size
+      );
+
+      console.timeEnd(
+        "⏱ Procesamiento stock-ingreso"
+      );
+
+      // Solo renderizar cuando también llegó stock-total
+      if (stockTotalCargado) {
+        renderizarTabla();
+      }
+    }
+  );
+
+
+  // ==========================================================
+  // STOCK-TOTAL
+  //
+  // Fuente principal de:
+  // unidades + cajas
+  // ==========================================================
+
+  unsubscribeTotal = onSnapshot(
+    collection(db, "stock-total"),
+    snapshot => {
+
+      console.log(
+        "🟢 SNAPSHOT STOCK-TOTAL LLEGÓ",
+        snapshot.size,
+        "→ después de",
+        (performance.now() - inicioSnapshots).toFixed(0),
+        "ms"
+      );
+
+      console.time("⏱ Procesamiento stock-total");
+
+      stockTotalMap.clear();
+
+      snapshot.forEach(doc => {
+
+        const data = doc.data();
+
+        const art =
+          doc.id?.trim().toLowerCase();
+
+        if (
+          !art ||
+          !data.salones?.[salon] ||
+          !articulosValidos.has(art)
+        ) {
+          return;
+        }
+
+        const datosSalon =
+          data.salones[salon];
+
+        stockTotalMap.set(
+          art,
+          {
+            unidades:
+              parseInt(datosSalon.unidades) || 0,
+
+            cajas:
+              parseInt(datosSalon.cajas) || 0
+          }
+        );
+      });
+
+      stockTotalCargado = true;
+
+      console.log(
+        "📊 Artículos en stock-total:",
+        stockTotalMap.size
+      );
+
+      console.timeEnd(
+        "⏱ Procesamiento stock-total"
+      );
+
+      // Solo renderizar cuando también llegó stock-ingreso
+      if (ingresosCargados) {
+        renderizarTabla();
+      }
+    }
+  );
+
+
+  // ==========================================================
+  // CARGA PREPARADA
+  // ==========================================================
+
+  console.log(
+    "✅ Carga de Stock preparada para salón:",
+    salon
+  );
 }
 
-  console.timeEnd("⏱ Tiempo de carga de stock");
-}
-
-// Actualiza solo la diferencia ingreso - pedido en la tabla (visual)
 export function actualizarStock(cell) {
   const row = cell.parentElement;
-  const ingreso = parseInt(row.children[2].innerText) || 0;
-  const pedido = parseInt(row.children[3].innerText) || 0;
-  row.children[4].innerText = ingreso - pedido;
+
+  if (!row) return;
+
+  const ingreso = parseInt(row.children[2]?.innerText) || 0;
+  const pedido = parseInt(row.children[3]?.innerText) || 0;
+
+  if (row.children[4]) {
+    row.children[4].innerText = ingreso - pedido;
+  }
 }
-
-// Evento al cargar la página
-window.addEventListener("DOMContentLoaded", async () => {
-  await cargarSalones();
-});
-
-// 🧹 Limpia las suscripciones al salir de la página
-window.addEventListener("beforeunload", () => {
-  if (unsubscribeIngresos) unsubscribeIngresos();
-  if (unsubscribePedidos) unsubscribePedidos();
-  if (unsubscribeTotal) unsubscribeTotal();
-});
 
 async function cargarCategorias() {  //autocompletar categorias
   const categoriasSet = new Set(); // Evita duplicados
@@ -2437,6 +2720,8 @@ window.addEventListener('load', () => {
     loginModal.style.display = "none";
 
     console.log(`Usuario restaurado: ${usuarioActual}, salón: ${salonActual}`);
+
+    console.time("⏱ DESDE RESTAURAR USUARIO HASTA TABLA");
 
   } else {
 
