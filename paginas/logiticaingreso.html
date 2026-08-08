@@ -1372,6 +1372,23 @@ async function agregarArticulo() {
       document.querySelectorAll(".tipoDanio:checked")
     ).map(checkbox => checkbox.value);
 
+    // ==========================================
+  // VALIDAR TIPO DE DAÑO
+  // ==========================================
+
+   if (rotas > 0 && tiposDanio.length === 0) {
+
+   await Swal.fire({
+    icon: "warning",
+    title: "Tipo de daño requerido",
+    text: "Debes seleccionar al menos un tipo de daño cuando ingresas unidades rotas.",
+    confirmButtonText: "Entendido",
+    confirmButtonColor: "#3085d6"
+  });
+
+   return;
+  }
+
 
     // ==========================================
     // ARMAR OBSERVACIONES PARA LA TABLA
@@ -1493,6 +1510,16 @@ async function agregarArticulo() {
     document.getElementById("notas").value = "";
     document.getElementById("salonIngreso").value = "";
     document.getElementById("rotas").value = "";
+
+    // ==========================================
+    // LIMPIAR MULTIPLE CHOICE DE DAÑOS
+   // ==========================================
+
+    document
+     .querySelectorAll(".tipoDanio:checked")
+     .forEach(checkbox => {
+      checkbox.checked = false;
+     });
 
   } catch (error) {
 
