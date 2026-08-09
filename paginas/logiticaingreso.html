@@ -621,6 +621,18 @@ footer {
           </label>
         </li>
 
+         <li>
+          <label class="dropdown-item">
+          <input
+             type="checkbox"
+             class="form-check-input me-2 tipoDanio"
+             value="Otros"
+      >
+          Otros
+        </label>
+      </li>
+
+
       </ul>
 
     </div>
@@ -1389,6 +1401,25 @@ async function agregarArticulo() {
    return;
   }
 
+  // ==========================================
+// VALIDAR "OTROS"
+// ==========================================
+
+if (
+  tiposDanio.includes("Otros") &&
+  notasOriginales.trim() === ""
+) {
+
+  await Swal.fire({
+    icon: "warning",
+    title: "Comentario requerido",
+    text: "Debes ingresar un comentario en Notas explicando el daño seleccionado como Otros.",
+    confirmButtonText: "Entendido",
+    confirmButtonColor: "#3085d6"
+  });
+
+  return;
+}
 
     // ==========================================
     // ARMAR OBSERVACIONES PARA LA TABLA

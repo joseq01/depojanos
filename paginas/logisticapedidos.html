@@ -2744,38 +2744,90 @@ function generarContenidoPagina(paginaItems) {
 
   // 🔹 Posición inicial de los artículos y altura de fila
   const startY = 208 + 32 + 60 + 108 - 28; // . 8 para que articulos empiece un renglo +abajo
-  const rowHeight = 40;              // altura de fila en px (≈1.2cm)
+  const rowHeight = 35;              // altura de fila en px (≈1.2cm) valor 40
   const maxArticulos = 10;
 
-  for (let i = 0; i < maxArticulos; i++) {
-    const fila = paginaItems[i];
-    if (!fila) continue;
+ for (let i = 0; i < maxArticulos; i++) {
+  const fila = paginaItems[i];
+  if (!fila) continue;
 
-    const celdas = fila.querySelectorAll("td");
-    const articulo = celdas[3]?.innerText?.trim() || "";
-    const unidades = celdas[4]?.innerText?.trim() || "";
-    const cajas = celdas[5]?.innerText?.trim() || "";
+  const celdas = fila.querySelectorAll("td");
+  const articulo = celdas[3]?.innerText?.trim() || "";
+  const unidades = celdas[4]?.innerText?.trim() || "";
+  const cajas = celdas[5]?.innerText?.trim() || "";
 
-    // Construir texto de unidades/cajas solo si existen y >0
-    let detalles = "";
-    if (unidades && unidades !== "0") detalles += `<strong>${unidades}</strong> unid. `;
-    if (cajas && cajas !== "0") detalles += `<strong>${cajas}</strong> cajas`;
+  // ==========================================
+  // CONSTRUIR TEXTO DE UNIDADES / CAJAS
+  // ==========================================
 
-    // 🔹 Div absolutamente posicionado por fila
-    contenido += `
-      <div style="
-        position: absolute;
-        top: ${startY + i * rowHeight}px;
-        left: 20px; 
-        display: flex;
-        gap: 20px;
-      ">
-        <span style="width: 150px; text-align: right; margin-left: -55px;">${detalles}</span>
-        <span style="flex: 1; margin-left: 8px;">${articulo}</span>
-      </div>
-    `;
+  let detalles = "";
+
+  // Unidades
+  if (unidades && unidades !== "0") {
+    detalles += `<strong>${unidades}</strong> unid.`;
   }
 
+  // Cajas
+  if (cajas && cajas !== "0") {
+
+    // Buscar "(600 c/u)" dentro del texto
+    const matchCaja = cajas.match(/\(([^)]+)\)/);
+
+    if (matchCaja) {
+
+      const cantidadCajas = cajas
+        .replace(matchCaja[0], "")
+        .trim();
+
+      const unidadesPorCaja = matchCaja[1];
+
+      detalles += `
+        ${detalles ? " " : ""}
+        <strong>${cantidadCajas}</strong>
+        caja${cantidadCajas !== "1" ? "s" : ""}
+        <span>(${unidadesPorCaja})</span>
+      `;
+
+    } else {
+
+      detalles += `
+        ${detalles ? " " : ""}
+        <strong>${cajas}</strong>
+        caja${cajas !== "1" ? "s" : ""}
+      `;
+
+    }
+  }
+
+  // ==========================================
+  // MOSTRAR EN EL REMITO
+  // ==========================================
+
+  contenido += `
+    <div style="
+      position: absolute;
+      top: ${startY + i * rowHeight}px;
+      left: 20px;
+      display: flex;
+      gap: 20px;
+    ">
+      <span style="
+        width: 150px;
+        text-align: right;
+        margin-left: -55px;
+      ">
+        ${detalles}
+      </span>
+
+      <span style="
+        flex: 1;
+        margin-left: 8px;
+      ">
+        ${articulo}
+      </span>
+    </div>
+  `;
+}
   // 🔹 Pie de página
   // "margin-top: 48px;" para subir dni en hoja A4
   // "margin-top: 49pc" para linea Chofer
