@@ -1692,6 +1692,7 @@ await updateDoc(docRef, { salones: stockSalones });
 // ✅ Eliminar fila
 async function eliminarFila(btn, event) {
   event.stopPropagation();
+
   const fila = btn.closest("tr");
   const docId = fila.getAttribute("data-id");
 
@@ -1700,32 +1701,55 @@ async function eliminarFila(btn, event) {
     return;
   }
 
-  const confirmacion = await Swal.fire({
-    title: '¿Eliminar pedido?',
-    text: 'Esta acción no se puede deshacer.',
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonColor: '#d33',
-    cancelButtonColor: '#6c757d',
-    confirmButtonText: 'Sí, eliminar',
-    cancelButtonText: 'Cancelar'
-  });
-
-  if (!confirmacion.isConfirmed) return;
-
   try {
+    // Obtener datos antes de mostrar la confirmación
     const data = await obtenerDatosPedido(docId);
-    if (data) {
-      const { articulo, unidades, cajas, origen } = data;
 
-      // Solo restaurar stock si el artículo existe en stock-articulos
-      const artSnap = await getDocs(query(collection(db, "stock-articulos"), where("articulo", "==", articulo)));
-      if (!artSnap.empty) {
-        await restaurarStockTotal(articulo, parseInt(unidades) || 0, parseInt(cajas) || 0, origen);
-      }
+    if (!data) return;
+
+    const { articulo, unidades, cajas, origen, salones } = data;
+
+    const confirmacion = await Swal.fire({
+      title: '¿Eliminar pedido?',
+      html: `
+        <div style="text-align: left;">
+          <strong>Artículo:</strong> ${articulo || "-"}<br>
+          <strong>Unidades:</strong> ${unidades || 0}<br>
+          <strong>Cajas:</strong> ${cajas || 0}<br>
+          <strong>Origen:</strong> ${salones || "-"}
+        </div>
+        <br>
+        <span>Esta acción no se puede deshacer.</span>
+      `,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#6c757d',
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar'
+    });
+
+    if (!confirmacion.isConfirmed) return;
+
+    // Solo restaurar stock si el artículo existe en stock-articulos
+    const artSnap = await getDocs(
+      query(
+        collection(db, "stock-articulos"),
+        where("articulo", "==", articulo)
+      )
+    );
+
+    if (!artSnap.empty) {
+      await restaurarStockTotal(
+        articulo,
+        parseInt(unidades) || 0,
+        parseInt(cajas) || 0,
+        origen
+      );
     }
 
     await eliminarPedido(docId, fila);
+
   } catch (error) {
     console.error("Error eliminando documento:", error);
   }
@@ -2744,7 +2768,7 @@ function generarContenidoPagina(paginaItems) {
 
   // 🔹 Posición inicial de los artículos y altura de fila
   const startY = 208 + 32 + 60 + 108 - 28; // . 8 para que articulos empiece un renglo +abajo
-  const rowHeight = 35;              // altura de fila en px (≈1.2cm) valor 40
+  const rowHeight = 37;              // altura de fila en px (≈1.2cm) valor 40
   const maxArticulos = 10;
 
  for (let i = 0; i < maxArticulos; i++) {
@@ -3120,7 +3144,27 @@ document.addEventListener("focusin", function (e) {
 
   ultimaCeldaCajas = celda;
 });
+// Restaurar visualmente Cajas cuando se selecciona otra columna
+document.addEventListener("mousedown", function (e) {
+  const celda = e.target.closest("td");
 
+  if (!celda) return;
+
+  // Si la celda seleccionada NO es Cajas
+  if (!celda.matches("[contenteditable][data-cajas]")) {
+
+    if (ultimaCeldaCajas) {
+      const fila = ultimaCeldaCajas.closest("tr");
+
+      if (fila) {
+        const articulo = fila.children[3].textContent.trim();
+        const cajas = parseInt(ultimaCeldaCajas.dataset.cajas) || 0;
+
+        ultimaCeldaCajas.innerHTML = formatearCajas(articulo, cajas);
+      }
+    }
+  }
+});
     
  </script>
   
