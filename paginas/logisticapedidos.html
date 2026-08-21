@@ -1194,35 +1194,98 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 //lector de barras
-// 🔹 Detección automática de escaneo con pistola en el input "articulo"
+// ==========================================
+// LECTOR DE CÓDIGO DE BARRAS
+// ==========================================
+
 const inputArticulo = document.getElementById("articulo");
 
-let lastInputTime = 0;
-let barcodeBuffer = "";
+let ultimaEntradaBarcode = 0;
+let bufferBarcode = "";
+let cantidadEntradasRapidas = 0;
+let timerBarcode = null;
 
-inputArticulo.addEventListener("input", async (e) => {
-  const currentTime = Date.now();
+inputArticulo.addEventListener("input", (e) => {
 
-  // Detectar velocidad de tipeo (escaneo rápido)
-  if (currentTime - lastInputTime < 30) {
-    barcodeBuffer += e.data || "";
+  const ahora = Date.now();
+
+  const intervalo = ahora - ultimaEntradaBarcode;
+
+  // ==========================================
+  // DETECTAR VELOCIDAD
+  // ==========================================
+
+  if (intervalo > 0 && intervalo < 35) {
+
+    // Entrada muy rápida → probable lector
+    cantidadEntradasRapidas++;
+
   } else {
-    barcodeBuffer = e.data || "";
-  }
-  lastInputTime = currentTime;
 
-  // Esperar un breve tiempo para detectar fin del escaneo
-  setTimeout(async () => {
-    if (Date.now() - lastInputTime > 300 && barcodeBuffer.length > 4) {
-      // 🔹 Sanitizar el código
-      const barcode = barcodeBuffer.replace(/[\r\n]+/g, '').trim();
+    // Escritura normal → empezar de nuevo
+    cantidadEntradasRapidas = 1;
+    bufferBarcode = "";
+  }
+
+  ultimaEntradaBarcode = ahora;
+
+  // ==========================================
+  // TOMAR EL VALOR ACTUAL DEL INPUT
+  // ==========================================
+
+  bufferBarcode = inputArticulo.value;
+
+  // ==========================================
+  // CANCELAR TEMPORIZADOR ANTERIOR
+  // ==========================================
+
+  clearTimeout(timerBarcode);
+
+  // ==========================================
+  // ESPERAR A QUE TERMINE LA ENTRADA
+  // ==========================================
+
+  timerBarcode = setTimeout(async () => {
+
+    const tiempoDesdeUltimaEntrada =
+      Date.now() - ultimaEntradaBarcode;
+
+    // Todavía está entrando información
+    if (tiempoDesdeUltimaEntrada < 300) {
+      return;
+    }
+
+    // ==========================================
+    // CONFIRMAR QUE REALMENTE FUE MUY RÁPIDO
+    // ==========================================
+
+    if (
+      cantidadEntradasRapidas >= 5 &&
+      bufferBarcode.trim().length > 4
+    ) {
+
+      const barcode = bufferBarcode
+        .replace(/[\r\n]+/g, "")
+        .trim();
 
       if (barcode) {
+
+        console.log(
+          "📦 Código detectado por velocidad:",
+          barcode
+        );
+
         await buscarArticuloPorId(barcode);
       }
-
-      barcodeBuffer = "";
     }
+
+    // ==========================================
+    // REINICIAR DETECTOR
+    // ==========================================
+
+    bufferBarcode = "";
+    cantidadEntradasRapidas = 0;
+
   }, 350);
 });
 

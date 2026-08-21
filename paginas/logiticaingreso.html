@@ -1219,34 +1219,98 @@ document.addEventListener("DOMContentLoaded", () => {
 
 //lector de barras
 // 🔹 Detección automática de escaneo con pistola en el input "articulo"
+// ==========================================
+// LECTOR DE CÓDIGO DE BARRAS
+// ==========================================
+
 const inputArticulo = document.getElementById("articulo");
 
-let lastInputTime = 0;
-let barcodeBuffer = "";
+let ultimaEntradaBarcode = 0;
+let bufferBarcode = "";
+let cantidadEntradasRapidas = 0;
+let timerBarcode = null;
 
-inputArticulo.addEventListener("input", async (e) => {
-  const currentTime = Date.now();
+inputArticulo.addEventListener("input", (e) => {
 
-  // Detectar velocidad de tipeo (escaneo rápido)
-  if (currentTime - lastInputTime < 30) {
-    barcodeBuffer += e.data || "";
+  const ahora = Date.now();
+
+  const intervalo = ahora - ultimaEntradaBarcode;
+
+  // ==========================================
+  // DETECTAR VELOCIDAD
+  // ==========================================
+
+  if (intervalo > 0 && intervalo < 35) {
+
+    // Entrada muy rápida → probable lector
+    cantidadEntradasRapidas++;
+
   } else {
-    barcodeBuffer = e.data || "";
-  }
-  lastInputTime = currentTime;
 
-  // Esperar un breve tiempo para detectar fin del escaneo
-  setTimeout(async () => {
-    if (Date.now() - lastInputTime > 300 && barcodeBuffer.length > 4) {
-      // 🔹 Sanitizar el código
-      const barcode = barcodeBuffer.replace(/[\r\n]+/g, '').trim();
+    // Escritura normal → empezar de nuevo
+    cantidadEntradasRapidas = 1;
+    bufferBarcode = "";
+  }
+
+  ultimaEntradaBarcode = ahora;
+
+  // ==========================================
+  // TOMAR EL VALOR ACTUAL DEL INPUT
+  // ==========================================
+
+  bufferBarcode = inputArticulo.value;
+
+  // ==========================================
+  // CANCELAR TEMPORIZADOR ANTERIOR
+  // ==========================================
+
+  clearTimeout(timerBarcode);
+
+  // ==========================================
+  // ESPERAR A QUE TERMINE LA ENTRADA
+  // ==========================================
+
+  timerBarcode = setTimeout(async () => {
+
+    const tiempoDesdeUltimaEntrada =
+      Date.now() - ultimaEntradaBarcode;
+
+    // Todavía está entrando información
+    if (tiempoDesdeUltimaEntrada < 300) {
+      return;
+    }
+
+    // ==========================================
+    // CONFIRMAR QUE REALMENTE FUE MUY RÁPIDO
+    // ==========================================
+
+    if (
+      cantidadEntradasRapidas >= 5 &&
+      bufferBarcode.trim().length > 4
+    ) {
+
+      const barcode = bufferBarcode
+        .replace(/[\r\n]+/g, "")
+        .trim();
 
       if (barcode) {
+
+        console.log(
+          "📦 Código detectado por velocidad:",
+          barcode
+        );
+
         await buscarArticuloPorId(barcode);
       }
-
-      barcodeBuffer = "";
     }
+
+    // ==========================================
+    // REINICIAR DETECTOR
+    // ==========================================
+
+    bufferBarcode = "";
+    cantidadEntradasRapidas = 0;
+
   }, 350);
 });
 
@@ -1641,6 +1705,7 @@ window.cargarTablaPedidos = cargarTablaPedidos;
 
 async function eliminarFila(btn, event) {
   event.stopPropagation();
+
   const fila = btn.closest("tr");
   const docId = fila.getAttribute("data-id");
 
@@ -1649,20 +1714,6 @@ async function eliminarFila(btn, event) {
     return;
   }
 
-  // Confirmar antes de modificar stock o eliminar
-  const confirmacion = await Swal.fire({
-    title: '¿Eliminar ingreso?',
-    text: 'Esta acción no se puede deshacer.',
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonColor: '#d33',
-    cancelButtonColor: '#6c757d',
-    confirmButtonText: 'Sí, eliminar',
-    cancelButtonText: 'Cancelar'
-  });
-
-  if (!confirmacion.isConfirmed) return;
-
   try {
     const docRef = doc(db, "stock-ingreso", docId);
     const docSnap = await getDoc(docRef);
@@ -1670,44 +1721,102 @@ async function eliminarFila(btn, event) {
     if (!docSnap.exists()) return;
 
     const data = docSnap.data();
-    const { articulo, unidades, cajas, origen } = data;
+    const { articulo, unidades, cajas, origen, salones } = data;
 
-    const artSnap = await getDocs(query(collection(db, "stock-articulos"), where("articulo", "==", articulo)));
+    // Confirmar antes de modificar stock o eliminar
+    const confirmacion = await Swal.fire({
+      title: '¿Eliminar ingreso?',
+      html: `
+        <div style="text-align: left;">
+          <strong>Artículo:</strong> ${articulo || "-"}<br>
+          <strong>Unidades:</strong> ${unidades || 0}<br>
+          <strong>Cajas:</strong> ${cajas || 0}<br>
+          <strong>Origen:</strong> ${salones || "-"}
+        </div>
+        <br>
+        <span>Esta acción no se puede deshacer.</span>
+      `,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#6c757d',
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar'
+    });
+
+    if (!confirmacion.isConfirmed) return;
+
+    const artSnap = await getDocs(
+      query(
+        collection(db, "stock-articulos"),
+        where("articulo", "==", articulo)
+      )
+    );
+
     if (!artSnap.empty) {
+
       // Obtener stock actual antes de intentar restar
       const stockRef = doc(db, "stock-total", articulo);
       const stockSnap = await getDoc(stockRef);
 
       if (stockSnap.exists()) {
+
         const stockData = stockSnap.data();
-        const stockSalon = stockData.salones?.[origen] || { unidades: 0, cajas: 0 };
+
+        const stockSalon =
+          stockData.salones?.[origen] || {
+            unidades: 0,
+            cajas: 0
+          };
 
         // Verificar si hay stock suficiente para "devolver" lo que se eliminaría
-        let unidadesActuales = parseInt(stockSalon.unidades) || 0;
-let cajasActuales = parseInt(stockSalon.cajas) || 0;
+        let unidadesActuales =
+          parseInt(stockSalon.unidades) || 0;
 
-// 🔹 traer unidades por caja (USÁ CACHE, no Firestore de nuevo)
-const articuloData = articulosCache.find(a => a.articulo === articulo.trim().toLowerCase());
-const unidadesPorCaja = articuloData ? parseInt(articuloData.unixcajapack) || 0 : 0;
+        let cajasActuales =
+          parseInt(stockSalon.cajas) || 0;
 
-// 🔥 convertir cajas → unidades si falta
-if (unidadesPorCaja > 0 && unidades > unidadesActuales) {
-  const faltantes = unidades - unidadesActuales;
-  const cajasNecesarias = Math.ceil(faltantes / unidadesPorCaja);
-  const cajasAConvertir = Math.min(cajasNecesarias, cajasActuales);
+        // 🔹 Traer unidades por caja (USÁ CACHE, no Firestore de nuevo)
+        const articuloData = articulosCache.find(
+          a => a.articulo === articulo.trim().toLowerCase()
+        );
 
-  unidadesActuales += cajasAConvertir * unidadesPorCaja;
-  cajasActuales -= cajasAConvertir;
-}
+        const unidadesPorCaja = articuloData
+          ? parseInt(articuloData.unixcajapack) || 0
+          : 0;
 
-// 🔴 VALIDACIÓN REAL
-if (unidades > unidadesActuales || cajas > cajasActuales) {
+        // 🔥 Convertir cajas → unidades si falta
+        if (unidadesPorCaja > 0 && unidades > unidadesActuales) {
+
+          const faltantes = unidades - unidadesActuales;
+
+          const cajasNecesarias =
+            Math.ceil(faltantes / unidadesPorCaja);
+
+          const cajasAConvertir =
+            Math.min(cajasNecesarias, cajasActuales);
+
+          unidadesActuales +=
+            cajasAConvertir * unidadesPorCaja;
+
+          cajasActuales -= cajasAConvertir;
+        }
+
+        // 🔴 VALIDACIÓN REAL
+        if (
+          unidades > unidadesActuales ||
+          cajas > cajasActuales
+        ) {
+
           await Swal.fire({
             icon: 'error',
             title: 'No se puede eliminar',
-            text: `Eliminar dejaría el stock en negativo para "${articulo}" en el salón "${origen}".`,
+            text:
+              `Eliminar dejaría el stock en negativo para "${articulo}" ` +
+              `en el salón "${origen}".`,
             confirmButtonColor: '#d33'
           });
+
           return;
         }
       }
@@ -1715,18 +1824,25 @@ if (unidades > unidadesActuales || cajas > cajasActuales) {
 
     // ✅ Recién ahora eliminamos y restamos
     if (!artSnap.empty) {
-      await restarStockTotal(articulo, parseInt(unidades) || 0, parseInt(cajas) || 0, origen);
+
+      await restarStockTotal(
+        articulo,
+        parseInt(unidades) || 0,
+        parseInt(cajas) || 0,
+        origen
+      );
     }
 
     await deleteDoc(docRef);
+
     fila.remove();
+
     mostrarMensajeEliminado();
 
   } catch (error) {
     console.error("Error eliminando documento:", error);
   }
 }
-
 
 async function restarStockTotal(articulo, unidades, cajas, origen) {
   const existe = await existeArticuloEnStockArticulos(articulo);
