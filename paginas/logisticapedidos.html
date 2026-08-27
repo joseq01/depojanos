@@ -498,6 +498,200 @@ th.filtro-activo::after {
     pointer-events: none;
 }
 
+/* =========================================================
+   FORMULARIO PEDIDOS - FONDO JANOS
+   ========================================================= */
+
+#formularioPedidos {
+  position: relative;
+  overflow: hidden;
+
+  padding: 10px 12px 14px 12px;
+  border-radius: 12px;
+
+  /* Negro petróleo, combinado con el navbar negro */
+  background: #17262a;
+
+  border: 1px solid rgba(255,255,255,0.12);
+
+  box-shadow:
+    0 4px 15px rgba(0,0,0,0.35);
+}
+
+
+/* =========================================================
+   JANOS - MARCA DE AGUA GRANDE
+   ========================================================= */
+
+#formularioPedidos::before {
+  content: "JANOS";
+
+  position: absolute;
+
+  /* Bien grande */
+  font-size: clamp(180px, 27vw, 380px);
+
+  font-family: Arial, Helvetica, sans-serif;
+  font-weight: 900;
+
+  letter-spacing: 15px;
+
+  /* Inclinación */
+  transform: rotate(-12deg);
+
+  /* Posición */
+  top: -25px;
+  left: -70px;
+
+  /* Muy sutil */
+  color: rgba(255,255,255,0.065);
+
+  /* Pequeño efecto de profundidad */
+  text-shadow:
+    10px 10px 0 rgba(255,255,255,0.025),
+    -6px -6px 0 rgba(0,0,0,0.05);
+
+  /* Cortes diagonales tipo graffiti */
+  clip-path: polygon(
+    0 8%,
+    100% 0,
+    94% 18%,
+    100% 30%,
+    92% 42%,
+    100% 55%,
+    91% 68%,
+    100% 82%,
+    92% 100%,
+    0 92%,
+    7% 78%,
+    0 65%,
+    8% 52%,
+    0 39%,
+    7% 25%
+  );
+
+  pointer-events: none;
+  z-index: 0;
+}
+
+
+/* =========================================================
+   CONTENIDO DEL FORMULARIO POR ENCIMA DE JANOS
+   ========================================================= */
+
+#formularioPedidos > * {
+  position: relative;
+  z-index: 2;
+}
+
+
+/* =========================================================
+   TÍTULO PEDIDOS
+   ========================================================= */
+
+#formularioPedidos h6 {
+  color: #ffffff;
+
+  font-size: 17px;
+  font-weight: 700;
+
+  letter-spacing: 0.5px;
+
+  text-shadow:
+    0 1px 3px rgba(0,0,0,0.45);
+
+  margin-bottom: 8px !important;
+}
+
+
+/* =========================================================
+   TARJETA DE LOS CAMPOS
+   ========================================================= */
+
+#formularioPedidos .card {
+  background: rgba(255,255,255,0.10);
+
+  border: 1px solid rgba(255,255,255,0.18);
+
+  border-radius: 10px;
+
+  box-shadow:
+    0 4px 12px rgba(0,0,0,0.18);
+}
+
+
+/* =========================================================
+   TÍTULOS DE LOS CAMPOS
+   ========================================================= */
+
+#formularioPedidos .form-label {
+  color: #ffffff;
+
+  font-size: 13px;
+  font-weight: 700;
+
+  margin-bottom: 4px;
+
+  text-shadow:
+    0 1px 3px rgba(0,0,0,0.45);
+}
+
+
+/* =========================================================
+   CAMPOS BLANCOS
+   ========================================================= */
+
+#formularioPedidos .form-control {
+  background-color: #ffffff;
+
+  color: #263238;
+
+  border: 1px solid rgba(0,0,0,0.18);
+
+  border-radius: 6px;
+
+  box-shadow:
+    inset 0 1px 3px rgba(0,0,0,0.10);
+
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+
+/* =========================================================
+   CAMPO SELECCIONADO
+   ========================================================= */
+
+#formularioPedidos .form-control:focus {
+  background-color: #ffffff;
+
+  border-color: #ffc107;
+
+  box-shadow:
+    0 0 0 2px rgba(255,193,7,0.30),
+    inset 0 1px 3px rgba(0,0,0,0.08);
+}
+
+
+/* =========================================================
+   PLACEHOLDER
+   ========================================================= */
+
+#formularioPedidos .form-control::placeholder {
+  color: #777;
+  opacity: 1;
+}
+
+
+/* =========================================================
+   BOTONES
+   ========================================================= */
+
+#formularioPedidos .btn {
+  border-radius: 6px;
+  font-weight: 600;
+}
   </style>
   
 </head>
@@ -1548,10 +1742,12 @@ async function cargarSalonesEnDatalist() {
 cargarSalonesEnDatalist();
 
 async function cargarTablaPedidos(filtro = "ultimos2") {
+
   const tabla = document.getElementById("tablaArticulos");
   tabla.innerHTML = "";
 
   const salonSeleccionado = sessionStorage.getItem("salon");
+
   if (!salonSeleccionado) {
     console.warn("No hay salón seleccionado");
     return;
@@ -1560,29 +1756,230 @@ async function cargarTablaPedidos(filtro = "ultimos2") {
   const pedidosRef = collection(db, "stock-pedidos");
 
   let q;
+
   const hoy = new Date();
   hoy.setHours(0, 0, 0, 0);
 
+
+  // =========================
+  // HOY
+  // =========================
+
   if (filtro === "hoy") {
-    const timestampHoy = Timestamp.fromDate(hoy);
+
+    const timestampHoy =
+      Timestamp.fromDate(hoy);
+
     q = query(
       pedidosRef,
       where("origen", "==", salonSeleccionado),
       where("fecha", ">=", timestampHoy),
       orderBy("fecha")
     );
+
+
+  // =========================
+  // ÚLTIMOS 2 DÍAS
+  // =========================
+
   } else if (filtro === "ultimos2") {
-    const haceDosDias = new Date(hoy);
-    haceDosDias.setDate(hoy.getDate() - 1); // hoy y ayer
-    const timestampDesde = Timestamp.fromDate(haceDosDias);
+
+    const haceDosDias =
+      new Date(hoy);
+
+    haceDosDias.setDate(
+      hoy.getDate() - 1
+    );
+
+    const timestampDesde =
+      Timestamp.fromDate(haceDosDias);
+
     q = query(
       pedidosRef,
       where("origen", "==", salonSeleccionado),
       where("fecha", ">=", timestampDesde),
       orderBy("fecha")
     );
+
+  
+  // =========================
+  // DÍA
+  // formato:
+  // fecha:25/08/2026
+  // =========================
+
+  } else if (filtro.startsWith("fecha:")) {
+
+    const fechaTexto =
+      filtro.replace("fecha:", "");
+
+    const partes =
+      fechaTexto.split("/");
+
+    if (partes.length !== 3) {
+      console.warn(
+        "Formato de fecha inválido:",
+        fechaTexto
+      );
+      return;
+    }
+
+    const dia =
+      Number(partes[0]);
+
+    const mes =
+      Number(partes[1]);
+
+    const anio =
+      Number(partes[2]);
+
+
+    const desde =
+      new Date(
+        anio,
+        mes - 1,
+        dia
+      );
+
+    desde.setHours(0, 0, 0, 0);
+
+
+    const hasta =
+      new Date(
+        anio,
+        mes - 1,
+        dia + 1
+      );
+
+    hasta.setHours(0, 0, 0, 0);
+
+
+    q = query(
+      pedidosRef,
+      where("origen", "==", salonSeleccionado),
+      where(
+        "fecha",
+        ">=",
+        Timestamp.fromDate(desde)
+      ),
+      where(
+        "fecha",
+        "<",
+        Timestamp.fromDate(hasta)
+      ),
+      orderBy("fecha")
+    );
+
+
+  // =========================
+  // MES
+  // formato:
+  // mes:2026-08
+  // =========================
+
+  } else if (filtro.startsWith("mes:")) {
+
+    const periodo =
+      filtro.replace("mes:", "");
+
+    const [anio, mes] =
+      periodo.split("-").map(Number);
+
+
+    const desde =
+      new Date(
+        anio,
+        mes - 1,
+        1
+      );
+
+    desde.setHours(0, 0, 0, 0);
+
+
+    const hasta =
+      new Date(
+        anio,
+        mes,
+        1
+      );
+
+    hasta.setHours(0, 0, 0, 0);
+
+
+    q = query(
+      pedidosRef,
+      where("origen", "==", salonSeleccionado),
+      where(
+        "fecha",
+        ">=",
+        Timestamp.fromDate(desde)
+      ),
+      where(
+        "fecha",
+        "<",
+        Timestamp.fromDate(hasta)
+      ),
+      orderBy("fecha")
+    );
+
+
+  // =========================
+  // AÑO
+  // formato:
+  // anio:2026
+  // =========================
+
+  } else if (filtro.startsWith("anio:")) {
+
+    const anio =
+      Number(
+        filtro.replace("anio:", "")
+      );
+
+
+    const desde =
+      new Date(
+        anio,
+        0,
+        1
+      );
+
+    desde.setHours(0, 0, 0, 0);
+
+
+    const hasta =
+      new Date(
+        anio + 1,
+        0,
+        1
+      );
+
+    hasta.setHours(0, 0, 0, 0);
+
+
+    q = query(
+      pedidosRef,
+      where("origen", "==", salonSeleccionado),
+      where(
+        "fecha",
+        ">=",
+        Timestamp.fromDate(desde)
+      ),
+      where(
+        "fecha",
+        "<",
+        Timestamp.fromDate(hasta)
+      ),
+      orderBy("fecha")
+    );
+
+
+  // =========================
+  // TODOS
+  // =========================
+
   } else {
-    // Si no se especifica filtro, carga todo
+
     q = query(
       pedidosRef,
       where("origen", "==", salonSeleccionado),
@@ -1590,29 +1987,52 @@ async function cargarTablaPedidos(filtro = "ultimos2") {
     );
   }
 
-  const snapshot = await getDocs(q);
+
+  const snapshot =
+    await getDocs(q);
+
 
   snapshot.forEach((docSnap) => {
-    const data = docSnap.data();
-    const fecha = data.fecha instanceof Timestamp
-      ? data.fecha.toDate().toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })
-      : data.fecha;
 
-    const fila = crearFila(
-      data.articulo,
-      data.unidades,
-      data.cajas,
-      data.notas,
-      data.salones,
-      fecha,
-      data.usuario,
-      docSnap.id
+    const data =
+      docSnap.data();
+
+
+ const fecha =
+  data.fecha instanceof Timestamp
+    ? data.fecha.toDate().toLocaleDateString(
+        "es-AR",
+        {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric"
+        }
+      )
+    : data.fecha;
+
+
+    const fila =
+      crearFila(
+        data.articulo,
+        data.unidades,
+        data.cajas,
+        data.notas,
+        data.salones,
+        fecha,
+        data.usuario,
+        docSnap.id
+      );
+
+
+    tabla.insertAdjacentHTML(
+      "beforeend",
+      fila
     );
-
-    tabla.insertAdjacentHTML("beforeend", fila);
   });
 }
-window.cargarTablaPedidos = cargarTablaPedidos;
+
+window.cargarTablaPedidos =
+  cargarTablaPedidos;
 
 
 function eliminarFilaSinId(fila) {
@@ -3288,42 +3708,40 @@ let columnaActualIndex = null;
 let valorFiltroActual = "";
 let filtrosActivos = {};
 let todasOpcionesFiltro = [];
-
+let mesesDisponiblesFiltro = [];
+let aniosDisponiblesFiltro = [];
 
 /**********************
  * MOSTRAR DROPDOWN
  **********************/
 function mostrarFiltro(event, colIndex) {
-  const filtro = document.getElementById("filtroDropdown");
-  const opciones = document.getElementById("opcionesFiltro");
-  const input = document.getElementById("filtroInput");
 
-  opciones.innerHTML = "";
-  input.value = "";
+  const filtro =
+    document.getElementById("filtroDropdown");
+
+  const input =
+    document.getElementById("filtroInput");
+
   columnaActualIndex = colIndex;
 
-  const valores = new Set();
-  document.querySelectorAll(`#tablaArticulos tr`).forEach(row => {
-    const valor = row.cells[colIndex]?.innerText.trim();
-    if (valor) valores.add(valor);
-  });
+  input.value = "";
 
-  [...valores].sort().forEach(v => {
-    const opcion = document.createElement("div");
-    opcion.className = "form-check";
-    opcion.innerHTML = `
-      <input class="form-check-input" type="checkbox" value="${v}" id="check-${v}">
-      <label class="form-check-label" for="check-${v}">${v}</label>
-    `;
-    opciones.appendChild(opcion);
-  });
+  // Cargar solamente las opciones
+  // correspondientes a las filas actualmente visibles
+  llenarOpcionesFiltro(colIndex);
 
-  const { left, bottom } = event.target.getBoundingClientRect();
-  filtro.style.left = `${left}px`;
-  filtro.style.top = `${bottom + window.scrollY}px`;
-  filtro.style.display = "block";
+  const rect =
+    event.target.getBoundingClientRect();
+
+  filtro.style.left =
+    `${rect.left + window.scrollX}px`;
+
+  filtro.style.top =
+    `${rect.bottom + window.scrollY}px`;
+
+  filtro.style.display =
+    "block";
 }
-
 
 /**********************
  * ACTIVAR CLICK EN ENCABEZADOS
@@ -3339,8 +3757,9 @@ document.querySelectorAll("thead th").forEach((th, index) => {
     dropdown.style.left = `${e.pageX}px`;
     dropdown.style.top = `${e.pageY}px`;
     dropdown.style.display = "block";
-
+document.getElementById("filtroInput").value = "";
     llenarOpcionesFiltro(index);
+    
   });
 });
 
@@ -3405,21 +3824,30 @@ document.getElementById("filtroInput").addEventListener("input", (e) => {
  * APLICAR FILTROS
  **********************/
 function aplicarFiltrosMultiples() {
+
   const columnas = Object.keys(filtrosActivos);
 
-  if (columnas.length === 0) {
-    document.querySelectorAll("#tablaArticulos tr").forEach(tr => tr.style.display = "");
-    ocultarContador();
-    return;
-  }
-
   document.querySelectorAll("#tablaArticulos tr").forEach(tr => {
+
     let visible = true;
 
     for (const col of columnas) {
+
+      // ==========================================
+      // LA FECHA YA FUE FILTRADA POR FIRESTORE
+      // ==========================================
+
+      if (Number(col) === 2) {
+        continue;
+      }
+
       const celda = tr.cells[col];
-      const valor = celda?.textContent.trim() || "";
-      const opciones = filtrosActivos[col];
+
+      const valor =
+        celda?.textContent.trim() || "";
+
+      const opciones =
+        filtrosActivos[col];
 
       if (!opciones.includes(valor)) {
         visible = false;
@@ -3427,13 +3855,17 @@ function aplicarFiltrosMultiples() {
       }
     }
 
-    tr.style.display = visible ? "" : "none";   // ← **CAMBIO CRÍTICO**
+    tr.style.display =
+      visible ? "" : "none";
   });
 
-  if (filtrosActivos["3"]) actualizarContador();
-  else ocultarContador();
-}
 
+  if (filtrosActivos["3"]) {
+    actualizarContador();
+  } else {
+    ocultarContador();
+  }
+}
 
 /**********************
  * MARCAR ENCABEZADOS ACTIVOS
@@ -3453,20 +3885,211 @@ async function aplicarFiltro() {
 
   if (columnaActualIndex === null) return;
 
-  const seleccionados = Array.from(
-    document.querySelectorAll('#opcionesFiltro input[type="checkbox"]:checked')
-  ).map(input => input.value);
+ const seleccionados = Array.from(
+  document.querySelectorAll(
+    '#opcionesFiltro input[type="checkbox"]:checked'
+  )
+).map(input => input.value);
 
-  const verTodos = seleccionados.includes("__TODOS__");
 
-  // ✅ FECHA → VER TODOS
-  if (columnaActualIndex === 2 && verTodos) {
+// =====================================================
+// NORMALIZAR FECHAS NORMALES
+// Las fechas que aparecen debajo de "Últimos 2 días"
+// vienen como 25/08/2026 y deben convertirse en
+// fecha:25/08/2026 para usar cargarTablaPedidos()
+// =====================================================
 
-    // ✅ Cerrar dropdown inmediatamente
-    document.getElementById("filtroDropdown").style.display = "none";
+const seleccionadosNormalizados = seleccionados.map(valor => {
 
-    // 🔹 Mostrar overlay
-    let overlay = document.getElementById("overlayCarga");
+  if (
+    columnaActualIndex === 2 &&
+    /^\d{2}\/\d{2}\/\d{4}$/.test(valor)
+  ) {
+    return `fecha:${valor}`;
+  }
+
+  return valor;
+});
+
+
+const verTodos =
+  seleccionados.includes("__TODOS__");
+
+    // =====================================================
+  // FILTROS ESPECIALES DE FECHA
+  // MES / DÍA / AÑO
+  // =====================================================
+
+  if (columnaActualIndex === 2) {
+
+    const filtroEspecial = seleccionadosNormalizados.find(v =>
+      v.startsWith("mes:") ||
+      v.startsWith("fecha:") ||
+      v.startsWith("anio:")
+    );
+
+
+    if (filtroEspecial) {
+
+      document.getElementById(
+        "filtroDropdown"
+      ).style.display = "none";
+
+
+      let overlay =
+        document.getElementById("overlayCarga");
+
+
+      if (!overlay) {
+
+        overlay = document.createElement("div");
+
+        overlay.id = "overlayCarga";
+
+        overlay.innerHTML = `
+          <div style="
+            background: rgba(0,0,0,0.6);
+            position: fixed;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+          ">
+            <div style="
+              background: #fff;
+              padding: 25px 40px;
+              border-radius: 15px;
+              box-shadow: 0 0 15px rgba(0,0,0,0.3);
+              font-family: Arial, sans-serif;
+              font-size: 18px;
+              text-align: center;
+              color: #333;
+              animation: pulse 1.2s infinite ease-in-out;
+            ">
+              🔄 Cargando datos...
+            </div>
+          </div>
+
+          <style>
+            @keyframes pulse {
+              0%, 100% {
+                opacity: 0.8;
+                transform: scale(1);
+              }
+
+              50% {
+                opacity: 1;
+                transform: scale(1.05);
+              }
+            }
+          </style>
+        `;
+
+        document.body.appendChild(overlay);
+
+      } else {
+
+        overlay.style.display = "flex";
+      }
+
+
+      try {
+
+        // ==========================================
+        // GUARDAR FILTROS DE OTRAS COLUMNAS
+        // ==========================================
+
+        const filtrosOtros =
+          {};
+
+        Object.keys(filtrosActivos).forEach(col => {
+
+          if (Number(col) !== 2) {
+            filtrosOtros[col] =
+              filtrosActivos[col];
+          }
+
+        });
+
+
+        // ==========================================
+        // GUARDAR EL NUEVO FILTRO DE FECHA
+        // ==========================================
+
+        filtrosActivos = {
+          ...filtrosOtros,
+          2: [filtroEspecial]
+        };
+
+
+        // ==========================================
+        // CARGAR SOLAMENTE EL PERÍODO ELEGIDO
+        // ==========================================
+
+        await cargarTablaPedidos(
+          filtroEspecial
+        );
+
+
+        // ==========================================
+        // VOLVER A APLICAR LOS FILTROS
+        // DE LAS OTRAS COLUMNAS
+        // ==========================================
+
+        aplicarFiltrosMultiples();
+
+        actualizarIndicadoresFiltro();
+
+      } catch (error) {
+
+        console.error(
+          "Error aplicando filtro de fecha:",
+          error
+        );
+
+        Swal.fire({
+          icon: "error",
+          title: "Error",
+          text: "No se pudieron cargar los registros."
+        });
+
+      } finally {
+
+        overlay.style.display = "none";
+      }
+
+
+      ocultarContador();
+
+      return;
+    }
+  }
+  // =====================================================
+  // FECHA → VER TODOS
+  // =====================================================
+
+  if (
+    columnaActualIndex === 2 &&
+    verTodos
+  ) {
+
+    // -----------------------------------------------
+    // Cerrar dropdown
+    // -----------------------------------------------
+
+    document.getElementById(
+      "filtroDropdown"
+    ).style.display = "none";
+
+
+    // -----------------------------------------------
+    // Mostrar overlay
+    // -----------------------------------------------
+
+    let overlay =
+      document.getElementById("overlayCarga");
+
 
     if (!overlay) {
 
@@ -3521,62 +4144,129 @@ async function aplicarFiltro() {
       overlay.style.display = "flex";
     }
 
+
     delete filtrosActivos[columnaActualIndex];
 
-    // ✅ Esperar carga REAL
-    await cargarTablaPedidos("todos");
+    actualizarIndicadoresFiltro();
 
-    // ✅ ORDENAR FECHAS DE MÁS VIEJA A MÁS NUEVA
-    const tbody = document.getElementById("tablaArticulos");
+    try {
 
-    const filas = Array.from(tbody.querySelectorAll("tr"));
+      // ---------------------------------------------
+      // Cargar TODOS
+      // ---------------------------------------------
 
-    filas.sort((a, b) => {
+      await cargarTablaPedidos("todos");
 
-      const fechaA = a.cells[2]?.textContent.trim() || "";
-      const fechaB = b.cells[2]?.textContent.trim() || "";
 
-      function convertirFecha(fecha) {
+      // ---------------------------------------------
+      // ORDENAR FECHAS DE MÁS VIEJA A MÁS NUEVA
+      // ---------------------------------------------
 
-        const partes = fecha.split("/");
+      const tbody =
+        document.getElementById("tablaArticulos");
 
-        if (partes.length !== 3) return new Date(0);
+      const filas =
+        Array.from(
+          tbody.querySelectorAll("tr")
+        );
 
-        let [dia, mes, anio] = partes;
 
-        dia = dia.padStart(2, "0");
-        mes = mes.padStart(2, "0");
+      filas.sort((a, b) => {
 
-        return new Date(`${anio}-${mes}-${dia}T00:00:00`);
-      }
+        const fechaA =
+          a.cells[2]?.textContent.trim() || "";
 
-      return convertirFecha(fechaA) - convertirFecha(fechaB);
+        const fechaB =
+          b.cells[2]?.textContent.trim() || "";
 
-    });
 
-    tbody.innerHTML = "";
+        function convertirFecha(fecha) {
 
-    filas.forEach(fila => tbody.appendChild(fila));
+          const partes =
+            fecha.split("/");
 
-    // ✅ Ocultar overlay
-    overlay.style.display = "none";
+          if (partes.length !== 3) {
+            return new Date(0);
+          }
+
+          let [dia, mes, anio] =
+            partes;
+
+          dia = dia.padStart(2, "0");
+          mes = mes.padStart(2, "0");
+
+          return new Date(
+            `${anio}-${mes}-${dia}T00:00:00`
+          );
+        }
+
+
+        return (
+          convertirFecha(fechaA) -
+          convertirFecha(fechaB)
+        );
+      });
+
+
+      tbody.innerHTML = "";
+
+
+      filas.forEach(fila =>
+        tbody.appendChild(fila)
+      );
+
+
+    } catch (error) {
+
+      console.error(
+        "Error cargando todos los pedidos:",
+        error
+      );
+
+      Swal.fire({
+        icon: "error",
+        title: "Error",
+        text: "No se pudieron cargar todos los registros."
+      });
+
+    } finally {
+
+      overlay.style.display = "none";
+
+    }
+
 
     ocultarContador();
 
     return;
   }
 
+
+  // =====================================================
+  // FILTROS NORMALES DE LAS OTRAS COLUMNAS
+  // =====================================================
+
   if (verTodos) {
-    delete filtrosActivos[columnaActualIndex];
+
+    delete filtrosActivos[
+      columnaActualIndex
+    ];
+
   } else {
-    filtrosActivos[columnaActualIndex] = seleccionados;
+
+    filtrosActivos[
+      columnaActualIndex
+    ] = seleccionados;
   }
+
 
   aplicarFiltrosMultiples();
 
   actualizarIndicadoresFiltro();
 
-  document.getElementById("filtroDropdown").style.display = "none";
+  document.getElementById(
+    "filtroDropdown"
+  ).style.display = "none";
 }
 
 /**********************
@@ -3617,9 +4307,27 @@ function ocultarContador() {
  * LIMPIAR TODO
  **********************/
 function limpiarFiltro() {
-  document.querySelectorAll("#tablaArticulos tr").forEach(tr => tr.style.display = "");
-  document.getElementById("filtroDropdown").style.display = "none";
+
+  filtrosActivos = {};
+
+  document
+    .querySelectorAll("#tablaArticulos tr")
+    .forEach(tr => {
+      tr.style.display = "";
+    });
+
+  document
+    .querySelectorAll("thead th")
+    .forEach(th => {
+      th.classList.remove("filtro-activo");
+    });
+
+  document.getElementById(
+    "filtroDropdown"
+  ).style.display = "none";
+
   valorFiltroActual = "";
+
   ocultarContador();
 }
 
@@ -3637,31 +4345,940 @@ document.addEventListener("click", (e) => {
 });
 
 
+async function cargarPeriodosDisponiblesFiltro() {
+
+  const salonSeleccionado = sessionStorage.getItem("salon");
+
+  if (!salonSeleccionado) {
+    console.warn("No hay salón seleccionado");
+    return;
+  }
+
+  const pedidosRef = collection(  db, "stock-pedidos" );
+
+  const q = query(
+    pedidosRef,
+    where("origen", "==", salonSeleccionado),
+    orderBy("fecha")
+  );
+
+  const snapshot = await getDocs(q);
+
+  const meses = new Set();
+  const anios = new Set();
+
+  snapshot.forEach(docSnap => {
+
+    const data = docSnap.data();
+
+    if (!(data.fecha instanceof Timestamp)) return;
+
+    const fecha = data.fecha.toDate();
+
+    const anio = fecha.getFullYear();
+    const mes = String(fecha.getMonth() + 1).padStart(2, "0");
+
+    meses.add(`${anio}-${mes}`);
+    anios.add(anio);
+  });
+
+  mesesDisponiblesFiltro = Array.from(meses).sort().reverse();
+
+  aniosDisponiblesFiltro = Array.from(anios)
+    .sort((a, b) => b - a);
+}
+/**********************
+ * MOSTRAR OPCIONES
+ **********************/
 /**********************
  * MOSTRAR OPCIONES
  **********************/
 function mostrarOpcionesFiltradas() {
-  const filtroTexto = document.getElementById("filtroInput").value.toLowerCase();
-  const opcionesDiv = document.getElementById("opcionesFiltro");
 
-  opcionesDiv.innerHTML = `
-    <div class="form-check fw-bold">
-      <input class="form-check-input" type="checkbox" id="checkTodos" value="__TODOS__">
-      <label class="form-check-label" for="checkTodos">Ver todos</label>
-    </div>
+  const filtroTexto =
+    document.getElementById("filtroInput").value
+      .toLowerCase()
+      .trim();
+
+  const opcionesDiv =
+    document.getElementById("opcionesFiltro");
+
+
+  // =====================================================
+  // LIMPIAR
+  // =====================================================
+
+  opcionesDiv.innerHTML = "";
+
+
+  // =====================================================
+  // VER TODOS
+  // =====================================================
+
+  const filaTodos =
+    document.createElement("div");
+
+  filaTodos.className =
+    "form-check";
+
+  filaTodos.style.marginBottom = "8px";
+
+  filaTodos.innerHTML = `
+    <input
+      class="form-check-input"
+      type="checkbox"
+      id="checkTodos"
+      value="__TODOS__"
+    >
+
+    <label
+      class="form-check-label fw-bold"
+      for="checkTodos"
+    >
+      Ver todos
+    </label>
   `;
 
-  todasOpcionesFiltro.forEach(valor => {
-    if (valor.toLowerCase().includes(filtroTexto)) {
-      const opcion = document.createElement("div");
-      opcion.className = "form-check";
-      opcion.innerHTML = `
-        <input class="form-check-input" type="checkbox" value="${valor}" id="check-${valor}">
-        <label class="form-check-label" for="check-${valor}">${valor}</label>
-      `;
-      opcionesDiv.appendChild(opcion);
+  opcionesDiv.appendChild(filaTodos);
+
+
+  // =====================================================
+  // SI ESTAMOS EN FECHA
+  // =====================================================
+
+  if (columnaActualIndex === 2) {
+
+    const ahora =
+      new Date();
+
+    const anioActual =
+      ahora.getFullYear();
+
+    const mesActual =
+      ahora.getMonth();
+
+
+    const meses = [
+      "Enero",
+      "Febrero",
+      "Marzo",
+      "Abril",
+      "Mayo",
+      "Junio",
+      "Julio",
+      "Agosto",
+      "Septiembre",
+      "Octubre",
+      "Noviembre",
+      "Diciembre"
+    ];
+
+
+    // =================================================
+    // FUNCIÓN PARA CREAR TÍTULOS DE SECCIÓN
+    // =================================================
+
+    function crearTituloSeccion(texto, id) {
+
+      const titulo =
+        document.createElement("div");
+
+      titulo.id = id;
+
+      titulo.style.display = "flex";
+      titulo.style.alignItems = "center";
+      titulo.style.justifyContent = "space-between";
+
+      titulo.style.cursor = "pointer";
+
+      titulo.style.fontWeight = "bold";
+
+      titulo.style.color = "#333";
+
+      titulo.style.padding = "6px 4px";
+
+      titulo.style.marginTop = "5px";
+
+      titulo.style.borderTop =
+        "1px solid #ddd";
+
+      titulo.style.userSelect = "none";
+
+
+      const textoTitulo =
+        document.createElement("span");
+
+      textoTitulo.textContent =
+        texto;
+
+
+      const flecha =
+        document.createElement("span");
+
+      flecha.textContent =
+        "▶";
+
+      flecha.style.color =
+        "#222";
+
+      flecha.style.fontSize =
+        "12px";
+
+      flecha.style.marginLeft =
+        "10px";
+
+
+      titulo.appendChild(
+        textoTitulo
+      );
+
+      titulo.appendChild(
+        flecha
+      );
+
+
+      return {
+        titulo,
+        flecha
+      };
     }
-  });
+
+
+    // =================================================
+    // SECCIÓN MES
+    // =================================================
+
+    const seccionMes =
+      document.createElement("div");
+
+    seccionMes.style.marginTop =
+      "3px";
+
+
+    const tituloMes =
+      crearTituloSeccion(
+        "Mes",
+        "tituloFiltroMes"
+      );
+
+
+    const contenidoMes =
+      document.createElement("div");
+
+    contenidoMes.style.display =
+      "none";
+
+    contenidoMes.style.marginTop =
+      "3px";
+
+    contenidoMes.style.marginBottom =
+      "5px";
+
+
+    tituloMes.titulo.addEventListener(
+      "click",
+      () => {
+
+        const cerrado =
+          contenidoMes.style.display === "none";
+
+        if (cerrado) {
+
+          contenidoMes.style.display =
+            "block";
+
+          tituloMes.flecha.textContent =
+            "▼";
+
+        } else {
+
+          contenidoMes.style.display =
+            "none";
+
+          tituloMes.flecha.textContent =
+            "▶";
+        }
+      }
+    );
+
+
+    // =================================================
+    // MESES
+    // =================================================
+
+    for (
+      let index = mesActual;
+      index >= 0;
+      index--
+    ) {
+
+      const nombreMes =
+        meses[index];
+
+      const numeroMes =
+        String(index + 1)
+          .padStart(2, "0");
+
+
+      const valorMes =
+        `mes:${anioActual}-${numeroMes}`;
+
+
+      const textoMes =
+        `${nombreMes} ${anioActual}`;
+
+
+      // -----------------------------------------------
+      // BUSCADOR
+      // -----------------------------------------------
+
+      if (
+        filtroTexto &&
+        !textoMes
+          .toLowerCase()
+          .includes(filtroTexto)
+      ) {
+        continue;
+      }
+
+
+      // -----------------------------------------------
+      // CONTENEDOR DEL MES
+      // -----------------------------------------------
+
+      const contenedorMes =
+        document.createElement("div");
+
+      contenedorMes.style.marginBottom =
+        "3px";
+
+
+      // -----------------------------------------------
+      // FILA DEL MES
+      // -----------------------------------------------
+
+      const filaMes =
+        document.createElement("div");
+
+      filaMes.style.display =
+        "flex";
+
+      filaMes.style.alignItems =
+        "center";
+
+
+      // -----------------------------------------------
+      // CHECKBOX MES
+      // -----------------------------------------------
+
+      const checkboxMes =
+        document.createElement("input");
+
+      checkboxMes.type =
+        "checkbox";
+
+      checkboxMes.className =
+        "form-check-input";
+
+      checkboxMes.value =
+        valorMes;
+
+      checkboxMes.id =
+        `check-${valorMes}`;
+
+
+      // -----------------------------------------------
+      // LABEL MES
+      // -----------------------------------------------
+
+      const labelMes =
+        document.createElement("label");
+
+      labelMes.className =
+        "form-check-label";
+
+      labelMes.htmlFor =
+        checkboxMes.id;
+
+      labelMes.textContent =
+        textoMes;
+
+      labelMes.style.marginLeft =
+        "6px";
+
+
+      // -----------------------------------------------
+      // BOTÓN DÍAS
+      // -----------------------------------------------
+
+      const botonMes =
+        document.createElement("button");
+
+      botonMes.type =
+        "button";
+
+      botonMes.textContent =
+        "▶";
+
+      botonMes.style.border =
+        "none";
+
+      botonMes.style.background =
+        "transparent";
+
+      botonMes.style.color =
+        "#222";
+
+      botonMes.style.padding =
+        "0";
+
+      botonMes.style.marginLeft =
+        "7px";
+
+      botonMes.style.cursor =
+        "pointer";
+
+      botonMes.style.fontSize =
+        "11px";
+
+
+      filaMes.appendChild(
+        checkboxMes
+      );
+
+      filaMes.appendChild(
+        labelMes
+      );
+
+      filaMes.appendChild(
+        botonMes
+      );
+
+      contenedorMes.appendChild(
+        filaMes
+      );
+
+
+      // =================================================
+      // DÍAS DEL MES
+      // =================================================
+
+      const diasDiv =
+        document.createElement("div");
+
+      diasDiv.style.display =
+        "none";
+
+      diasDiv.style.marginLeft =
+        "28px";
+
+      diasDiv.style.marginTop =
+        "3px";
+
+
+      const cantidadDias =
+        new Date(
+          anioActual,
+          index + 1,
+          0
+        ).getDate();
+
+
+      const ultimoDia =
+        index === mesActual
+          ? ahora.getDate()
+          : cantidadDias;
+
+
+      for (
+        let dia = 1;
+        dia <= ultimoDia;
+        dia++
+      ) {
+
+        const diaTexto =
+          String(dia)
+            .padStart(2, "0");
+
+
+        const fechaTexto =
+          `${diaTexto}/${numeroMes}/${anioActual}`;
+
+
+        const valorDia =
+          `fecha:${fechaTexto}`;
+
+
+        const filaDia =
+          document.createElement("div");
+
+        filaDia.className =
+          "form-check";
+
+
+        const checkboxDia =
+          document.createElement("input");
+
+        checkboxDia.type =
+          "checkbox";
+
+        checkboxDia.className =
+          "form-check-input";
+
+        checkboxDia.value =
+          valorDia;
+
+        checkboxDia.id =
+          `check-${valorDia}`;
+
+
+        const labelDia =
+          document.createElement("label");
+
+        labelDia.className =
+          "form-check-label";
+
+        labelDia.htmlFor =
+          checkboxDia.id;
+
+        labelDia.textContent =
+          fechaTexto;
+
+
+        filaDia.appendChild(
+          checkboxDia
+        );
+
+        filaDia.appendChild(
+          labelDia
+        );
+
+        diasDiv.appendChild(
+          filaDia
+        );
+
+
+        // ---------------------------------------------
+        // SELECCIONAR DÍA
+        // ---------------------------------------------
+
+        checkboxDia.addEventListener(
+          "change",
+          () => {
+
+            if (
+              checkboxDia.checked
+            ) {
+
+              checkboxMes.checked =
+                false;
+            }
+
+
+            const todos =
+              document.getElementById(
+                "checkTodos"
+              );
+
+
+            if (
+              checkboxDia.checked &&
+              todos?.checked
+            ) {
+
+              todos.checked =
+                false;
+            }
+
+          }
+        );
+
+      }
+
+
+      contenedorMes.appendChild(
+        diasDiv
+      );
+
+
+      // =================================================
+      // ABRIR / CERRAR DÍAS
+      // =================================================
+
+      botonMes.addEventListener(
+        "click",
+        () => {
+
+          const cerrado =
+            diasDiv.style.display === "none";
+
+
+          if (cerrado) {
+
+            diasDiv.style.display =
+              "block";
+
+            botonMes.textContent =
+              "▼";
+
+          } else {
+
+            diasDiv.style.display =
+              "none";
+
+            botonMes.textContent =
+              "▶";
+          }
+
+        }
+      );
+
+
+      // =================================================
+      // SELECCIONAR MES
+      // =================================================
+
+      checkboxMes.addEventListener(
+        "change",
+        () => {
+
+          if (
+            checkboxMes.checked
+          ) {
+
+            diasDiv
+              .querySelectorAll(
+                'input[type="checkbox"]'
+              )
+              .forEach(cb => {
+
+                cb.checked =
+                  false;
+
+              });
+
+
+            const todos =
+              document.getElementById(
+                "checkTodos"
+              );
+
+
+            if (todos) {
+              todos.checked =
+                false;
+            }
+
+          }
+
+        }
+      );
+
+
+      contenidoMes.appendChild(
+        contenedorMes
+      );
+
+    }
+
+
+    // =================================================
+    // AGREGAR SECCIÓN MES
+    // =================================================
+
+    seccionMes.appendChild(
+      tituloMes.titulo
+    );
+
+    seccionMes.appendChild(
+      contenidoMes
+    );
+
+    opcionesDiv.appendChild(
+      seccionMes
+    );
+
+
+    // =================================================
+    // SECCIÓN AÑO
+    // =================================================
+
+    const seccionAnio =
+      document.createElement("div");
+
+    seccionAnio.style.marginTop =
+      "3px";
+
+
+    const tituloAnio =
+      crearTituloSeccion(
+        "Año",
+        "tituloFiltroAnio"
+      );
+
+
+    const contenidoAnio =
+      document.createElement("div");
+
+    contenidoAnio.style.display =
+      "none";
+
+    contenidoAnio.style.marginTop =
+      "3px";
+
+    contenidoAnio.style.marginBottom =
+      "5px";
+
+
+    tituloAnio.titulo.addEventListener(
+      "click",
+      () => {
+
+        const cerrado =
+          contenidoAnio.style.display === "none";
+
+
+        if (cerrado) {
+
+          contenidoAnio.style.display =
+            "block";
+
+          tituloAnio.flecha.textContent =
+            "▼";
+
+        } else {
+
+          contenidoAnio.style.display =
+            "none";
+
+          tituloAnio.flecha.textContent =
+            "▶";
+        }
+
+      }
+    );
+
+
+    // =================================================
+    // AÑOS
+    // =================================================
+
+    for (
+      let anio = anioActual;
+      anio >= anioActual - 1;
+      anio--
+    ) {
+
+      const valor =
+        `anio:${anio}`;
+
+
+      const texto =
+        String(anio);
+
+
+      if (
+        filtroTexto &&
+        !texto.includes(
+          filtroTexto
+        )
+      ) {
+        continue;
+      }
+
+
+      const opcion =
+        document.createElement("div");
+
+      opcion.className =
+        "form-check";
+
+
+      opcion.innerHTML = `
+        <input
+          class="form-check-input"
+          type="checkbox"
+          value="${valor}"
+          id="check-${valor}"
+        >
+
+        <label
+          class="form-check-label"
+          for="check-${valor}"
+        >
+          ${texto}
+        </label>
+      `;
+
+
+      contenidoAnio.appendChild(
+        opcion
+      );
+
+    }
+
+
+    seccionAnio.appendChild(
+      tituloAnio.titulo
+    );
+
+    seccionAnio.appendChild(
+      contenidoAnio
+    );
+
+    opcionesDiv.appendChild(
+      seccionAnio
+    );
+
+
+    // =================================================
+    // ÚLTIMOS 2 DÍAS
+    // =================================================
+
+    const tituloUltimos =
+      document.createElement("div");
+
+    tituloUltimos.textContent =
+      "Últimos 2 días";
+
+    tituloUltimos.style.fontWeight =
+      "bold";
+
+    tituloUltimos.style.color =
+      "#333";
+
+    tituloUltimos.style.padding =
+      "6px 4px";
+
+    tituloUltimos.style.marginTop =
+      "5px";
+
+    tituloUltimos.style.borderTop =
+      "1px solid #ddd";
+
+
+    opcionesDiv.appendChild(
+      tituloUltimos
+    );
+
+
+    // =================================================
+    // FECHAS DE LA TABLA
+    // =================================================
+
+    todasOpcionesFiltro.forEach(
+      valor => {
+
+        if (
+          !valor
+            .toLowerCase()
+            .includes(filtroTexto)
+        ) {
+          return;
+        }
+
+
+        const opcion =
+          document.createElement("div");
+
+        opcion.className =
+          "form-check";
+
+
+        // ---------------------------------------------
+        // IMPORTANTE:
+        // Si es una fecha normal, agregar "fecha:"
+        // ---------------------------------------------
+
+        let valorCheckbox =
+          valor;
+
+
+        if (
+          /^\d{2}\/\d{2}\/\d{4}$/.test(
+            valor
+          )
+        ) {
+
+          valorCheckbox =
+            `fecha:${valor}`;
+        }
+
+
+        opcion.innerHTML = `
+          <input
+            class="form-check-input"
+            type="checkbox"
+            value="${valorCheckbox}"
+            id="check-${valorCheckbox}"
+          >
+
+          <label
+            class="form-check-label"
+            for="check-${valorCheckbox}"
+          >
+            ${valor}
+          </label>
+        `;
+
+
+        opcionesDiv.appendChild(
+          opcion
+        );
+
+      }
+    );
+
+  } else {
+
+    // =================================================
+    // FILTROS NORMALES
+    // =================================================
+
+    todasOpcionesFiltro.forEach(
+      valor => {
+
+        if (
+          !valor
+            .toLowerCase()
+            .includes(filtroTexto)
+        ) {
+          return;
+        }
+
+
+        const opcion =
+          document.createElement("div");
+
+        opcion.className =
+          "form-check";
+
+
+        opcion.innerHTML = `
+          <input
+            class="form-check-input"
+            type="checkbox"
+            value="${valor}"
+            id="check-${valor}"
+          >
+
+          <label
+            class="form-check-label"
+            for="check-${valor}"
+          >
+            ${valor}
+          </label>
+        `;
+
+
+        opcionesDiv.appendChild(
+          opcion
+        );
+
+      }
+    );
+
+  }
 }
 
     //termina el filtrado
