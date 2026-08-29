@@ -1755,10 +1755,193 @@ async function cargarTablaPedidos(filtro = "ultimos2") {
 
   const pedidosRef = collection(db, "stock-pedidos");
 
-  let q;
-
   const hoy = new Date();
   hoy.setHours(0, 0, 0, 0);
+
+
+  // =====================================================
+  // VARIOS DÍAS
+  // Ejemplo:
+  // [
+  //   "fecha:25/08/2026",
+  //   "fecha:26/08/2026",
+  //   "fecha:27/08/2026"
+  // ]
+  // =====================================================
+
+  if (Array.isArray(filtro)) {
+
+    const fechas = filtro.filter(v =>
+      typeof v === "string" &&
+      v.startsWith("fecha:")
+    );
+
+    if (fechas.length === 0) {
+      console.warn("No hay fechas válidas para cargar");
+      return;
+    }
+
+    const resultados = [];
+
+    for (const filtroFecha of fechas) {
+
+      const fechaTexto =
+        filtroFecha.replace("fecha:", "");
+
+      const partes =
+        fechaTexto.split("/");
+
+      if (partes.length !== 3) {
+        console.warn(
+          "Formato de fecha inválido:",
+          fechaTexto
+        );
+        continue;
+      }
+
+      const dia =
+        Number(partes[0]);
+
+      const mes =
+        Number(partes[1]);
+
+      const anio =
+        Number(partes[2]);
+
+
+      const desde =
+        new Date(
+          anio,
+          mes - 1,
+          dia
+        );
+
+      desde.setHours(0, 0, 0, 0);
+
+
+      const hasta =
+        new Date(
+          anio,
+          mes - 1,
+          dia + 1
+        );
+
+      hasta.setHours(0, 0, 0, 0);
+
+
+      const q =
+        query(
+          pedidosRef,
+
+          where(
+            "origen",
+            "==",
+            salonSeleccionado
+          ),
+
+          where(
+            "fecha",
+            ">=",
+            Timestamp.fromDate(desde)
+          ),
+
+          where(
+            "fecha",
+            "<",
+            Timestamp.fromDate(hasta)
+          ),
+
+          orderBy("fecha")
+        );
+
+
+      const snapshot =
+        await getDocs(q);
+
+
+      snapshot.forEach(docSnap => {
+
+        resultados.push({
+          docSnap,
+          fechaOrden: docSnap.data().fecha
+        });
+
+      });
+    }
+
+
+    // =====================================================
+    // ORDENAR TODOS LOS RESULTADOS POR FECHA
+    // =====================================================
+
+    resultados.sort((a, b) => {
+
+      const fechaA =
+        a.fechaOrden instanceof Timestamp
+          ? a.fechaOrden.toMillis()
+          : 0;
+
+      const fechaB =
+        b.fechaOrden instanceof Timestamp
+          ? b.fechaOrden.toMillis()
+          : 0;
+
+      return fechaA - fechaB;
+    });
+
+
+    // =====================================================
+    // MOSTRAR RESULTADOS
+    // =====================================================
+
+    resultados.forEach(({ docSnap }) => {
+
+      const data =
+        docSnap.data();
+
+
+   const fecha =
+  data.fecha instanceof Timestamp
+    ? data.fecha.toDate().toLocaleDateString(
+        "es-AR",
+        {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric"
+        }
+      )
+    : data.fecha;
+
+
+      const fila =
+        crearFila(
+          data.articulo,
+          data.unidades,
+          data.cajas,
+          data.notas,
+          data.salones,
+          fecha,
+          data.usuario,
+          docSnap.id
+        );
+
+
+      tabla.insertAdjacentHTML(
+        "beforeend",
+        fila
+      );
+
+    });
+
+    return;
+  }
+
+
+  // =====================================================
+  // CONSULTA NORMAL
+  // =====================================================
+
+  let q;
 
 
   // =========================
@@ -1772,8 +1955,16 @@ async function cargarTablaPedidos(filtro = "ultimos2") {
 
     q = query(
       pedidosRef,
-      where("origen", "==", salonSeleccionado),
-      where("fecha", ">=", timestampHoy),
+      where(
+        "origen",
+        "==",
+        salonSeleccionado
+      ),
+      where(
+        "fecha",
+        ">=",
+        timestampHoy
+      ),
       orderBy("fecha")
     );
 
@@ -1796,19 +1987,30 @@ async function cargarTablaPedidos(filtro = "ultimos2") {
 
     q = query(
       pedidosRef,
-      where("origen", "==", salonSeleccionado),
-      where("fecha", ">=", timestampDesde),
+      where(
+        "origen",
+        "==",
+        salonSeleccionado
+      ),
+      where(
+        "fecha",
+        ">=",
+        timestampDesde
+      ),
       orderBy("fecha")
     );
 
-  
+
   // =========================
   // DÍA
   // formato:
   // fecha:25/08/2026
   // =========================
 
-  } else if (filtro.startsWith("fecha:")) {
+  } else if (
+    typeof filtro === "string" &&
+    filtro.startsWith("fecha:")
+  ) {
 
     const fechaTexto =
       filtro.replace("fecha:", "");
@@ -1856,7 +2058,11 @@ async function cargarTablaPedidos(filtro = "ultimos2") {
 
     q = query(
       pedidosRef,
-      where("origen", "==", salonSeleccionado),
+      where(
+        "origen",
+        "==",
+        salonSeleccionado
+      ),
       where(
         "fecha",
         ">=",
@@ -1877,7 +2083,10 @@ async function cargarTablaPedidos(filtro = "ultimos2") {
   // mes:2026-08
   // =========================
 
-  } else if (filtro.startsWith("mes:")) {
+  } else if (
+    typeof filtro === "string" &&
+    filtro.startsWith("mes:")
+  ) {
 
     const periodo =
       filtro.replace("mes:", "");
@@ -1908,7 +2117,11 @@ async function cargarTablaPedidos(filtro = "ultimos2") {
 
     q = query(
       pedidosRef,
-      where("origen", "==", salonSeleccionado),
+      where(
+        "origen",
+        "==",
+        salonSeleccionado
+      ),
       where(
         "fecha",
         ">=",
@@ -1929,7 +2142,10 @@ async function cargarTablaPedidos(filtro = "ultimos2") {
   // anio:2026
   // =========================
 
-  } else if (filtro.startsWith("anio:")) {
+  } else if (
+    typeof filtro === "string" &&
+    filtro.startsWith("anio:")
+  ) {
 
     const anio =
       Number(
@@ -1959,7 +2175,11 @@ async function cargarTablaPedidos(filtro = "ultimos2") {
 
     q = query(
       pedidosRef,
-      where("origen", "==", salonSeleccionado),
+      where(
+        "origen",
+        "==",
+        salonSeleccionado
+      ),
       where(
         "fecha",
         ">=",
@@ -1982,11 +2202,19 @@ async function cargarTablaPedidos(filtro = "ultimos2") {
 
     q = query(
       pedidosRef,
-      where("origen", "==", salonSeleccionado),
+      where(
+        "origen",
+        "==",
+        salonSeleccionado
+      ),
       orderBy("fecha")
     );
   }
 
+
+  // =====================================================
+  // EJECUTAR CONSULTA NORMAL
+  // =====================================================
 
   const snapshot =
     await getDocs(q);
@@ -1998,17 +2226,17 @@ async function cargarTablaPedidos(filtro = "ultimos2") {
       docSnap.data();
 
 
- const fecha =
-  data.fecha instanceof Timestamp
-    ? data.fecha.toDate().toLocaleDateString(
-        "es-AR",
-        {
-          day: "2-digit",
-          month: "2-digit",
-          year: "numeric"
-        }
-      )
-    : data.fecha;
+    const fecha =
+      data.fecha instanceof Timestamp
+        ? data.fecha.toDate().toLocaleDateString(
+            "es-AR",
+            {
+              day: "2-digit",
+              month: "2-digit",
+              year: "numeric"
+            }
+          )
+        : data.fecha;
 
 
     const fila =
@@ -2028,12 +2256,12 @@ async function cargarTablaPedidos(filtro = "ultimos2") {
       "beforeend",
       fila
     );
+
   });
 }
 
 window.cargarTablaPedidos =
   cargarTablaPedidos;
-
 
 function eliminarFilaSinId(fila) {
   fila.remove();
@@ -3922,14 +4150,15 @@ const verTodos =
 
   if (columnaActualIndex === 2) {
 
-    const filtroEspecial = seleccionadosNormalizados.find(v =>
-      v.startsWith("mes:") ||
-      v.startsWith("fecha:") ||
-      v.startsWith("anio:")
-    );
+    const filtrosEspeciales =
+      seleccionadosNormalizados.filter(v =>
+        v.startsWith("mes:") ||
+        v.startsWith("fecha:") ||
+        v.startsWith("anio:")
+      );
 
 
-    if (filtroEspecial) {
+    if (filtrosEspeciales.length > 0) {
 
       document.getElementById(
         "filtroDropdown"
@@ -4000,36 +4229,66 @@ const verTodos =
         // GUARDAR FILTROS DE OTRAS COLUMNAS
         // ==========================================
 
-        const filtrosOtros =
-          {};
+        const filtrosOtros = {};
 
         Object.keys(filtrosActivos).forEach(col => {
 
           if (Number(col) !== 2) {
+
             filtrosOtros[col] =
               filtrosActivos[col];
+
           }
 
         });
 
 
         // ==========================================
-        // GUARDAR EL NUEVO FILTRO DE FECHA
+        // GUARDAR TODOS LOS FILTROS DE FECHA
         // ==========================================
 
         filtrosActivos = {
+
           ...filtrosOtros,
-          2: [filtroEspecial]
+
+          2: filtrosEspeciales
+
         };
 
 
         // ==========================================
-        // CARGAR SOLAMENTE EL PERÍODO ELEGIDO
+        // CARGAR EL PERÍODO ELEGIDO
+        //
+        // Si es un solo día:
+        // ["fecha:25/08/2026"]
+        //
+        // Si son varios días:
+        // ["fecha:25/08/2026",
+        //  "fecha:26/08/2026",
+        //  "fecha:27/08/2026"]
+        //
+        // Mes y año siguen funcionando como
+        // una sola consulta.
         // ==========================================
 
-        await cargarTablaPedidos(
-          filtroEspecial
-        );
+        if (
+          filtrosEspeciales.length > 1 &&
+          filtrosEspeciales.every(v =>
+            v.startsWith("fecha:")
+          )
+        ) {
+
+          await cargarTablaPedidos(
+            filtrosEspeciales
+          );
+
+        } else {
+
+          await cargarTablaPedidos(
+            filtrosEspeciales[0]
+          );
+
+        }
 
 
         // ==========================================
