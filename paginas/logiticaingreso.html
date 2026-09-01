@@ -760,7 +760,7 @@ footer {
 
         <div class="col-auto">
           <label for="salonDestino" class="form-label">Salón actual</label>
-          <div id="salonDestino" class="form-control bg-light" style="width: 120px; pointer-events: none;">Deposito Janos</div>
+          <div id="salonDestino" class="form-control bg-light" style="width: 120px; pointer-events: none;"> </div>
         </div>
 
   <div class="col-auto">
@@ -1004,6 +1004,31 @@ footer {
     appId: "1:656905318444:web:90fd9780bb9f3c424ba189",
     measurementId: "G-DGXEE6YHFX"
   };
+
+// ==========================================
+// VERIFICAR QUE HAYA UN SALÓN LOGUEADO
+// ==========================================
+
+document.addEventListener("DOMContentLoaded", () => {
+
+  const salonGuardado = sessionStorage.getItem("salon");
+
+  if (!salonGuardado || !salonGuardado.trim()) {
+
+    console.warn("⚠️ No hay salón logueado. Redirigiendo a Stock...");
+
+    // Evitar que se pueda seguir trabajando en Ingreso
+    document.body.style.display = "none";
+
+    // Volver a la página Stock para iniciar sesión
+    window.location.href = "../index.html";
+
+    return;
+  }
+
+  console.log("✅ Salón activo:", salonGuardado);
+
+});
 
   console.log("ENTRO A INGRESO", new Date().toLocaleTimeString());
   // Inicializar Firebase

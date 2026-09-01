@@ -1048,6 +1048,29 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 window.db = db;
 
+// ==========================================
+// VERIFICAR QUE HAYA UN SALÓN LOGUEADO
+// ==========================================
+
+document.addEventListener("DOMContentLoaded", () => {
+
+  const salonGuardado = sessionStorage.getItem("salon");
+
+  if (!salonGuardado || !salonGuardado.trim()) {
+
+    console.warn("⚠️ No hay salón logueado. Redirigiendo a Stock...");
+
+    document.body.style.display = "none";
+
+    window.location.href = "../index.html";
+
+    return;
+  }
+
+  console.log("✅ Salón activo:", salonGuardado);
+
+}); //si mo hay salon vuelve a loguearse
+
 //guarda los datos de combos en el cache
 let combos = {}; // variable global
 
