@@ -2114,81 +2114,270 @@ async function cargarTablaPedidos(filtro = true) {
   // ]
   // =====================================================
 
+    // =====================================================
+  // 6. VARIOS PERÍODOS
+  //
+  // Puede recibir:
+  //
+  // [
+  //   "fecha:05/08/2026",
+  //   "fecha:12/08/2026"
+  // ]
+  //
+  // [
+  //   "mes:2026-07",
+  //   "mes:2026-08"
+  // ]
+  //
+  // [
+  //   "anio:2025",
+  //   "anio:2026"
+  // ]
+  //
+  // También permite combinar períodos.
+  // =====================================================
+
   else if (Array.isArray(filtro)) {
 
-    const fechas =
+    const filtrosValidos =
       filtro.filter(valor =>
         typeof valor === "string" &&
-        valor.startsWith("fecha:")
+        (
+          valor.startsWith("fecha:") ||
+          valor.startsWith("mes:") ||
+          valor.startsWith("anio:")
+        )
       );
 
+
+    if (filtrosValidos.length === 0) {
+
+      console.warn(
+        "No hay períodos válidos para cargar:",
+        filtro
+      );
+
+      return;
+    }
+
+
     const consultas =
-      fechas.map(valor => {
+      filtrosValidos.map(valor => {
 
-        const fechaTexto =
-          valor.replace("fecha:", "");
+        let inicio;
+        let fin;
 
-        const partes =
-          fechaTexto.split("/");
 
-        const dia =
-          Number(partes[0]);
+        // =================================================
+        // FECHA
+        // fecha:05/08/2026
+        // =================================================
 
-        const mes =
-          Number(partes[1]);
+        if (valor.startsWith("fecha:")) {
 
-        const anio =
-          Number(partes[2]);
+          const fechaTexto =
+            valor.replace("fecha:", "");
 
-        const inicio =
-          new Date(
-            anio,
-            mes - 1,
-            dia,
-            0,
-            0,
-            0,
-            0
-          );
+          const partes =
+            fechaTexto.split("/");
 
-        const fin =
-          new Date(
-            anio,
-            mes - 1,
-            dia + 1,
-            0,
-            0,
-            0,
-            0
-          );
+          if (partes.length !== 3) {
+
+            console.warn(
+              "Formato de fecha inválido:",
+              fechaTexto
+            );
+
+            return null;
+          }
+
+
+          const dia =
+            Number(partes[0]);
+
+          const mes =
+            Number(partes[1]);
+
+          const anio =
+            Number(partes[2]);
+
+
+          inicio =
+            new Date(
+              anio,
+              mes - 1,
+              dia,
+              0,
+              0,
+              0,
+              0
+            );
+
+
+          fin =
+            new Date(
+              anio,
+              mes - 1,
+              dia + 1,
+              0,
+              0,
+              0,
+              0
+            );
+        }
+
+
+        // =================================================
+        // MES
+        // mes:2026-08
+        // =================================================
+
+        else if (valor.startsWith("mes:")) {
+
+          const periodo =
+            valor.replace("mes:", "");
+
+          const partes =
+            periodo.split("-");
+
+          if (partes.length !== 2) {
+
+            console.warn(
+              "Formato de mes inválido:",
+              periodo
+            );
+
+            return null;
+          }
+
+
+          const anio =
+            Number(partes[0]);
+
+          const mes =
+            Number(partes[1]);
+
+
+          inicio =
+            new Date(
+              anio,
+              mes - 1,
+              1,
+              0,
+              0,
+              0,
+              0
+            );
+
+
+          fin =
+            new Date(
+              anio,
+              mes,
+              1,
+              0,
+              0,
+              0,
+              0
+            );
+        }
+
+
+        // =================================================
+        // AÑO
+        // anio:2026
+        // =================================================
+
+        else if (valor.startsWith("anio:")) {
+
+          const anio =
+            Number(
+              valor.replace("anio:", "")
+            );
+
+
+          if (!anio) {
+
+            console.warn(
+              "Formato de año inválido:",
+              valor
+            );
+
+            return null;
+          }
+
+
+          inicio =
+            new Date(
+              anio,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0
+            );
+
+
+          fin =
+            new Date(
+              anio + 1,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0
+            );
+        }
+
+
+        // =================================================
+        // CONSULTA FIRESTORE
+        // =================================================
 
         const q = query(
           pedidosRef,
+
           where(
             "origen",
             "==",
             salonSeleccionado
           ),
+
           where(
             "fecha",
             ">=",
             Timestamp.fromDate(inicio)
           ),
+
           where(
             "fecha",
             "<",
             Timestamp.fromDate(fin)
           ),
+
           orderBy("fecha")
         );
 
+
         return getDocs(q);
+
       });
 
-    snapshots =
-      await Promise.all(consultas);
-  }
 
+    // Eliminar consultas inválidas
+    const consultasValidas =
+      consultas.filter(consulta =>
+        consulta !== null
+      );
+
+
+    snapshots =
+      await Promise.all(
+        consultasValidas
+      );
+  }
 
   // =====================================================
   // 7. FILTRO NO RECONOCIDO
@@ -2950,9 +3139,9 @@ function formatearCajas(articulo, cajas) {
   cajas = parseInt(cajas) || 0;
 
   // Si no hay cajas, no mostrar nada
-  if (cajas <= 0) {
-    return "";
-  }
+  if (cajas === 0) {
+  return "";
+}
 
   const articuloInfo = JSON.parse(sessionStorage.getItem("articulosCache") || "[]")
     .find(a => a.articulo?.trim().toLowerCase() === articulo.trim().toLowerCase());
@@ -3557,86 +3746,21 @@ async function aplicarFiltro() {
           });
 
 
-        // ------------------------------------------------
-        // SI HAY VARIOS DÍAS
-        // ------------------------------------------------
-
-        const diasSeleccionados =
-          seleccionadosFecha.filter(valor =>
-            valor.startsWith("fecha:")
-          );
-
-
-        if (diasSeleccionados.length > 0) {
-
-          filtrosActivos = {
-            ...filtrosOtros,
-            2: diasSeleccionados
-          };
-
-
-          await cargarTablaPedidos(
-            diasSeleccionados
-          );
-
-        }
-
-        // ------------------------------------------------
-        // SI HAY UN MES
+               // ------------------------------------------------
+        // TODOS LOS PERÍODOS SELECCIONADOS
         // ------------------------------------------------
 
-        else {
-
-          const mesSeleccionado =
-            seleccionadosFecha.find(valor =>
-              valor.startsWith("mes:")
-            );
+        filtrosActivos = {
+          ...filtrosOtros,
+          2: seleccionadosFecha
+        };
 
 
-          if (mesSeleccionado) {
-
-            filtrosActivos = {
-              ...filtrosOtros,
-              2: [mesSeleccionado]
-            };
-
-
-            await cargarTablaPedidos(
-              mesSeleccionado
-            );
-
-          }
-
-          // ----------------------------------------------
-          // SI HAY UN AÑO
-          // ----------------------------------------------
-
-          else {
-
-            const anioSeleccionado =
-              seleccionadosFecha.find(valor =>
-                valor.startsWith("anio:")
-              );
-
-
-            if (anioSeleccionado) {
-
-              filtrosActivos = {
-                ...filtrosOtros,
-                2: [anioSeleccionado]
-              };
-
-
-              await cargarTablaPedidos(
-                anioSeleccionado
-              );
-
-            }
-
-          }
-
-        }
-
+        await cargarTablaPedidos(
+          seleccionadosFecha.length > 1
+            ? seleccionadosFecha
+            : seleccionadosFecha[0]
+        );
 
         // Volver a aplicar filtros normales
         aplicarFiltrosMultiples();

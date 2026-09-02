@@ -1613,6 +1613,22 @@ async function agregarArticulo() {
     const fecha = Timestamp.fromDate(new Date());
     const usuario = sessionStorage.getItem("usuario");
 
+    // 🚫 No permitir unidades ni cajas negativas
+    if (unidades < 0 || cajas < 0) {
+
+      reproducirBipError();
+
+      await Swal.fire({
+        icon: 'warning',
+        title: 'Cantidad inválida',
+        text: 'Las unidades y las cajas no pueden ser negativas.',
+        confirmButtonText: 'Entendido',
+        confirmButtonColor: '#3085d6'
+      });
+
+      return;
+    }
+
     if (destino.trim() === "") {
       await Swal.fire({
         icon: 'warning',
@@ -1782,75 +1798,184 @@ async function cargarTablaPedidos(filtro = "ultimos2") {
   hoy.setHours(0, 0, 0, 0);
 
 
-  // =====================================================
-  // VARIOS DÍAS
-  // Ejemplo:
-  // [
-  //   "fecha:25/08/2026",
-  //   "fecha:26/08/2026",
-  //   "fecha:27/08/2026"
-  // ]
+    // =====================================================
+  // VARIOS PERÍODOS
+  // Puede recibir:
+  // fecha:25/08/2026
+  // mes:2026-08
+  // anio:2026
   // =====================================================
 
   if (Array.isArray(filtro)) {
 
-    const fechas = filtro.filter(v =>
+    const filtrosValidos = filtro.filter(v =>
       typeof v === "string" &&
-      v.startsWith("fecha:")
+      (
+        v.startsWith("fecha:") ||
+        v.startsWith("mes:") ||
+        v.startsWith("anio:")
+      )
     );
 
-    if (fechas.length === 0) {
-      console.warn("No hay fechas válidas para cargar");
+    if (filtrosValidos.length === 0) {
+      console.warn("No hay períodos válidos para cargar");
       return;
     }
 
     const resultados = [];
 
-    for (const filtroFecha of fechas) {
+    for (const filtroPeriodo of filtrosValidos) {
 
-      const fechaTexto =
-        filtroFecha.replace("fecha:", "");
+      let desde;
+      let hasta;
 
-      const partes =
-        fechaTexto.split("/");
 
-      if (partes.length !== 3) {
-        console.warn(
-          "Formato de fecha inválido:",
-          fechaTexto
-        );
-        continue;
+      // =================================================
+      // DÍA
+      // fecha:25/08/2026
+      // =================================================
+
+      if (filtroPeriodo.startsWith("fecha:")) {
+
+        const fechaTexto =
+          filtroPeriodo.replace("fecha:", "");
+
+        const partes =
+          fechaTexto.split("/");
+
+        if (partes.length !== 3) {
+          console.warn(
+            "Formato de fecha inválido:",
+            fechaTexto
+          );
+          continue;
+        }
+
+        const dia =
+          Number(partes[0]);
+
+        const mes =
+          Number(partes[1]);
+
+        const anio =
+          Number(partes[2]);
+
+
+        desde =
+          new Date(
+            anio,
+            mes - 1,
+            dia
+          );
+
+        desde.setHours(0, 0, 0, 0);
+
+
+        hasta =
+          new Date(
+            anio,
+            mes - 1,
+            dia + 1
+          );
+
+        hasta.setHours(0, 0, 0, 0);
       }
 
-      const dia =
-        Number(partes[0]);
 
-      const mes =
-        Number(partes[1]);
+      // =================================================
+      // MES
+      // mes:2026-08
+      // =================================================
 
-      const anio =
-        Number(partes[2]);
+      else if (filtroPeriodo.startsWith("mes:")) {
+
+        const periodo =
+          filtroPeriodo.replace("mes:", "");
+
+        const partes =
+          periodo.split("-");
+
+        if (partes.length !== 2) {
+          console.warn(
+            "Formato de mes inválido:",
+            periodo
+          );
+          continue;
+        }
+
+        const anio =
+          Number(partes[0]);
+
+        const mes =
+          Number(partes[1]);
 
 
-      const desde =
-        new Date(
-          anio,
-          mes - 1,
-          dia
-        );
+        desde =
+          new Date(
+            anio,
+            mes - 1,
+            1
+          );
 
-      desde.setHours(0, 0, 0, 0);
+        desde.setHours(0, 0, 0, 0);
 
 
-      const hasta =
-        new Date(
-          anio,
-          mes - 1,
-          dia + 1
-        );
+        hasta =
+          new Date(
+            anio,
+            mes,
+            1
+          );
 
-      hasta.setHours(0, 0, 0, 0);
+        hasta.setHours(0, 0, 0, 0);
+      }
 
+
+      // =================================================
+      // AÑO
+      // anio:2026
+      // =================================================
+
+      else if (filtroPeriodo.startsWith("anio:")) {
+
+        const anio =
+          Number(
+            filtroPeriodo.replace("anio:", "")
+          );
+
+        if (!anio) {
+          console.warn(
+            "Formato de año inválido:",
+            filtroPeriodo
+          );
+          continue;
+        }
+
+
+        desde =
+          new Date(
+            anio,
+            0,
+            1
+          );
+
+        desde.setHours(0, 0, 0, 0);
+
+
+        hasta =
+          new Date(
+            anio + 1,
+            0,
+            1
+          );
+
+        hasta.setHours(0, 0, 0, 0);
+      }
+
+
+      // =================================================
+      // CONSULTA FIRESTORE DEL PERÍODO
+      // =================================================
 
       const q =
         query(
@@ -1914,26 +2039,41 @@ async function cargarTablaPedidos(filtro = "ultimos2") {
 
 
     // =====================================================
+    // EVITAR DUPLICADOS
+    // =====================================================
+
+    const documentosMostrados =
+      new Set();
+
+
+    // =====================================================
     // MOSTRAR RESULTADOS
     // =====================================================
 
     resultados.forEach(({ docSnap }) => {
 
+      if (documentosMostrados.has(docSnap.id)) {
+        return;
+      }
+
+      documentosMostrados.add(docSnap.id);
+
+
       const data =
         docSnap.data();
 
 
-   const fecha =
-  data.fecha instanceof Timestamp
-    ? data.fecha.toDate().toLocaleDateString(
-        "es-AR",
-        {
-          day: "2-digit",
-          month: "2-digit",
-          year: "numeric"
-        }
-      )
-    : data.fecha;
+      const fecha =
+        data.fecha instanceof Timestamp
+          ? data.fecha.toDate().toLocaleDateString(
+              "es-AR",
+              {
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric"
+              }
+            )
+          : data.fecha;
 
 
       const fila =
@@ -1958,7 +2098,6 @@ async function cargarTablaPedidos(filtro = "ultimos2") {
 
     return;
   }
-
 
   // =====================================================
   // CONSULTA NORMAL
@@ -2298,6 +2437,7 @@ async function obtenerDatosPedido(docId) {
 }
 
 async function restaurarStockTotal(articulo, unidades, cajas, salon) {
+  
   const existe = await existeArticuloEnStockArticulos(articulo);
   if (!existe) {
     console.warn(`⚠️ El artículo "${articulo}" no existe en stock-articulos. No se restaura stock-total.`);
@@ -2813,6 +2953,18 @@ window.guardarCambiosFilaSeleccionada = async function () {
   const nuevasUnidades = parseInt(celdas[4].textContent.trim()) || 0;
   const nuevasCajas = parseInt(celdas[5].textContent.trim()) || 0;
   const nuevasNotas = celdas[6].textContent.trim();
+
+  if (nuevasUnidades < 0 || nuevasCajas < 0) {
+    await Swal.fire({
+      icon: "warning",
+      title: "Cantidad inválida",
+      text: "Las unidades y las cajas no pueden ser negativas.",
+      confirmButtonText: "Entendido",
+      confirmButtonColor: "#3085d6"
+    });
+    return;
+  }
+
   const origen = sessionStorage.getItem("salon");
   const usuarioLogueado = sessionStorage.getItem("usuario");
   const usuarioActual = celdas[8]?.textContent.trim();
@@ -4294,26 +4446,11 @@ const verTodos =
         // una sola consulta.
         // ==========================================
 
-        if (
-          filtrosEspeciales.length > 1 &&
-          filtrosEspeciales.every(v =>
-            v.startsWith("fecha:")
-          )
-        ) {
-
-          await cargarTablaPedidos(
-            filtrosEspeciales
-          );
-
-        } else {
-
-          await cargarTablaPedidos(
-            filtrosEspeciales[0]
-          );
-
-        }
-
-
+        await cargarTablaPedidos(
+  filtrosEspeciales.length > 1
+    ? filtrosEspeciales
+    : filtrosEspeciales[0]
+);
         // ==========================================
         // VOLVER A APLICAR LOS FILTROS
         // DE LAS OTRAS COLUMNAS
