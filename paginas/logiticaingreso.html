@@ -2500,15 +2500,32 @@ async function eliminarFila(btn, event) {
   }
 
   try {
-    const docRef = doc(db, "stock-ingreso", docId);
+
+    const docRef = doc(
+      db,
+      "stock-ingreso",
+      docId
+    );
+
     const docSnap = await getDoc(docRef);
 
     if (!docSnap.exists()) return;
 
     const data = docSnap.data();
-    const { articulo, unidades, cajas, origen, salones } = data;
 
-    // Confirmar antes de modificar stock o eliminar
+    const {
+      articulo,
+      unidades,
+      cajas,
+      origen,
+      salones
+    } = data;
+
+
+    // ==========================================
+    // CONFIRMAR ANTES DE MODIFICAR STOCK
+    // ==========================================
+
     const confirmacion = await Swal.fire({
       title: '¿Eliminar ingreso?',
       html: `
@@ -2531,6 +2548,11 @@ async function eliminarFila(btn, event) {
 
     if (!confirmacion.isConfirmed) return;
 
+
+    // ==========================================
+    // VERIFICAR ARTÍCULO
+    // ==========================================
+
     const artSnap = await getDocs(
       query(
         collection(db, "stock-articulos"),
@@ -2538,10 +2560,19 @@ async function eliminarFila(btn, event) {
       )
     );
 
+
+    // ==========================================
+    // VERIFICAR STOCK ACTUAL
+    // ==========================================
+
     if (!artSnap.empty) {
 
-      // Obtener stock actual antes de intentar restar
-      const stockRef = doc(db, "stock-total", articulo);
+      const stockRef = doc(
+        db,
+        "stock-total",
+        articulo
+      );
+
       const stockSnap = await getDoc(stockRef);
 
       if (stockSnap.exists()) {
@@ -2554,40 +2585,68 @@ async function eliminarFila(btn, event) {
             cajas: 0
           };
 
-        // Verificar si hay stock suficiente para "devolver" lo que se eliminaría
+
         let unidadesActuales =
           parseInt(stockSalon.unidades) || 0;
 
         let cajasActuales =
           parseInt(stockSalon.cajas) || 0;
 
-        // 🔹 Traer unidades por caja (USÁ CACHE, no Firestore de nuevo)
+
+        // ==========================================
+        // UNIDADES POR CAJA DESDE CACHE
+        // ==========================================
+
         const articuloData = articulosCache.find(
-          a => a.articulo === articulo.trim().toLowerCase()
+          a =>
+            a.articulo ===
+            articulo.trim().toLowerCase()
         );
 
-        const unidadesPorCaja = articuloData
-          ? parseInt(articuloData.unixcajapack) || 0
-          : 0;
+        const unidadesPorCaja =
+          articuloData
+            ? parseInt(
+                articuloData.unixcajapack
+              ) || 0
+            : 0;
 
-        // 🔥 Convertir cajas → unidades si falta
-        if (unidadesPorCaja > 0 && unidades > unidadesActuales) {
 
-          const faltantes = unidades - unidadesActuales;
+        // ==========================================
+        // CONVERTIR CAJAS → UNIDADES SI FALTA
+        // ==========================================
+
+        if (
+          unidadesPorCaja > 0 &&
+          unidades > unidadesActuales
+        ) {
+
+          const faltantes =
+            unidades - unidadesActuales;
 
           const cajasNecesarias =
-            Math.ceil(faltantes / unidadesPorCaja);
+            Math.ceil(
+              faltantes / unidadesPorCaja
+            );
 
           const cajasAConvertir =
-            Math.min(cajasNecesarias, cajasActuales);
+            Math.min(
+              cajasNecesarias,
+              cajasActuales
+            );
 
           unidadesActuales +=
-            cajasAConvertir * unidadesPorCaja;
+            cajasAConvertir *
+            unidadesPorCaja;
 
-          cajasActuales -= cajasAConvertir;
+          cajasActuales -=
+            cajasAConvertir;
         }
 
-        // 🔴 VALIDACIÓN REAL
+
+        // ==========================================
+        // VALIDACIÓN REAL
+        // ==========================================
+
         if (
           unidades > unidadesActuales ||
           cajas > cajasActuales
@@ -2607,7 +2666,11 @@ async function eliminarFila(btn, event) {
       }
     }
 
-    // ✅ Recién ahora eliminamos y restamos
+
+    // ==========================================
+    // RESTAR STOCK
+    // ==========================================
+
     if (!artSnap.empty) {
 
       await restarStockTotal(
@@ -2618,14 +2681,103 @@ async function eliminarFila(btn, event) {
       );
     }
 
+
+    // ==========================================
+    // USUARIO QUE REALIZA LA ELIMINACIÓN
+    // ==========================================
+
+    const usuario =
+      sessionStorage.getItem("usuario") ||
+      "Desconocido";
+
+
+    // ==========================================
+    // FECHA Y HORA ACTUAL DE ARGENTINA
+    // ==========================================
+
+    const ahora = new Date();
+
+    const partesFechaHora =
+      new Intl.DateTimeFormat("es-AR", {
+        timeZone:
+          "America/Argentina/Buenos_Aires",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false
+      }).formatToParts(ahora);
+
+    const obtenerParte = (tipo) =>
+      partesFechaHora.find(
+        parte => parte.type === tipo
+      )?.value || "";
+
+
+    const fechaEliminacion =
+      `${obtenerParte("day")}/${obtenerParte("month")}/${obtenerParte("year")}`;
+
+    const horaEliminacion =
+      `${obtenerParte("hour")}:${obtenerParte("minute")}:${obtenerParte("second")}`;
+
+
+    // ==========================================
+    // GUARDAR COPIA EN INGRESOS ELIMINADOS
+    // ==========================================
+
+    await addDoc(
+      collection(
+        db,
+        "stock-ingreso-eliminados"
+      ),
+      {
+        ...data,
+
+        fechaEliminacion:
+          fechaEliminacion,
+
+        horaEliminacion:
+          horaEliminacion,
+
+        usuarioEliminacion:
+          usuario,
+
+        idOriginal:
+          docId,
+
+        // Para el futuro borrado automático
+        // después de 30 días
+        fechaEliminacionTTL:
+          new Date()
+      }
+    );
+
+
+    // ==========================================
+    // ELIMINAR INGRESO ORIGINAL
+    // ==========================================
+
     await deleteDoc(docRef);
+
+
+    // ==========================================
+    // QUITAR FILA DE LA TABLA
+    // ==========================================
 
     fila.remove();
 
     mostrarMensajeEliminado();
 
+
   } catch (error) {
-    console.error("Error eliminando documento:", error);
+
+    console.error(
+      "Error eliminando documento:",
+      error
+    );
+
   }
 }
 
@@ -4849,7 +5001,7 @@ function mostrarOpcionesFiltradas() {
 
 
     tituloUltimos.textContent =
-      "Últimos 2 días";
+      "Filtros activos";
 
 
     tituloUltimos.style.fontWeight =

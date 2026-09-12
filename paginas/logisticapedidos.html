@@ -2631,11 +2631,121 @@ async function eliminarFila(btn, event) {
 
 async function eliminarPedido(docId, fila) {
   try {
-    await deleteDoc(doc(db, "stock-pedidos", docId));
+
+    // ==========================================
+    // OBTENER PEDIDO ANTES DE ELIMINAR
+    // ==========================================
+
+    const refPedido = doc(
+      db,
+      "stock-pedidos",
+      docId
+    );
+
+    const snapPedido = await getDoc(refPedido);
+
+    if (!snapPedido.exists()) {
+      console.warn("El pedido ya no existe.");
+      return;
+    }
+
+    const datosPedido = snapPedido.data();
+
+
+    // ==========================================
+    // USUARIO QUE REALIZA LA ELIMINACIÓN
+    // ==========================================
+
+    const usuario =
+      sessionStorage.getItem("usuario") ||
+      "Desconocido";
+
+
+    // ==========================================
+    // FECHA Y HORA ACTUAL DE ARGENTINA
+    // ==========================================
+
+    const ahora = new Date();
+
+    const partesFechaHora =
+      new Intl.DateTimeFormat("es-AR", {
+        timeZone: "America/Argentina/Buenos_Aires",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false
+      }).formatToParts(ahora);
+
+    const obtenerParte = (tipo) =>
+      partesFechaHora.find(
+        parte => parte.type === tipo
+      )?.value || "";
+
+
+    const fechaEliminacion =
+      `${obtenerParte("day")}/${obtenerParte("month")}/${obtenerParte("year")}`;
+
+    const horaEliminacion =
+      `${obtenerParte("hour")}:${obtenerParte("minute")}:${obtenerParte("second")}`;
+
+
+    // ==========================================
+    // GUARDAR COPIA EN PEDIDOS ELIMINADOS
+    // ==========================================
+
+    await addDoc(
+      collection(db, "stock-pedidos-eliminados"),
+      {
+        ...datosPedido,
+
+        // Fecha y hora legibles
+        fechaEliminacion:
+          fechaEliminacion,
+
+        horaEliminacion:
+          horaEliminacion,
+
+        // Usuario que eliminó
+        usuarioEliminacion:
+          usuario,
+
+        // ID del documento original
+        idOriginal:
+          docId,
+
+        // Timestamp del servidor para TTL
+        fechaEliminacionTTL:
+        new Date()
+      }
+    );
+
+
+    // ==========================================
+    // ELIMINAR PEDIDO ORIGINAL
+    // ==========================================
+
+    await deleteDoc(refPedido);
+
+
+    // ==========================================
+    // QUITAR FILA DE LA TABLA
+    // ==========================================
+
     fila.remove();
+
     mostrarMensajeEliminado();
+
+
   } catch (error) {
-    console.error("Error al eliminar el pedido:", error);
+
+    console.error(
+      "Error al eliminar el pedido:",
+      error
+    );
+
   }
 }
 
@@ -5558,7 +5668,7 @@ function mostrarOpcionesFiltradas() {
       document.createElement("div");
 
     tituloUltimos.textContent =
-      "Últimos 2 días";
+      "Filtros activos";
 
     tituloUltimos.style.fontWeight =
       "bold";

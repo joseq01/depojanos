@@ -529,6 +529,7 @@ body {
           <a class="dropdown-item" href="#" onclick="abrirFlotanteProtegido('modalAgregarSalon')">agregar salones</a>
           <a class="dropdown-item" href="#" onclick="abrirFlotanteProtegido('modalUsuarios')">agregar usuarios</a>
           <a class="dropdown-item" href="#" onclick="abrirFlotanteProtegido('modalUnidadesDefectuosas')">unidades defectuosas</a>
+          <a class="dropdown-item" href="#" onclick="abrirFlotanteProtegido('modalArticulosEliminados')"> artículos eliminados</a>
         </div>
       </div>
     </div>
@@ -552,7 +553,8 @@ body {
           <li class="nav-item"><a class="nav-link" href="#" onclick="abrirFlotanteProtegido('modalAgregarSalon')">agregar salones</a></li>
           <li class="nav-item"><a class="nav-link" href="#" onclick="abrirFlotanteProtegido('modalUsuarios')">agregar usuarios</a></li>
           <li class="nav-item"><a class="nav-link" href="#" onclick="abrirFlotanteProtegido('modalUnidadesDefectuosas')">unidades defectuosas</a></li>
-        </ul>
+          <li class="nav-item"><a class="nav-link" href="#" onclick="abrirFlotanteProtegido('modalArticulosEliminados')">artículos eliminados</a></li>
+         </ul>
       </li>
     </ul>
   </div>
@@ -897,6 +899,98 @@ body {
 
     </div>
   </div>
+</div>
+
+<div
+  class="modal fade"
+  id="modalArticulosEliminados"
+  tabindex="-1"
+  aria-labelledby="modalArticulosEliminadosLabel"
+  aria-hidden="true"
+>
+
+  <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+
+    <div class="modal-content">
+
+      <div class="modal-header">
+
+        <h5
+          class="modal-title"
+          id="modalArticulosEliminadosLabel"
+        >
+          🗑️ Artículos eliminados
+        </h5>
+
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="modal"
+          aria-label="Cerrar"
+        ></button>
+
+      </div>
+
+      <div class="modal-body">
+
+        <!-- ==========================================
+             CAMBIAR ENTRE PEDIDOS E INGRESOS
+             ========================================== -->
+
+        <div class="d-flex align-items-center gap-2 mb-3">
+
+          <label
+            for="tipoArticulosEliminados"
+            class="fw-bold mb-0"
+          >
+            Mostrar:
+          </label>
+
+          <select
+            id="tipoArticulosEliminados"
+            class="form-select form-select-sm"
+            style="max-width: 280px;"
+            onchange="mostrarArticulosEliminados()"
+          >
+
+            <option value="pedidos">
+              🛒 Artículos eliminados de pedidos
+            </option>
+
+            <option value="ingresos">
+              📥 Artículos eliminados de ingresos
+            </option>
+
+          </select>
+
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-primary"
+            onclick="mostrarArticulosEliminados()"
+          >
+            🔄 Actualizar
+          </button>
+
+        </div>
+
+        <!-- ==========================================
+             LISTADO
+             ========================================== -->
+
+        <div id="listaArticulosEliminados">
+
+          <div class="text-center p-3">
+            Cargando artículos eliminados...
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
 </div>
 
 <div id="mensajeGuardado" style="
@@ -2341,6 +2435,22 @@ async function cargarSalonesDesdeFirestore() {
   } catch (error) {
     console.error("❌ Error cargando salones desde Firestore:", error);
   }
+}
+
+// ==========================================
+// 🔄 RECARGAR SALONES AL ABRIR USUARIOS
+// ==========================================
+
+const modalUsuarios = document.getElementById("modalUsuarios");
+
+if (modalUsuarios) {
+
+  modalUsuarios.addEventListener("shown.bs.modal", async () => {
+
+    await cargarSalonesDesdeFirestore();
+
+  });
+
 }
 
 // === ACTUALIZAR CHECK "TODOS" ===
@@ -6048,6 +6158,313 @@ window.tirarArticulo = tirarArticulo;
 window.mostrarHistorialReparados = mostrarHistorialReparados;
 window.volverPendientesDefectuosas =  volverPendientesDefectuosas;
 //FINALIZA RESTAURAR ARTICULOS
+
+//modal articulos eliminados
+async function mostrarArticulosEliminados() {
+
+  const lista =
+    document.getElementById(
+      "listaArticulosEliminados"
+    );
+
+  if (!lista) {
+    console.error(
+      "❌ No existe listaArticulosEliminados"
+    );
+    return;
+  }
+
+  const selector =
+    document.getElementById(
+      "tipoArticulosEliminados"
+    );
+
+  const tipo =
+    selector?.value || "pedidos";
+
+  lista.innerHTML = `
+    <div class="text-center p-3">
+      Cargando artículos eliminados...
+    </div>
+  `;
+
+  try {
+
+    // ==========================================
+    // COLECCIÓN SEGÚN LA OPCIÓN ELEGIDA
+    // ==========================================
+
+    const nombreColeccion =
+      tipo === "ingresos"
+        ? "stock-ingreso-eliminados"
+        : "stock-pedidos-eliminados";
+
+    const snapshot =
+      await getDocs(
+        collection(
+          db,
+          nombreColeccion
+        )
+      );
+
+    // ==========================================
+    // SALÓN ACTUAL
+    // ==========================================
+
+    const salonActual =
+      sessionStorage.getItem("salon") ||
+      sessionStorage.getItem("salonActual") ||
+      "";
+
+    const salonActualNormalizado =
+      salonActual.trim().toLowerCase();
+
+    // ==========================================
+    // FILTRAR POR SALÓN ACTUAL
+    // ==========================================
+
+    const registros =
+      snapshot.docs
+
+        .map(docSnap => ({
+          id: docSnap.id,
+          ...docSnap.data()
+        }))
+
+        .filter(data => {
+
+          const origen =
+            (data.origen || "").trim().toLowerCase();
+
+          return (
+            !salonActualNormalizado ||
+            origen === salonActualNormalizado
+          );
+
+        })
+
+        // ======================================
+        // ORDENAR MÁS RECIENTE PRIMERO
+        // ======================================
+
+        .sort((a, b) => {
+
+          const fechaA =
+            a.fechaEliminacionTTL?.toDate
+              ? a.fechaEliminacionTTL.toDate()
+              : new Date(0);
+
+          const fechaB =
+            b.fechaEliminacionTTL?.toDate
+              ? b.fechaEliminacionTTL.toDate()
+              : new Date(0);
+
+          return (
+            fechaB.getTime() -
+            fechaA.getTime()
+          );
+
+        });
+
+    // ==========================================
+    // SIN REGISTROS
+    // ==========================================
+
+    if (registros.length === 0) {
+
+      const textoTipo =
+        tipo === "ingresos"
+          ? "ingresos"
+          : "pedidos";
+
+      lista.innerHTML = `
+
+        <div class="alert alert-info">
+
+          No hay artículos eliminados de
+          <strong>${textoTipo}</strong>
+          para este salón.
+
+        </div>
+
+      `;
+
+      return;
+    }
+
+    // ==========================================
+    // TÍTULO
+    // ==========================================
+
+    const titulo =
+      tipo === "ingresos"
+        ? "Artículos eliminados de ingresos"
+        : "Artículos eliminados de pedidos";
+
+    // ==========================================
+    // CONSTRUIR TABLA
+    // ==========================================
+
+    let html = `
+
+      <div class="d-flex justify-content-between align-items-center mb-3">
+
+        <h6 class="mb-0">
+          ${titulo}
+        </h6>
+
+        <span class="badge text-bg-secondary">
+          ${registros.length}
+          ${registros.length === 1
+            ? " registro"
+            : " registros"}
+        </span>
+
+      </div>
+
+      <div class="table-responsive">
+
+        <table
+          class="table table-bordered table-hover align-middle"
+          id="tablaArticulosEliminados"
+        >
+
+          <thead class="table-dark">
+
+            <tr>
+
+              <th>Artículo</th>
+
+              <th>Unidades</th>
+
+              <th>Cajas</th>
+
+              <th>Origen</th>
+
+              <th>Usuario</th>
+
+              <th>Fecha eliminación</th>
+
+              <th>Hora</th>
+
+            </tr>
+
+          </thead>
+
+          <tbody>
+
+    `;
+
+    // ==========================================
+    // GENERAR FILAS
+    // ==========================================
+
+    registros.forEach(data => {
+
+      html += `
+
+        <tr>
+
+          <td>
+            <strong>
+              ${data.articulo || "—"}
+            </strong>
+          </td>
+
+          <td class="text-center">
+            ${data.unidades ?? 0}
+          </td>
+
+          <td class="text-center">
+            ${data.cajas ?? 0}
+          </td>
+
+          <td>
+            ${data.origen || "—"}
+          </td>
+
+          <td>
+            ${data.usuarioEliminacion || "—"}
+          </td>
+
+          <td>
+            ${data.fechaEliminacion || "—"}
+          </td>
+
+          <td>
+            ${data.horaEliminacion || "—"}
+          </td>
+
+        </tr>
+
+      `;
+
+    });
+
+    html += `
+
+          </tbody>
+
+        </table>
+
+      </div>
+
+    `;
+
+    lista.innerHTML = html;
+
+  } catch (error) {
+
+    console.error(
+      "❌ Error cargando artículos eliminados:",
+      error
+    );
+
+    lista.innerHTML = `
+
+      <div class="alert alert-danger">
+
+        No se pudieron cargar los artículos eliminados.
+
+        <br><br>
+
+        ${error.message || ""}
+
+      </div>
+
+    `;
+
+  }
+
+}
+
+// ==========================================
+// HACER VISIBLE LA FUNCIÓN PARA onclick
+// SI ESTE ARCHIVO USA type="module"
+// ==========================================
+
+window.mostrarArticulosEliminados =
+  mostrarArticulosEliminados;
+
+const modalArticulosEliminados =
+  document.getElementById(
+    "modalArticulosEliminados"
+  );
+
+if (modalArticulosEliminados) {
+
+  modalArticulosEliminados.addEventListener(
+    "shown.bs.modal",
+    () => {
+
+      mostrarArticulosEliminados();
+
+    }
+  );
+
+}
+//fin modal articulos eliminados
+
 </script>
   
 <script>
@@ -6314,6 +6731,7 @@ function mostrarMenuAjusteMobile() {
   const submenu = document.getElementById("submenuAjusteMobile");
   submenu.style.display = submenu.style.display === "none" ? "block" : "none";
 }
+
 
   </script>
 </main>
