@@ -611,20 +611,22 @@ body {
   
   </div>
 
-  <!-- Tabla -->
-   <div class="tabla-scroll">
+<!-- Tabla -->
+<div class="tabla-scroll">
   <table class="table table-bordered align-middle"
          id="tablaStock"
-         style="table-layout: fixed; width: 100%;">
+         style="width: 100%;">
 
     <thead>
       <tr>
-        <th style="width: 21%;">Categoría</th>
-        <th style="width: 44%;">Artículo</th>
-        <th class="text-center" style="width: 8%;">Unidades</th>
-        <th class="text-center" style="width: 8%;">Cajas / Packs</th>
-        <th class="text-center" style="width: 10%;">Total Disponibles</th>
-        <th class="text-center" style="width: 8%;">Unidades Rotas</th>
+        <th style="width: 14%;">Categoría</th>
+        <th style="width: 5%;">Sector</th>
+        <th style="width: 28%;">Artículo</th>
+        <th class="text-center" style="width: 7%;">Unidades</th>
+        <th class="text-center" style="width: 10%;">Cajas / Packs</th>
+        <th class="text-center" style="width: 10%;">Reservadas</th>
+        <th class="text-center" style="width: 16%;">Total Disponibles</th>
+        <th class="text-center" style="width: 10%;">Unid. Defect.</th>
       </tr>
     </thead>
 
@@ -632,7 +634,6 @@ body {
 
   </table>
 </div>
-
  
 <!-- Filtro flotante -->
 <div id="filtroDropdown" style="display:none; position:absolute; z-index:999; background:#fff; border:1px solid #ccc; padding:10px; border-radius:6px; width:220px;">
@@ -679,7 +680,9 @@ body {
 <div class="modal fade" id="modalArticulos" tabindex="-1" aria-labelledby="modalArticulosLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered modal-lg">
     <div class="modal-content position-relative p-4">
+
       <button type="button" class="btn-close position-absolute top-0 end-0 m-3" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+
       <h5 class="modal-title mb-3" id="modalArticulosLabel">Agregar / Eliminar Artículos</h5>
 
       <form id="formularioArticulo">
@@ -691,11 +694,6 @@ body {
             <input list="listaArticulos" id="articulo" class="form-control" required>
             <datalist id="listaArticulos"></datalist>
           </div>
-
-         <!--  <div class="col-md-3">
-            <label for="unidades" class="form-label">Unidades</label>
-            <input type="number" id="unidades" class="form-control" min="0" required>
-          </div> -->
 
           <div class="col-md-3">
             <label for="cajaPack" class="form-label">Caja / Pack</label>
@@ -709,6 +707,19 @@ body {
           <datalist id="listaCategorias"></datalist>
         </div>
 
+        <!-- Área alfanumérica -->
+        <div class="mb-3">
+          <label for="area" class="form-label">Sector</label>
+          <input
+            type="text"
+            id="area"
+            class="form-control"
+            maxlength="30"
+            autocomplete="off"
+            placeholder="Ej.: A12, DEP3, 101"
+          >
+        </div>
+
         <div class="d-flex justify-content-between">
           <button type="submit" class="btn btn-success">Guardar</button>
           <button type="button" id="btnEliminarArticulo" class="btn btn-danger">Eliminar</button>
@@ -717,11 +728,11 @@ body {
         <div id="alertaArticuloExistente" class="alert alert-warning mt-3 d-none rounded-3 shadow-sm" role="alert">
           ⚠️ El artículo ya existe. Se actualizará.
         </div>
+
       </form>
     </div>
   </div>
 </div>
-
 
 
 <!-- Modal Agregar Salón -->
@@ -1310,6 +1321,10 @@ export async function cargarStockActual() {
   if (unsubscribePedidos) unsubscribePedidos();
   if (unsubscribeTotal) unsubscribeTotal();
 
+  if (globalThis.unsubscribeReservadas) {
+    globalThis.unsubscribeReservadas();
+  }
+
   // ==========================================================
   // MAPAS EN MEMORIA
   // ==========================================================
@@ -1317,12 +1332,19 @@ export async function cargarStockActual() {
   const rotas = new Map();
   const stockTotalMap = new Map();
   const categoriasMap = new Map();
+  const areasMap = new Map();
   const unidadesPorCajaMap = new Map();
+  const reservadasMap = new Map();
   const articulosValidos = new Set();
 
-  // Para saber cuándo ya llegaron los datos necesarios
+  function datosReservaFaltantes(articulo) {
+    return reservadasMap.get(articulo)?.faltantes || 0;
+}
+
+  // Para saber cuándo llegaron todos los datos necesarios
   let ingresosCargados = false;
   let stockTotalCargado = false;
+  let reservadasCargadas = false;
 
   console.time("⏱ Preparación de carga de stock");
 
@@ -1362,7 +1384,7 @@ export async function cargarStockActual() {
     );
   }
 
-   // ==========================================================
+  // ==========================================================
   // CACHE PARA AUTOCOMPLETADO
   // ==========================================================
 
@@ -1399,7 +1421,6 @@ export async function cargarStockActual() {
 
   }
 
-
   // ==========================================================
   // PREPARAR MAPAS DE ARTÍCULOS
   // ==========================================================
@@ -1421,6 +1442,11 @@ export async function cargarStockActual() {
       data.categoria || ""
     );
 
+    areasMap.set(
+      nombre,
+      data.area || ""
+    );
+
     unidadesPorCajaMap.set(
       nombre,
       parseInt(data.unixcajapack) || 0
@@ -1437,7 +1463,11 @@ export async function cargarStockActual() {
 
   function renderizarTabla() {
 
-    if (!ingresosCargados || !stockTotalCargado) {
+    if (
+      !ingresosCargados ||
+      !stockTotalCargado ||
+      !reservadasCargadas
+    ) {
       return;
     }
 
@@ -1446,8 +1476,7 @@ export async function cargarStockActual() {
     const filas = [];
 
     // --------------------------------------------------------
-    // Recorrer solamente los artículos que realmente
-    // existen en stock-total para este salón.
+    // RECORRER ARTÍCULOS EXISTENTES EN STOCK-TOTAL
     // --------------------------------------------------------
 
     stockTotalMap.forEach((stockData, articulo) => {
@@ -1456,6 +1485,9 @@ export async function cargarStockActual() {
 
       const categoria =
         categoriasMap.get(articulo) || "";
+
+      const area =
+        areasMap.get(articulo) || "";
 
       const unidadesPorCaja =
         unidadesPorCajaMap.get(articulo) || 0;
@@ -1469,16 +1501,31 @@ export async function cargarStockActual() {
       const cajas =
         stockData.cajas || 0;
 
+      const datosReserva = reservadasMap.get(articulo) || {
+    reservadas: 0,
+    faltantes: 0,
+    detalle: ""
+};
+
+const reservadas = datosReserva.reservadas;
+const faltantes = datosReserva.faltantes;
+
       const totalUnidades =
         unidades + (cajas * unidadesPorCaja);
+
+     // El stock disponible NO se descuenta por las reservas.
+const totalDisponibles = totalUnidades;
 
       filas.push({
         articulo,
         categoria,
+        area,
         unidades,
         cajas,
         unidadesPorCaja,
+        reservadas,
         totalUnidades,
+        totalDisponibles,
         rota
       });
     });
@@ -1521,46 +1568,73 @@ export async function cargarStockActual() {
       fila.dataset.articulo = data.articulo;
 
       fila.innerHTML = `
-        <td>${data.categoria}</td>
+  <td>${data.categoria}</td>
 
-        <td>${data.articulo}</td>
+  <td style="white-space: normal; overflow-wrap: anywhere;">
+    ${data.area}
+  </td>
 
-        <td class="text-center">
-          ${data.unidades}
-        </td>
+  <td>${data.articulo}</td>
 
-        <td class="text-center">
+  <!-- UNIDADES FÍSICAS DISPONIBLES -->
+  <td class="text-center">
+    <strong>${data.unidades}</strong>
+  </td>
+
+  <!-- CAJAS FÍSICAS DISPONIBLES -->
+  <td class="text-center">
+    ${
+      data.cajas > 0
+        ? `
+          <strong>${data.cajas}</strong>
+
           ${
-            data.cajas > 0
+            data.unidadesPorCaja > 0
               ? `
-                <strong>${data.cajas}</strong>
-
-                ${
-                  data.unidadesPorCaja > 0
-                    ? `
-                      <span style="
-                        font-size:11px;
-                        color:#888;
-                      ">
-                        (${data.unidadesPorCaja} c/u)
-                      </span>
-                    `
-                    : ""
-                }
+                <span style="
+                  font-size:11px;
+                  color:#888;
+                ">
+                  (${data.unidadesPorCaja} c/u)
+                </span>
               `
               : ""
           }
-        </td>
+        `
+        : ""
+    }
+  </td>
 
-        <td class="text-center fw-bold">
-          ${data.totalUnidades}
-        </td>
+  <!-- RESERVAS Y FALTANTES -->
+  <td class="text-center">
+    <strong>${data.reservadas}</strong>
 
-        <td class="text-center">
-          ${data.rota}
-        </td>
-      `;
+    ${
+      datosReservaFaltantes(data.articulo) > 0
+        ? `
+          <span style="
+            display:block;
+            color:#dc3545;
+            font-size:12px;
+            font-weight:bold;
+          ">
+            Faltan: ${datosReservaFaltantes(data.articulo)}
+          </span>
+        `
+        : ""
+    }
+  </td>
 
+  <!-- TOTAL FÍSICO -->
+  <td class="text-center fw-bold">
+    ${data.totalDisponibles}
+  </td>
+
+  <!-- ROTAS -->
+  <td class="text-center">
+    ${data.rota}
+  </td>
+`;
       fragment.appendChild(fila);
     });
 
@@ -1573,8 +1647,8 @@ export async function cargarStockActual() {
     tabla.appendChild(fragment);
 
     requestAnimationFrame(() => {
-  console.log("🖥️ TABLA YA FUE PINTADA POR EL NAVEGADOR");
-});
+      console.log("🖥️ TABLA YA FUE PINTADA POR EL NAVEGADOR");
+    });
 
     console.timeEnd("⏱ DESDE RESTAURAR USUARIO HASTA TABLA");
 
@@ -1598,12 +1672,10 @@ export async function cargarStockActual() {
 
   // ==========================================================
   // STOCK-INGRESO
-  //
-  // SOLO SE UTILIZA PARA OBTENER LAS ROTAS.
-  // YA NO CALCULAMOS INGRESOS.
+  // SOLO SE UTILIZA PARA OBTENER LAS ROTAS
   // ==========================================================
 
-   const qIngresos = query(
+  const qIngresos = query(
     collection(db, "stock-ingreso"),
     where("origen", "==", salon)
   );
@@ -1611,11 +1683,6 @@ export async function cargarStockActual() {
   const inicioSnapshots = performance.now();
 
   console.log("🚀 Registrando snapshots...");
-
-  // ==========================================================
-  // STOCK-INGRESO
-  // Fuente de unidades rotas
-  // ==========================================================
 
   unsubscribeIngresos = onSnapshot(
     qIngresos,
@@ -1667,19 +1734,15 @@ export async function cargarStockActual() {
         "⏱ Procesamiento stock-ingreso"
       );
 
-      // Solo renderizar cuando también llegó stock-total
-      if (stockTotalCargado) {
+      if (stockTotalCargado && reservadasCargadas) {
         renderizarTabla();
       }
     }
   );
 
-
   // ==========================================================
   // STOCK-TOTAL
-  //
-  // Fuente principal de:
-  // unidades + cajas
+  // FUENTE PRINCIPAL DEL INVENTARIO FÍSICO
   // ==========================================================
 
   unsubscribeTotal = onSnapshot(
@@ -1739,13 +1802,134 @@ export async function cargarStockActual() {
         "⏱ Procesamiento stock-total"
       );
 
-      // Solo renderizar cuando también llegó stock-ingreso
-      if (ingresosCargados) {
+      if (ingresosCargados && reservadasCargadas) {
         renderizarTabla();
       }
     }
   );
 
+  // ==========================================================
+  // STOCK-RESERVADAS
+  // FUENTE DE LAS UNIDADES RESERVADAS POR SALÓN
+  // ==========================================================
+
+  globalThis.unsubscribeReservadas = onSnapshot(
+    collection(db, "stock-reservadas"),
+    snapshot => {
+
+        console.log(
+            "🟢 SNAPSHOT STOCK-RESERVADAS LLEGÓ",
+            snapshot.size
+        );
+
+        console.time("⏱ Procesamiento stock-reservadas");
+
+        reservadasMap.clear();
+
+        snapshot.forEach(pedidoDoc => {
+
+            const pedido = pedidoDoc.data();
+
+            // Solo pedidos pendientes del salón seleccionado.
+            if (
+                pedido.tipo !== "pedido-pendiente" ||
+                pedido.origen !== salon
+            ) {
+                return;
+            }
+
+            (pedido.articulos || []).forEach(item => {
+
+                const art = item.articulo
+                    ?.trim()
+                    .toLowerCase();
+
+                if (!art || !articulosValidos.has(art)) {
+                    return;
+                }
+
+                const pack = unidadesPorCajaMap.get(art) || 0;
+
+                const unidadesSolicitadas =
+                    Number(item.unidades) || 0;
+
+                const cajasSolicitadas =
+                    Number(item.cajas) || 0;
+
+                const unidadesReservadas =
+                    Number(item.unidadesReservadas) || 0;
+
+                const cajasReservadas =
+                    Number(item.cajasReservadas) || 0;
+
+                let reservadas = 0;
+                let faltantes = 0;
+
+                if (pack > 0) {
+
+                    const totalSolicitado =
+                        unidadesSolicitadas +
+                        (cajasSolicitadas * pack);
+
+                    reservadas =
+                        unidadesReservadas +
+                        (cajasReservadas * pack);
+
+                    faltantes = Math.max(
+                        0,
+                        totalSolicitado - reservadas
+                    );
+
+                } else {
+
+                    // Para artículos sin equivalencia de caja,
+                    // se contabilizan las unidades y cajas por separado.
+                    const unidadesPendientes =
+                        Number(item.unidadesPendientes) || 0;
+
+                    const cajasPendientes =
+                        Number(item.cajasPendientes) || 0;
+
+                    reservadas =
+                        unidadesReservadas + cajasReservadas;
+
+                    faltantes =
+                        unidadesPendientes + cajasPendientes;
+                }
+
+                const anterior = reservadasMap.get(art) || {
+                    reservadas: 0,
+                    faltantes: 0
+                };
+
+                reservadasMap.set(art, {
+                    reservadas: anterior.reservadas + reservadas,
+                    faltantes: anterior.faltantes + faltantes
+                });
+
+            });
+
+        });
+
+        reservadasCargadas = true;
+
+        console.log(
+            "📦 Artículos con reservas:",
+            reservadasMap.size
+        );
+
+        console.log(
+            "📋 Reservas calculadas:",
+            Array.from(reservadasMap.entries())
+        );
+
+        console.timeEnd("⏱ Procesamiento stock-reservadas");
+
+        if (ingresosCargados && stockTotalCargado) {
+            renderizarTabla();
+        }
+    }
+);
 
   // ==========================================================
   // CARGA PREPARADA
@@ -1799,162 +1983,278 @@ async function cargarCategorias() {  //autocompletar categorias
 //cargar articulos
 const articulosRef = collection(db, "stock-articulos");
 
-// Guardar o actualizar artículo
+// ==========================================================
+// GUARDAR O ACTUALIZAR ARTÍCULO
+// ==========================================================
+
 document.getElementById("formularioArticulo").addEventListener("submit", async (e) => {
   e.preventDefault();
+
   const idArticulo = document.getElementById("idArticulo").value;
-  const nombreArticulo = document.getElementById("articulo").value.trim().toLowerCase();
+
+  const nombreArticulo = document
+    .getElementById("articulo")
+    .value
+    .trim()
+    .toLowerCase();
 
   const articuloData = {
     articulo: nombreArticulo,
     categoria: document.getElementById("categoria").value.trim(),
-    unixcajapack: Number(document.getElementById("cajaPack").value.trim()) || 0
+    area: document.getElementById("area").value.trim(),
+    unixcajapack: Number(
+      document.getElementById("cajaPack").value.trim()
+    ) || 0
   };
 
   try {
     const snapshot = await getDocs(articulosRef);
+
     let articuloExistente = null;
 
     snapshot.forEach(docSnap => {
       const datos = docSnap.data();
-      if (datos.articulo.toLowerCase() === nombreArticulo) {
-        articuloExistente = { id: docSnap.id, ...datos };
+
+      if (
+        datos.articulo &&
+        datos.articulo.toLowerCase() === nombreArticulo
+      ) {
+        articuloExistente = {
+          id: docSnap.id,
+          ...datos
+        };
       }
     });
 
     // Si ya existe y es una edición
     if (idArticulo || articuloExistente) {
+
       if (!idArticulo && articuloExistente) {
+
         const alerta = document.getElementById("alertaArticuloExistente");
+
         alerta.classList.remove("d-none");
 
         setTimeout(() => {
           alerta.classList.add("d-none");
         }, 4000);
 
-        return; // ❌ Detener aquí si ya existe y no es una edición
+        return;
       }
 
-      const ref = doc(db, "stock-articulos", idArticulo || articuloExistente.id);
+      const ref = doc(
+        db,
+        "stock-articulos",
+        idArticulo || articuloExistente.id
+      );
+
       await updateDoc(ref, articuloData);
+
       mostrarMensaje("✅ Artículo actualizado");
+
     } else {
+
       await addDoc(articulosRef, articuloData);
+
       mostrarMensaje("✅ Artículo guardado");
     }
 
+    // Limpiar formulario
     document.getElementById("formularioArticulo").reset();
     document.getElementById("idArticulo").value = "";
+
+    // Actualizar lista
     cargarListaArticulos();
+
   } catch (error) {
+
     console.error("Error al guardar artículo:", error);
+
     mostrarMensaje("❌ Error al guardar el artículo");
   }
 });
 
-// Autocompletar lista de artículos
+
+// ==========================================================
+// AUTOCOMPLETAR LISTA DE ARTÍCULOS
+// ==========================================================
+
 window.cargarListaArticulos = async function () {
+
   const snapshot = await getDocs(articulosRef);
+
   const nombres = [];
 
-  snapshot.forEach((doc) => {
-    const datos = doc.data();
-    nombres.push({ id: doc.id, articulo: datos.articulo });
+  snapshot.forEach(docSnap => {
+
+    const datos = docSnap.data();
+
+    nombres.push({
+      id: docSnap.id,
+      articulo: datos.articulo
+    });
   });
 
   const datalist = document.getElementById("listaArticulos");
+
   if (datalist) {
+
     datalist.innerHTML = "";
+
     nombres.forEach(a => {
+
       const option = document.createElement("option");
+
       option.value = a.articulo;
+
       datalist.appendChild(option);
     });
   }
 };
 
-// Cargar datos al elegir un artículo
+
+// ==========================================================
+// CARGAR DATOS AL ELEGIR UN ARTÍCULO
+// ==========================================================
+
 document.getElementById("articulo").addEventListener("change", async () => {
-  const nombre = document.getElementById("articulo").value.trim();
+
+  const nombre = document
+    .getElementById("articulo")
+    .value
+    .trim();
+
   if (!nombre) return;
 
   const snapshot = await getDocs(articulosRef);
+
   let encontrado = false;
 
   for (const docSnap of snapshot.docs) {
+
     const datos = docSnap.data();
-    if (datos.articulo.toLowerCase() === nombre.toLowerCase()) {
-      document.getElementById("categoria").value = datos.categoria || '';
-      document.getElementById("cajaPack").value = datos.unixcajapack || ''; // 🔁 actualizamos aquí
-      document.getElementById("idArticulo").value = docSnap.id;
+
+    if (
+      datos.articulo &&
+      datos.articulo.toLowerCase() === nombre.toLowerCase()
+    ) {
+
+      document.getElementById("categoria").value =
+        datos.categoria || "";
+
+      document.getElementById("area").value =
+        datos.area || "";
+
+      document.getElementById("cajaPack").value =
+        datos.unixcajapack ?? "";
+
+      document.getElementById("idArticulo").value =
+        docSnap.id;
+
       encontrado = true;
+
       break;
     }
   }
 
+  // Si el artículo no existe, limpiar los campos
   if (!encontrado) {
-    document.getElementById("categoria").value = '';
-    document.getElementById("cajaPack").value = '';
-    document.getElementById("idArticulo").value = '';
+
+    document.getElementById("categoria").value = "";
+
+    document.getElementById("area").value = "";
+
+    document.getElementById("cajaPack").value = "";
+
+    document.getElementById("idArticulo").value = "";
   }
 });
 
-// Reset al abrir modal
-const modalArticulos = document.getElementById('modalArticulos');
-modalArticulos.addEventListener('show.bs.modal', () => {
+
+// ==========================================================
+// RESET AL ABRIR EL MODAL
+// ==========================================================
+
+const modalArticulos = document.getElementById("modalArticulos");
+
+modalArticulos.addEventListener("show.bs.modal", () => {
+
   document.getElementById("formularioArticulo").reset();
+
   document.getElementById("idArticulo").value = "";
+
+  document.getElementById("alertaArticuloExistente").classList.add("d-none");
 });
 
-// Eliminar artículo
+
+// ==========================================================
+// ELIMINAR ARTÍCULO
+// ==========================================================
+
 document.getElementById("btnEliminarArticulo").addEventListener("click", async () => {
+
   const id = document.getElementById("idArticulo").value;
 
   if (!id) {
+
     mostrarMensaje("⚠️ No se puede eliminar un artículo no guardado.");
+
     return;
   }
 
   const result = await Swal.fire({
-    title: '¿Eliminar artículo?',
+    title: "¿Eliminar artículo?",
     text: "Esta acción no se puede deshacer",
-    icon: 'warning',
+    icon: "warning",
     showCancelButton: true,
-    confirmButtonColor: '#d33',
-    cancelButtonColor: '#aaa',
-    confirmButtonText: 'Sí, eliminar',
-    cancelButtonText: 'Cancelar'
+    confirmButtonColor: "#d33",
+    cancelButtonColor: "#aaa",
+    confirmButtonText: "Sí, eliminar",
+    cancelButtonText: "Cancelar"
   });
 
   if (!result.isConfirmed) return;
 
- try {
-  await deleteDoc(doc(db, "stock-articulos", id));
-  mostrarMensaje("🗑️ Artículo eliminado correctamente");
-  document.getElementById("formularioArticulo").reset();
-  document.getElementById("idArticulo").value = "";
-  cargarListaArticulos();
+  try {
 
-  // 🔴 Cerrar modal de forma segura
-  // const modal = bootstrap.Modal.getInstance(document.getElementById("modalArticulos"));
-  // if (modal) modal.hide();
+    await deleteDoc(
+      doc(db, "stock-articulos", id)
+    );
 
-  // 🔴 Eliminar fondo gris si quedó
- //  document.body.classList.remove('modal-open');
-  // document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+    mostrarMensaje("🗑️ Artículo eliminado correctamente");
 
-} catch (error) {
-  console.error("Error al eliminar:", error);
-  mostrarMensaje("❌ Error al eliminar el artículo");
-}
+    document.getElementById("formularioArticulo").reset();
 
+    document.getElementById("idArticulo").value = "";
+
+    cargarListaArticulos();
+
+    // Se conserva el comportamiento actual del modal.
+
+  } catch (error) {
+
+    console.error("Error al eliminar:", error);
+
+    mostrarMensaje("❌ Error al eliminar el artículo");
+  }
 });
 
-// Cargar lista al iniciar
+
+// ==========================================================
+// CARGAR LISTA Y CATEGORÍAS AL INICIAR
+// ==========================================================
+
 document.addEventListener("DOMContentLoaded", () => {
+
   cargarListaArticulos();
-  cargarCategorias(); // 👈 Agregás esta línea
+
+  cargarCategorias();
 });
+
+
+// ==========================================================
+// ACTUALIZAR CACHÉ AL CERRAR EL MODAL
+// ==========================================================
 
 document.addEventListener("DOMContentLoaded", () => {
 
@@ -1962,24 +2262,40 @@ document.addEventListener("DOMContentLoaded", () => {
 
   modal.addEventListener("hidden.bs.modal", async () => {
 
-    const snapshot = await getDocs(collection(db, "stock-articulos"));
+    try {
 
-    const lista = [];
+      const snapshot = await getDocs(
+        collection(db, "stock-articulos")
+      );
 
-    snapshot.forEach(doc => {
-      lista.push({
-        id: doc.id,
-        ...doc.data()
+      const lista = [];
+
+      snapshot.forEach(docSnap => {
+
+        lista.push({
+          id: docSnap.id,
+          ...docSnap.data()
+        });
       });
-    });
 
-    sessionStorage.setItem("articulosCache", JSON.stringify(lista));
+      sessionStorage.setItem(
+        "articulosCache",
+        JSON.stringify(lista)
+      );
 
-      // 🔄 Forzar que Ingreso y Pedidos vuelvan a cargar artículos
-  sessionStorage.removeItem("articulosOficialesCache");
+      // Forzar que Ingreso y Pedidos vuelvan a cargar artículos
+      sessionStorage.removeItem("articulosOficialesCache");
+
+    } catch (error) {
+
+      console.error(
+        "Error al actualizar la caché de artículos:",
+        error
+      );
+    }
   });
-
 });
+
 //finaliza articulos
 
 // Carga salones

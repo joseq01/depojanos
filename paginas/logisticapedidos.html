@@ -967,29 +967,84 @@ th.filtro-activo::after {
 <div class="modal fade" id="modalPedidosPendientes" tabindex="-1" aria-labelledby="modalPedidosPendientesLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered modal-lg">
     <div class="modal-content position-relative p-4">
-      <button type="button" class="btn-close position-absolute top-0 end-0 m-3" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-      <h5 class="modal-title mb-3" id="modalPedidosPendientesLabel">Agregar Pedidos Pendientes</h5>
+
+      <button type="button"
+        class="btn-close position-absolute top-0 end-0 m-3"
+        data-bs-dismiss="modal"
+        aria-label="Cerrar">
+      </button>
+
+      <h5 class="modal-title mb-3" id="modalPedidosPendientesLabel">
+        Agregar Pedidos Pendientes
+      </h5>
 
       <!-- Título del pedido -->
       <div class="mb-3">
-        <label for="tituloPedidoPendiente" class="form-label">Título del pedido</label>
-        <input type="text" class="form-control" id="tituloPedidoPendiente" placeholder="Ej: Pedido Fiesta Juan" list="listaPedidosPendientes">
+        <label for="tituloPedidoPendiente" class="form-label">
+          Título del pedido
+        </label>
+
+        <input
+          type="text"
+          class="form-control"
+          id="tituloPedidoPendiente"
+          placeholder="Ej: Pedido Fiesta Juan"
+          list="listaPedidosPendientes">
+
         <datalist id="listaPedidosPendientes"></datalist>
       </div>
 
+      <!-- Listado de artículos -->
       <div id="contenedorPedidosPendientes" class="mb-3"></div>
 
-     <div class="d-flex justify-content-between mt-3">
-   <button class="btn btn-secondary" onclick="agregarFilaPendiente()">Agregar artículo</button>
-  <div>
-    <button class="btn btn-success me-2" onclick="enviarPedidoATabla()">Enviar Pedido</button>
-    <button class="btn btn-primary" onclick="guardarPedidosPendientes()">Guardar Pedido</button>
-  <button class="btn btn-warning" onclick="eliminarPedidoPendiente()">Eliminar Pedido</button>
+      <!-- Botones -->
+      <div class="d-flex justify-content-between mt-3 flex-wrap gap-2">
+
+        <div class="d-flex gap-2">
+          <button
+            type="button"
+            class="btn btn-secondary"
+            onclick="agregarFilaPendiente()">
+            + Agregar artículo
+          </button>
+
+          <button
+            type="button"
+            class="btn btn-info text-white"
+            onclick="agregarComboPendiente()">
+            + Agregar combo
+          </button>
+        </div>
+
+        <div class="d-flex flex-wrap gap-2">
+          <button
+            type="button"
+            class="btn btn-success"
+            onclick="enviarPedidoATabla()">
+            Enviar Pedido
+          </button>
+
+          <button
+            type="button"
+            class="btn btn-primary"
+            onclick="guardarPedidosPendientes()">
+            Guardar Pedido
+          </button>
+
+          <button
+            type="button"
+            class="btn btn-warning"
+            onclick="eliminarPedidoPendiente()">
+            Eliminar Pedido
+          </button>
+        </div>
+
+      </div>
+
+    </div>
   </div>
 </div>
-  </div>
-</div>
-</div> <!-- cierre modal -->
+<!-- Cierre modal -->
 
   <div id="mensaje-eliminado" style="
   display: none;
@@ -3231,197 +3286,1557 @@ window.agregarFilaPendiente = async function () {
 };
 
 // ✅ Guardar pedidos pendientes en LocalStorage con fecha
-window.guardarPedidosPendientes = function() {
-  const titulo = document.getElementById("tituloPedidoPendiente").value.trim();
-  if (!titulo) {
-    Swal.fire({ icon: "warning", text: "Debe ingresar un título para el pedido." });
-    return;
-  }
 
-  const filas = document.querySelectorAll("#contenedorPedidosPendientes .fila-pendiente");
-  if (filas.length === 0) {
-    Swal.fire({ icon: "warning", text: "Agrega al menos un artículo." });
-    return;
-  }
 
-  const articulos = [];
-  filas.forEach(fila => {
-    const articulo = fila.querySelector(".input-articulo").value.trim();
-    const unidades = parseInt(fila.querySelector(".input-unidades").value) || 0;
-    const cajas = parseInt(fila.querySelector(".input-caja-pack").value) || 0;
+let guardandoPedidoPendiente = false;
 
-    if (articulo && (unidades > 0 || cajas > 0)) {
-      articulos.push({ articulo, unidades, cajas });
+window.guardarPedidosPendientes = async function () {
+
+    if (guardandoPedidoPendiente) return;
+
+    const tituloInput = document.getElementById("tituloPedidoPendiente");
+    const titulo = tituloInput.value.trim();
+    const origen = sessionStorage.getItem("salon") || "";
+
+    if (!titulo || !origen) {
+        await Swal.fire({
+            icon: "warning",
+            text: !titulo
+                ? "Debe ingresar un título para el pedido."
+                : "No se pudo identificar el salón de origen."
+        });
+        return;
     }
-  });
 
-  if (articulos.length === 0) {
-    Swal.fire({ icon: "warning", text: "Debe haber al menos un artículo válido." });
-    return;
-  }
+    const filas = document.querySelectorAll(
+        "#contenedorPedidosPendientes .fila-pendiente"
+    );
 
-  let pedidos = obtenerPedidosPendientes(); // ✅ Filtrados y vigentes
-  const index = pedidos.findIndex(p => p.titulo === titulo);
+    if (!filas.length) {
+        await Swal.fire({
+            icon: "warning",
+            text: "Agrega al menos un artículo."
+        });
+        return;
+    }
 
-  if (index >= 0) {
-    pedidos[index].articulos = articulos;
-    pedidos[index].fecha = Date.now();
-  } else {
-    pedidos.push({ titulo, articulos, fecha: Date.now() });
-  }
+    const agrupados = {};
 
-  guardarPedidosEnLocalStorage(pedidos);
-  actualizarDatalistPedidos();
+    for (const fila of filas) {
 
-  Swal.fire({ icon: "success", text: "Pedido guardado en el dispositivo." });
+        const articulo = fila.querySelector(".input-articulo").value.trim();
 
-  // Limpiar campos
-  document.getElementById("tituloPedidoPendiente").value = "";
-  document.getElementById("contenedorPedidosPendientes").innerHTML = "";
+        const unidades = Number(
+            fila.querySelector(".input-unidades").value
+        ) || 0;
+
+        const cajas = Number(
+            fila.querySelector(".input-caja-pack").value
+        ) || 0;
+
+        if (
+            !articulo ||
+            unidades < 0 ||
+            cajas < 0 ||
+            !Number.isInteger(unidades) ||
+            !Number.isInteger(cajas)
+        ) {
+            await Swal.fire({
+                icon: "warning",
+                text: "Revisa los artículos y las cantidades ingresadas."
+            });
+            return;
+        }
+
+        if (unidades === 0 && cajas === 0) continue;
+
+        if (!agrupados[articulo]) {
+            agrupados[articulo] = {
+                articulo,
+                unidades: 0,
+                cajas: 0
+            };
+        }
+
+        agrupados[articulo].unidades += unidades;
+        agrupados[articulo].cajas += cajas;
+    }
+
+    const articulos = Object.values(agrupados);
+
+    if (!articulos.length) {
+        await Swal.fire({
+            icon: "warning",
+            text: "Debe haber al menos un artículo válido."
+        });
+        return;
+    }
+
+    const boton = document.querySelector(
+        '#modalPedidosPendientes button[onclick="guardarPedidosPendientes()"]'
+    );
+
+    guardandoPedidoPendiente = true;
+
+    if (boton) boton.disabled = true;
+
+    let stockOriginal = {};
+    let stockModificado = false;
+    let pedidoDocRef = null;
+    let datosPedidoGuardados = false;
+
+    try {
+
+        // 1. Buscar el pedido anterior.
+        const pedidosRef = collection(db, "stock-reservadas");
+
+        const snapshotExistente = await getDocs(
+            query(
+                pedidosRef,
+                where("tipo", "==", "pedido-pendiente"),
+                where("titulo", "==", titulo),
+                where("origen", "==", origen)
+            )
+        );
+
+        if (snapshotExistente.docs.length > 1) {
+            throw new Error(
+                "Hay más de un pedido con ese título y salón de origen."
+            );
+        }
+
+        let pedidoAnterior = null;
+
+        if (!snapshotExistente.empty) {
+            pedidoDocRef = snapshotExistente.docs[0].ref;
+            pedidoAnterior = snapshotExistente.docs[0].data();
+        }
+
+        // 2. Obtener el stock una sola vez.
+        const stockDisponible = await obtenerStockTotal();
+
+        // 3. Obtener los datos de los artículos en grupos.
+        const datosArticulos = {};
+
+        const nombres = articulos.map(item => item.articulo);
+
+        for (let i = 0; i < nombres.length; i += 30) {
+
+            const grupo = nombres.slice(i, i + 30);
+
+            const artSnap = await getDocs(
+                query(
+                    collection(db, "stock-articulos"),
+                    where("articulo", "in", grupo)
+                )
+            );
+
+            artSnap.forEach(docArt => {
+
+                const datos = docArt.data();
+
+                if (!datosArticulos[datos.articulo]) {
+                    datosArticulos[datos.articulo] = {
+                        unixcajapack:
+                            parseInt(datos.unixcajapack, 10) || 0
+                    };
+                }
+            });
+        }
+
+        // Validar todos los artículos antes de modificar stock.
+        for (const item of articulos) {
+
+            if (!datosArticulos[item.articulo]) {
+                throw new Error(
+                    `El artículo "${item.articulo}" no existe en stock-articulos.`
+                );
+            }
+
+            if (!stockDisponible[item.articulo]) {
+                throw new Error(
+                    `No existe "${item.articulo}" en stock-total.`
+                );
+            }
+        }
+
+        // 4. Copiar el stock original para poder revertir si falla.
+        for (const item of articulos) {
+
+            const salones =
+                stockDisponible[item.articulo].salones || {};
+
+            stockOriginal[item.articulo] = JSON.parse(
+                JSON.stringify(salones)
+            );
+        }
+
+        // Incluir también artículos de la reserva anterior que ya no estén
+        // en las filas nuevas.
+        if (pedidoAnterior) {
+
+            for (const anterior of (pedidoAnterior.articulos || [])) {
+
+                const articulo = anterior.articulo;
+
+                if (stockOriginal[articulo]) continue;
+
+                if (!stockDisponible[articulo]) {
+                    throw new Error(
+                        `No existe "${articulo}" en stock-total. No se modificó la reserva.`
+                    );
+                }
+
+                stockOriginal[articulo] = JSON.parse(
+                    JSON.stringify(
+                        stockDisponible[articulo].salones || {}
+                    )
+                );
+
+                if (!datosArticulos[articulo]) {
+                    throw new Error(
+                        `No existe "${articulo}" en stock-articulos.`
+                    );
+                }
+            }
+        }
+
+        // 5. Restaurar en memoria la reserva anterior.
+        if (pedidoAnterior) {
+
+            for (const anterior of (pedidoAnterior.articulos || [])) {
+
+                const articulo = anterior.articulo;
+                const pack = datosArticulos[articulo].unixcajapack;
+
+                const salones =
+                    stockDisponible[articulo].salones || {};
+
+                const actual = salones[origen] || {
+                    unidades: 0,
+                    cajas: 0
+                };
+
+                let unidades =
+                    Number(actual.unidades) || 0;
+
+                let cajas =
+                    Number(actual.cajas) || 0;
+
+                const unidadesAnteriores =
+                    Number(anterior.unidadesReservadas) || 0;
+
+                const cajasAnteriores =
+                    Number(anterior.cajasReservadas) || 0;
+
+                if (pack > 0) {
+
+                    unidades +=
+                        unidadesAnteriores +
+                        (cajasAnteriores * pack);
+
+                    cajas += Math.floor(unidades / pack);
+
+                    unidades = unidades % pack;
+
+                } else {
+
+                    unidades += unidadesAnteriores;
+                    cajas += cajasAnteriores;
+                }
+
+                salones[origen] = { unidades, cajas };
+
+                stockDisponible[articulo].salones = salones;
+            }
+        }
+
+        // 6. Calcular las nuevas reservas.
+        const articulosGuardados = [];
+
+        for (const item of articulos) {
+
+            const articulo = item.articulo;
+
+            const pack =
+                datosArticulos[articulo].unixcajapack;
+
+            const salones =
+                stockDisponible[articulo].salones || {};
+
+            const actual = salones[origen] || {
+                unidades: 0,
+                cajas: 0
+            };
+
+            let unidadesDisponibles =
+                Number(actual.unidades) || 0;
+
+            let cajasDisponibles =
+                Number(actual.cajas) || 0;
+
+            let unidadesReservadas = 0;
+            let cajasReservadas = 0;
+
+            let unidadesPendientes = 0;
+            let cajasPendientes = 0;
+
+            if (pack > 0) {
+
+                // Todo se calcula en unidades equivalentes.
+                const unidadesSolicitadas =
+                    item.unidades + (item.cajas * pack);
+
+                const totalDisponible =
+                    unidadesDisponibles +
+                    (cajasDisponibles * pack);
+
+                unidadesReservadas = Math.min(
+                    unidadesSolicitadas,
+                    totalDisponible
+                );
+
+                unidadesPendientes = Math.max(
+                    0,
+                    unidadesSolicitadas - unidadesReservadas
+                );
+
+                // Descontar las unidades reservadas.
+                let faltan =
+                    unidadesReservadas - unidadesDisponibles;
+
+                if (faltan > 0) {
+
+                    const cajasNecesarias =
+                        Math.ceil(faltan / pack);
+
+                    cajasDisponibles -= cajasNecesarias;
+                    unidadesDisponibles += cajasNecesarias * pack;
+                }
+
+                unidadesDisponibles -= unidadesReservadas;
+
+                // Normalizar el sobrante en cajas completas.
+                if (unidadesDisponibles >= pack) {
+
+                    const cajasExtra =
+                        Math.floor(unidadesDisponibles / pack);
+
+                    cajasDisponibles += cajasExtra;
+                    unidadesDisponibles %= pack;
+                }
+
+                cajasReservadas = 0;
+                cajasPendientes = 0;
+
+            } else {
+
+                // Artículos sin equivalencia de caja:
+                // reservar unidades y cajas por separado.
+                unidadesReservadas = Math.min(
+                    item.unidades,
+                    unidadesDisponibles
+                );
+
+                unidadesDisponibles -= unidadesReservadas;
+
+                cajasReservadas = Math.min(
+                    item.cajas,
+                    cajasDisponibles
+                );
+
+                cajasDisponibles -= cajasReservadas;
+
+                unidadesPendientes =
+                    item.unidades - unidadesReservadas;
+
+                cajasPendientes =
+                    item.cajas - cajasReservadas;
+            }
+
+            salones[origen] = {
+                unidades: unidadesDisponibles,
+                cajas: cajasDisponibles
+            };
+
+            stockDisponible[articulo].salones = salones;
+
+            articulosGuardados.push({
+                articulo,
+
+                unidades: item.unidades,
+                cajas: item.cajas,
+
+                unidadesReservadas,
+                cajasReservadas,
+
+                unidadesPendientes,
+                cajasPendientes
+            });
+        }
+
+        // 7. Actualizar cada documento de stock-total una sola vez.
+        const articulosAActualizar = [
+            ...new Set([
+                ...articulos.map(item => item.articulo),
+                ...(pedidoAnterior?.articulos || []).map(
+                    item => item.articulo
+                )
+            ])
+        ];
+
+        for (const articulo of articulosAActualizar) {
+
+            const referencia = doc(
+                db,
+                "stock-total",
+                articulo
+            );
+
+            await updateDoc(referencia, {
+                salones: stockDisponible[articulo].salones || {}
+            });
+
+            stockModificado = true;
+        }
+
+        // 8. Guardar la nueva reserva.
+        const datosPedido = {
+            tipo: "pedido-pendiente",
+            titulo,
+            origen,
+            articulos: articulosGuardados,
+            fecha: Timestamp.fromDate(new Date()),
+            usuario: sessionStorage.getItem("usuario") || ""
+        };
+
+        if (pedidoDocRef) {
+            await updateDoc(pedidoDocRef, datosPedido);
+        } else {
+            await addDoc(pedidosRef, datosPedido);
+        }
+
+        datosPedidoGuardados = true;
+
+        // 9. Actualizar pantalla.
+        await actualizarDatalistPedidos();
+
+        tituloInput.value = "";
+
+        document.getElementById(
+            "contenedorPedidosPendientes"
+        ).innerHTML = "";
+
+        await Swal.fire({
+            icon: "success",
+            title: "Pedido guardado",
+            text: "Se reservaron las cantidades disponibles. Los faltantes quedaron pendientes."
+        });
+
+    } catch (error) {
+
+        console.error(
+            "Error guardando pedido pendiente:",
+            error
+        );
+
+        // Revertir el stock si falló la operación.
+        if (stockModificado && !datosPedidoGuardados) {
+
+            const articulosReversion = Object.keys(stockOriginal);
+
+            for (const articulo of articulosReversion) {
+
+                try {
+
+                    await updateDoc(
+                        doc(db, "stock-total", articulo),
+                        {
+                            salones: stockOriginal[articulo]
+                        }
+                    );
+
+                } catch (errorReversion) {
+
+                    console.error(
+                        `No se pudo restaurar el stock de ${articulo}:`,
+                        errorReversion
+                    );
+                }
+            }
+        }
+
+        await Swal.fire({
+            icon: "error",
+            title: "Error",
+            text: error.message ||
+                "No se pudo guardar el pedido pendiente."
+        });
+
+    } finally {
+
+        guardandoPedidoPendiente = false;
+
+        if (boton) boton.disabled = false;
+    }
 };
 
-// ✅ Enviar pedido a la tabla con validación de stock
-window.enviarPedidoATabla = async function () {
-  const titulo = document.getElementById("tituloPedidoPendiente").value.trim();
-  if (!titulo) {
-    Swal.fire({ icon: "warning", text: "Debe seleccionar un pedido para enviar." });
-    return;
-  }
 
-  const pedidos = obtenerPedidosPendientes();
-  const pedido = pedidos.find(p => p.titulo === titulo);
 
-  if (!pedido || pedido.articulos.length === 0) {
-    Swal.fire({ icon: "warning", text: "El pedido seleccionado no tiene artículos." });
-    return;
-  }
+window.agregarComboPendiente = async function () {
+    try {
+        // Cargar combos desde Firestore.
+        const combosRef = collection(db, "stock-combos");
+        const combosSnap = await getDocs(combosRef);
 
-  const destino = document.getElementById("salonDestino").value.trim();
-  if (!destino) {
-    Swal.fire({ icon: "warning", text: "Debe seleccionar un salón destino antes de enviar el pedido." });
-    return;
-  }
+        if (combosSnap.empty) {
+            await Swal.fire({
+                icon: "info",
+                title: "Sin combos",
+                text: "No hay combos cargados."
+            });
+            return;
+        }
 
-  const result = await Swal.fire({
-    title: `¿Enviar "${titulo}" a la tabla de pedidos?`,
-    text: "Se aplicarán las validaciones de stock para cada artículo.",
-    icon: "question",
-    showCancelButton: true,
-    confirmButtonText: "Sí, enviar",
-    cancelButtonText: "Cancelar"
-  });
+        const opciones = {};
 
-  if (!result.isConfirmed) return;
+        combosSnap.forEach(docCombo => {
+            const datos = docCombo.data();
+            const nombre = datos.titulo || datos.nombre || docCombo.id;
 
-  for (const item of pedido.articulos) {
-    document.getElementById("articulo").value = item.articulo;
-    document.getElementById("unidades").value = item.unidades;
-    document.getElementById("cajas").value = item.cajas;
-   /*  document.getElementById("notas").value = `Pendiente: ${titulo}`; */
+            opciones[docCombo.id] = nombre;
+        });
 
-    await agregarArticulo(); // ✅ Validaciones de stock
-  }
+        const seleccion = await Swal.fire({
+            title: "Seleccionar combo",
+            input: "select",
+            inputOptions: opciones,
+            inputPlaceholder: "Elegí un combo",
+            showCancelButton: true,
+            confirmButtonText: "Agregar",
+            cancelButtonText: "Cancelar",
+            inputValidator: valor => {
+                if (!valor) {
+                    return "Tenés que seleccionar un combo.";
+                }
+            }
+        });
 
-  // ✅ Eliminar el pedido después de enviarlo
-  const nuevosPedidos = pedidos.filter(p => p.titulo !== titulo);
-  guardarPedidosEnLocalStorage(nuevosPedidos);
-  actualizarDatalistPedidos();
+        if (!seleccion.isConfirmed || !seleccion.value) return;
 
-  // Limpiar y cerrar modal
-  document.getElementById("tituloPedidoPendiente").value = "";
-  document.getElementById("contenedorPedidosPendientes").innerHTML = "";
-  const modal = bootstrap.Modal.getInstance(document.getElementById("modalPedidosPendientes"));
-  modal.hide();
+        const comboDoc = combosSnap.docs.find(
+            docCombo => docCombo.id === seleccion.value
+        );
 
-  Swal.fire({ icon: "success", text: "Pedido enviado a la tabla." });
+        if (!comboDoc) return;
+
+        const productos = comboDoc.data().productos || [];
+
+        if (!productos.length) {
+            await Swal.fire({
+                icon: "warning",
+                text: "Este combo no contiene artículos."
+            });
+            return;
+        }
+
+        const contenedor = document.getElementById(
+            "contenedorPedidosPendientes"
+        );
+
+        productos.forEach(producto => {
+            const fila = document.createElement("div");
+
+            fila.classList.add(
+                "fila-pendiente",
+                "d-flex",
+                "gap-2",
+                "mb-2"
+            );
+
+            const datalistId =
+                "lista-articulos-" + Math.random().toString(36).substring(7);
+
+            fila.innerHTML = `
+                <input
+                    type="text"
+                    class="form-control input-articulo"
+                    list="${datalistId}"
+                    placeholder="Artículo"
+                    value="${producto.articulo || ""}"
+                    readonly
+                >
+
+                <datalist id="${datalistId}"></datalist>
+
+                <input
+                    type="number"
+                    class="form-control input-unidades"
+                    placeholder="Unidades"
+                    style="width: 100px;"
+                    min="0"
+                    value="${Number(producto.unidades) || 0}"
+                >
+
+                <input
+                    type="number"
+                    class="form-control input-caja-pack"
+                    placeholder="Caja/Pack"
+                    style="width: 100px;"
+                    min="0"
+                    value="${Number(producto.cajaPack) || 0}"
+                >
+
+                <button
+                    type="button"
+                    class="btn btn-danger"
+                    onclick="this.parentElement.remove()"
+                >🗑</button>
+            `;
+
+            contenedor.appendChild(fila);
+        });
+
+    } catch (error) {
+        console.error("Error agregando combo pendiente:", error);
+
+        Swal.fire({
+            icon: "error",
+            title: "Error",
+            text: "No se pudo cargar el combo."
+        });
+    }
 };
 
-// ✅ Botón para eliminar manualmente un pendiente completo
-window.eliminarPedidoPendiente = function () {
-  const titulo = document.getElementById("tituloPedidoPendiente").value.trim();
-  if (!titulo) return;
+// ======================================================
+// RESTAURAR EL STOCK DE UN PEDIDO PENDIENTE
+// ======================================================
+async function restaurarStockPedidoPendiente(pedido) {
+    const origen = pedido.origen || "";
 
-  Swal.fire({
-    title: `¿Eliminar el pedido "${titulo}"?`,
-    text: "Esta acción no se puede deshacer.",
-    icon: "warning",
-    showCancelButton: true,
-    confirmButtonText: "Eliminar",
-    cancelButtonText: "Cancelar"
-  }).then(result => {
-    if (!result.isConfirmed) return;
+    for (const item of (pedido.articulos || [])) {
+        const unidades = Number(item.unidadesReservadas) || 0;
+        const cajas = Number(item.cajasReservadas) || 0;
 
-    const pedidos = obtenerPedidosPendientes().filter(p => p.titulo !== titulo);
-    guardarPedidosEnLocalStorage(pedidos);
-    actualizarDatalistPedidos();
+        if (unidades > 0 || cajas > 0) {
+            await restaurarStockTotal(
+                item.articulo,
+                unidades,
+                cajas,
+                origen
+            );
+        }
+    }
+}
 
-    // Limpiar inputs
-    document.getElementById("tituloPedidoPendiente").value = "";
-    document.getElementById("contenedorPedidosPendientes").innerHTML = "";
 
-    Swal.fire({ icon: "success", text: "Pedido eliminado." });
-  });
+// ======================================================
+// GUARDAR PEDIDO PENDIENTE
+// Al editar, primero devuelve la reserva anterior.
+// ======================================================
+window.guardarPedidosPendientes = async function () {
+    const boton = document.querySelector(
+        '#modalPedidosPendientes button[onclick="guardarPedidosPendientes()"]'
+    );
+
+    if (window.guardandoPedidoPendiente) return;
+    window.guardandoPedidoPendiente = true;
+
+    if (boton) boton.disabled = true;
+
+    let pedidoAnterior = null;
+    let reservaAnteriorRestaurada = false;
+
+    try {
+        const titulo = document
+            .getElementById("tituloPedidoPendiente")
+            .value.trim();
+
+        const origen = sessionStorage.getItem("salon") || "";
+
+        if (!titulo || !origen) {
+            throw new Error(
+                !titulo
+                    ? "Debe ingresar un título para el pedido."
+                    : "No se pudo identificar el salón de origen."
+            );
+        }
+
+        const filas = document.querySelectorAll(
+            "#contenedorPedidosPendientes .fila-pendiente"
+        );
+
+        const agrupados = {};
+
+        filas.forEach(fila => {
+            const articulo = fila
+                .querySelector(".input-articulo")
+                .value.trim();
+
+            const unidades = Math.max(
+                0,
+                parseInt(fila.querySelector(".input-unidades").value) || 0
+            );
+
+            const cajas = Math.max(
+                0,
+                parseInt(fila.querySelector(".input-caja-pack").value) || 0
+            );
+
+            if (!articulo || (!unidades && !cajas)) return;
+
+            if (!agrupados[articulo]) {
+                agrupados[articulo] = {
+                    articulo,
+                    unidades: 0,
+                    cajas: 0
+                };
+            }
+
+            agrupados[articulo].unidades += unidades;
+            agrupados[articulo].cajas += cajas;
+        });
+
+        const articulos = Object.values(agrupados);
+
+        if (!articulos.length) {
+            throw new Error("Debe agregar al menos un artículo válido.");
+        }
+
+        const pedidosRef = collection(db, "stock-reservadas");
+
+        const existentes = await getDocs(
+            query(
+                pedidosRef,
+                where("tipo", "==", "pedido-pendiente"),
+                where("titulo", "==", titulo),
+                where("origen", "==", origen)
+            )
+        );
+
+        if (!existentes.empty) {
+            pedidoAnterior = existentes.docs[0];
+
+            // Devolver la reserva anterior antes de recalcularla.
+            await restaurarStockPedidoPendiente(pedidoAnterior.data());
+            reservaAnteriorRestaurada = true;
+        }
+
+        const articulosGuardados = [];
+
+        for (const item of articulos) {
+            // Leer el stock actualizado después de restaurar la reserva anterior.
+            const stockActual = await obtenerStockTotal();
+            const stockSalon =
+                stockActual[item.articulo]?.salones?.[origen] || {};
+
+            const unidadesDisponibles = Math.max(
+                0,
+                Number(stockSalon.unidades) || 0
+            );
+
+            const cajasDisponibles = Math.max(
+                0,
+                Number(stockSalon.cajas) || 0
+            );
+
+            const artSnap = await getDocs(
+                query(
+                    collection(db, "stock-articulos"),
+                    where("articulo", "==", item.articulo)
+                )
+            );
+
+            const unidadesPorCaja = !artSnap.empty
+                ? parseInt(artSnap.docs[0].data().unixcajapack, 10) || 0
+                : 0;
+
+            // Reservar las cajas solicitadas que estén disponibles.
+            const cajasReservadas = Math.min(
+                item.cajas,
+                cajasDisponibles
+            );
+
+            // Las unidades pueden salir de unidades sueltas o de cajas
+            // que no se hayan utilizado para cubrir las cajas solicitadas.
+            const cajasLibres = Math.max(
+                0,
+                cajasDisponibles - cajasReservadas
+            );
+
+            const capacidadUnidades =
+                unidadesDisponibles +
+                (unidadesPorCaja > 0 ? cajasLibres * unidadesPorCaja : 0);
+
+            const unidadesReservadas = Math.min(
+                item.unidades,
+                capacidadUnidades
+            );
+
+            if (unidadesReservadas > 0 || cajasReservadas > 0) {
+                await descontarStock(
+                    item.articulo,
+                    unidadesReservadas,
+                    cajasReservadas,
+                    origen
+                );
+            }
+
+            articulosGuardados.push({
+                articulo: item.articulo,
+                unidades: item.unidades,
+                cajas: item.cajas,
+                unidadesReservadas,
+                cajasReservadas,
+                unidadesPendientes: item.unidades - unidadesReservadas,
+                cajasPendientes: item.cajas - cajasReservadas
+            });
+        }
+
+        const datosPedido = {
+            tipo: "pedido-pendiente",
+            titulo,
+            origen,
+            articulos: articulosGuardados,
+            fecha: Timestamp.fromDate(new Date()),
+            usuario: sessionStorage.getItem("usuario") || ""
+        };
+
+        if (pedidoAnterior) {
+            await updateDoc(pedidoAnterior.ref, datosPedido);
+        } else {
+            await addDoc(pedidosRef, datosPedido);
+        }
+
+        await actualizarDatalistPedidos();
+
+        document.getElementById("tituloPedidoPendiente").value = "";
+        document.getElementById("contenedorPedidosPendientes").innerHTML = "";
+
+        await Swal.fire({
+            icon: "success",
+            title: "Pedido guardado",
+            text: "Se reservó el stock disponible y se guardaron los faltantes."
+        });
+
+    } catch (error) {
+        console.error("Error guardando pedido pendiente:", error);
+
+        // Si la reserva anterior se restauró pero no se pudo completar
+        // el guardado, se informa el error para evitar ocultar el problema.
+        await Swal.fire({
+            icon: "error",
+            title: "No se pudo guardar",
+            text: error.message || "Ocurrió un error al guardar el pedido."
+        });
+
+    } finally {
+        window.guardandoPedidoPendiente = false;
+        if (boton) boton.disabled = false;
+    }
 };
 
-// ✅ Filtra pedidos vencidos (>7 días) al cargarlos
-function obtenerPedidosPendientes() {
-  const pedidos = JSON.parse(localStorage.getItem("pedidosPendientes") || "[]");
-  const ahora = Date.now();
-  const unaSemana = 7 * 24 * 60 * 60 * 1000;
 
-  const pedidosVigentes = pedidos.filter(p => (ahora - (p.fecha || 0)) < unaSemana);
+// ======================================================
+// ELIMINAR PEDIDO PENDIENTE DE FIRESTORE Y DEVOLVER STOCK
+// ======================================================
 
-  // Si eliminamos pedidos vencidos, actualizar storage
-  if (pedidosVigentes.length !== pedidos.length) {
-    guardarPedidosEnLocalStorage(pedidosVigentes);
-  }
 
-  return pedidosVigentes;
-}
+window.eliminarPedidoPendiente = async function () {
 
-function guardarPedidosEnLocalStorage(pedidos) {
-  localStorage.setItem("pedidosPendientes", JSON.stringify(pedidos));
-}
+    if (window.eliminandoPedidoPendiente) return;
 
-function actualizarDatalistPedidos() {
-  const lista = document.getElementById("listaPedidosPendientes");
-  if (!lista) return;
+    const inputTitulo = document.getElementById("tituloPedidoPendiente");
+    const contenedor = document.getElementById("contenedorPedidosPendientes");
 
-  lista.innerHTML = "";
-  const pedidos = obtenerPedidosPendientes();
-  pedidos.forEach(p => {
-    const option = document.createElement("option");
-    option.value = p.titulo;
-    lista.appendChild(option);
-  });
-}
+    const titulo = inputTitulo.value.trim();
+    const origen = sessionStorage.getItem("salon") || "";
 
-// ✅ Mostrar artículos al seleccionar título
-document.getElementById("tituloPedidoPendiente").addEventListener("change", () => {
-  const titulo = document.getElementById("tituloPedidoPendiente").value.trim();
-  const pedidos = obtenerPedidosPendientes();
-  const pedido = pedidos.find(p => p.titulo === titulo);
+    if (!titulo || !origen) return;
 
-  const contenedor = document.getElementById("contenedorPedidosPendientes");
-  contenedor.innerHTML = "";
-
-  if (pedido) {
-    pedido.articulos.forEach(art => {
-      const fila = document.createElement("div");
-      fila.classList.add("fila-pendiente", "d-flex", "gap-2", "mb-2");
-      fila.innerHTML = `
-        <input type="text" class="form-control input-articulo" value="${art.articulo}">
-        <input type="number" class="form-control input-unidades" value="${art.unidades}" style="width: 100px;">
-        <input type="number" class="form-control input-caja-pack" value="${art.cajas}" style="width: 100px;">
-        <button class="btn btn-danger" onclick="this.parentElement.remove()">🗑</button>
-      `;
-      contenedor.appendChild(fila);
+    const resultado = await Swal.fire({
+        title: `¿Eliminar el pedido "${titulo}"?`,
+        text: "Se devolverá el stock reservado y se eliminará de Firestore.",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: "Eliminar",
+        cancelButtonText: "Cancelar"
     });
-  }
-});
 
-// ✅ Inicializar datalist al cargar la página
-document.addEventListener("DOMContentLoaded", actualizarDatalistPedidos);
+    if (!resultado.isConfirmed) return;
+
+    window.eliminandoPedidoPendiente = true;
+
+    let pedidoRef = null;
+    let devolucionIniciada = false;
+
+    try {
+
+        const pedidosSnap = await getDocs(
+            query(
+                collection(db, "stock-reservadas"),
+                where("tipo", "==", "pedido-pendiente"),
+                where("titulo", "==", titulo),
+                where("origen", "==", origen)
+            )
+        );
+
+        if (pedidosSnap.empty) {
+            throw new Error("No se encontró el pedido en stock-reservadas.");
+        }
+
+        if (pedidosSnap.docs.length > 1) {
+            throw new Error(
+                "Hay más de un pedido con ese título. No se eliminó ninguno."
+            );
+        }
+
+        const pedidoDoc = pedidosSnap.docs[0];
+        pedidoRef = pedidoDoc.ref;
+
+        const pedido = pedidoDoc.data();
+
+        // Evitar procesar dos veces una devolución.
+        if (pedido.estadoEliminacion === "en-proceso") {
+            throw new Error(
+                "Este pedido tiene una eliminación pendiente de revisión. No se devolverá stock nuevamente."
+            );
+        }
+
+        // Marcar el pedido antes de comenzar las devoluciones.
+        await updateDoc(pedidoRef, {
+            estadoEliminacion: "en-proceso",
+            fechaInicioEliminacion: Timestamp.fromDate(new Date())
+        });
+
+        devolucionIniciada = true;
+
+        // Devolver exclusivamente las cantidades reservadas.
+        for (const item of (pedido.articulos || [])) {
+
+            const unidades =
+                Number(item.unidadesReservadas) || 0;
+
+            const cajas =
+                Number(item.cajasReservadas) || 0;
+
+            if (unidades === 0 && cajas === 0) continue;
+
+            if (!item.articulo) {
+                throw new Error(
+                    "Hay un artículo sin identificar en el pedido."
+                );
+            }
+
+            await restaurarStockTotal(
+                item.articulo,
+                unidades,
+                cajas,
+                pedido.origen
+            );
+        }
+
+        // Eliminar el pedido únicamente después de devolver todo el stock.
+        await deleteDoc(pedidoRef);
+
+        await actualizarDatalistPedidos();
+
+        inputTitulo.value = "";
+        contenedor.innerHTML = "";
+
+        await Swal.fire({
+            icon: "success",
+            title: "Pedido eliminado",
+            text: "Stock devuelto correctamente."
+        });
+
+    } catch (error) {
+
+        console.error(
+            "Error eliminando pedido pendiente:",
+            error
+        );
+
+        // Si comenzó la devolución, no habilitar un nuevo intento
+        // automático que pueda devolver stock duplicado.
+        if (devolucionIniciada && pedidoRef) {
+            console.error(
+                "El pedido quedó marcado en Firestore para revisión manual."
+            );
+        }
+
+        await Swal.fire({
+            icon: "error",
+            title: "No se pudo eliminar",
+            text: error.message
+        });
+
+    } finally {
+        window.eliminandoPedidoPendiente = false;
+    }
+};
+
+
+// FINALIZA GUARDAR PENDIENTES
+
+
+// Evita cargas simultáneas del mismo pedido.
+let temporizadorCargaPendiente = null;
+let cargandoPedidoPendiente = false;
+
+// Actualizar títulos disponibles desde Firestore.
+window.actualizarDatalistPedidos = async function () {
+    const datalist = document.getElementById("listaPedidosPendientes");
+    if (!datalist) return;
+
+    try {
+        const origen = sessionStorage.getItem("salon") || "";
+
+        const consulta = query(
+            collection(db, "stock-reservadas"),
+            where("tipo", "==", "pedido-pendiente"),
+            where("origen", "==", origen)
+        );
+
+        const snapshot = await getDocs(consulta);
+
+        datalist.innerHTML = "";
+
+        snapshot.forEach(docReserva => {
+            const datos = docReserva.data();
+
+            if (datos.titulo) {
+                const opcion = document.createElement("option");
+                opcion.value = datos.titulo;
+                datalist.appendChild(opcion);
+            }
+        });
+
+    } catch (error) {
+        console.error("Error cargando pedidos pendientes:", error);
+    }
+};
+
+// Cargar artículos del pedido seleccionado desde Firestore.
+async function cargarPedidoPendiente(titulo) {
+    if (cargandoPedidoPendiente) return;
+
+    const contenedor = document.getElementById(
+        "contenedorPedidosPendientes"
+    );
+
+    if (!titulo) {
+        contenedor.innerHTML = "";
+        return;
+    }
+
+    cargandoPedidoPendiente = true;
+
+    try {
+        const origen = sessionStorage.getItem("salon") || "";
+
+        const consulta = query(
+            collection(db, "stock-reservadas"),
+            where("tipo", "==", "pedido-pendiente"),
+            where("titulo", "==", titulo),
+            where("origen", "==", origen)
+        );
+
+        const snapshot = await getDocs(consulta);
+
+        if (snapshot.empty) {
+            contenedor.innerHTML = "";
+            return;
+        }
+
+        const reserva = snapshot.docs[0].data();
+
+        contenedor.innerHTML = "";
+
+        for (const item of reserva.articulos || []) {
+            await agregarFilaPendiente();
+
+            const filas = contenedor.querySelectorAll(".fila-pendiente");
+            const fila = filas[filas.length - 1];
+
+            fila.querySelector(".input-articulo").value = item.articulo;
+            fila.querySelector(".input-unidades").value = item.unidades;
+            fila.querySelector(".input-caja-pack").value = item.cajas;
+        }
+
+    } catch (error) {
+        console.error("Error cargando pedido pendiente:", error);
+
+        Swal.fire({
+            icon: "error",
+            text: "No se pudo cargar el pedido pendiente."
+        });
+
+    } finally {
+        cargandoPedidoPendiente = false;
+    }
+}
+
+// Cargar al seleccionar un título del datalist.
+document.getElementById("tituloPedidoPendiente")
+    ?.addEventListener("change", function () {
+        clearTimeout(temporizadorCargaPendiente);
+        cargarPedidoPendiente(this.value.trim());
+    });
+
+// Si se borra el título, limpiar los artículos.
+document.getElementById("tituloPedidoPendiente")
+    ?.addEventListener("input", function () {
+        if (!this.value.trim()) {
+            clearTimeout(temporizadorCargaPendiente);
+
+            document.getElementById(
+                "contenedorPedidosPendientes"
+            ).innerHTML = "";
+        }
+    });
+
+// Inicializar datalist.
+document.addEventListener(
+    "DOMContentLoaded",
+    actualizarDatalistPedidos
+);
+
+
+window.enviarPedidoATabla = async function () {
+    if (window.enviandoPedidoPendiente) return;
+
+    const titulo = document
+        .getElementById("tituloPedidoPendiente")
+        .value
+        .trim();
+
+    const origen = sessionStorage.getItem("salon") || "";
+    const destino = document.getElementById("salonDestino").value;
+    const usuario = sessionStorage.getItem("usuario") || "";
+
+    if (!titulo || !origen || !destino) {
+        await Swal.fire({
+            icon: "warning",
+            title: "Datos incompletos",
+            text: "Completá el título del pedido y seleccioná el salón de destino."
+        });
+        return;
+    }
+
+    const resultado = await Swal.fire({
+        title: "¿Enviar pedido?",
+        text: "Se enviarán las cantidades disponibles y se conservará lo que quede pendiente.",
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonText: "Sí, enviar",
+        cancelButtonText: "Cancelar",
+        reverseButtons: true
+    });
+
+    if (!resultado.isConfirmed) return;
+
+    window.enviandoPedidoPendiente = true;
+
+    let pedidoDoc = null;
+    let envioIniciado = false;
+
+    try {
+        const pedidosSnap = await getDocs(
+            query(
+                collection(db, "stock-reservadas"),
+                where("tipo", "==", "pedido-pendiente"),
+                where("titulo", "==", titulo),
+                where("origen", "==", origen)
+            )
+        );
+
+        if (pedidosSnap.empty) {
+            throw new Error("No se encontró el pedido pendiente.");
+        }
+
+        if (pedidosSnap.docs.length > 1) {
+            throw new Error(
+                "Hay más de un pedido con ese título y origen. No se realizó el envío para evitar duplicaciones."
+            );
+        }
+
+        pedidoDoc = pedidosSnap.docs[0];
+
+        const pedido = pedidoDoc.data();
+
+        if (!Array.isArray(pedido.articulos) || pedido.articulos.length === 0) {
+            throw new Error("El pedido no contiene artículos.");
+        }
+
+        // Obtener únicamente los artículos registrados en stock-articulos.
+        const articulosSnap = await getDocs(
+            collection(db, "stock-articulos")
+        );
+
+        const articulosOficiales = new Map();
+
+        articulosSnap.forEach((docArticulo) => {
+            const datos = docArticulo.data();
+            const nombre = String(datos.articulo || "").trim();
+
+            if (nombre) {
+                articulosOficiales.set(nombre, {
+                    ...datos,
+                    id: docArticulo.id
+                });
+            }
+        });
+
+        // Obtener stock-total para consultar existencias físicas.
+        // Esto NO determina si un artículo existe en el inventario.
+        const stockSnap = await getDocs(
+            collection(db, "stock-total")
+        );
+
+        const stockPorArticulo = new Map();
+
+        stockSnap.forEach((docStock) => {
+            stockPorArticulo.set(docStock.id, {
+                ...docStock.data(),
+                ref: docStock.ref
+            });
+        });
+
+        const articulosPendientes = [];
+        let cantidadesEnviadas = 0;
+
+        envioIniciado = true;
+
+        for (const item of pedido.articulos) {
+            const articulo = String(item.articulo || "").trim();
+
+            if (!articulo) continue;
+
+            const unidadesSolicitadas = Math.max(
+                0,
+                Number(item.unidades) || 0
+            );
+
+            const cajasSolicitadas = Math.max(
+                0,
+                Number(item.cajas) || 0
+            );
+
+            const unidadesReservadas = Math.max(
+                0,
+                Number(item.unidadesReservadas) || 0
+            );
+
+            const cajasReservadas = Math.max(
+                0,
+                Number(item.cajasReservadas) || 0
+            );
+
+            // La existencia del artículo se determina exclusivamente
+            // por su presencia en stock-articulos.
+            const articuloOficial = articulosOficiales.get(articulo);
+
+            let unidadesEnviar = 0;
+            let cajasEnviar = 0;
+            let unidadesPendientes = 0;
+            let cajasPendientes = 0;
+
+            /*
+             * ARTÍCULO INEXISTENTE EN stock-articulos:
+             * Se envía el pedido completo.
+             * No se consulta ni se descuenta stock-total.
+             */
+            if (!articuloOficial) {
+                unidadesEnviar = unidadesSolicitadas;
+                cajasEnviar = cajasSolicitadas;
+            } else {
+                /*
+                 * ARTÍCULO EXISTENTE EN stock-articulos:
+                 * Ahora sí se consulta stock-total.
+                 */
+                const stockArticulo = stockPorArticulo.get(articulo);
+
+                const pack = Math.max(
+                    0,
+                    Number(articuloOficial.unixcajapack) || 0
+                );
+
+                if (pack > 0) {
+                    const totalSolicitado =
+                        unidadesSolicitadas +
+                        cajasSolicitadas * pack;
+
+                    const totalReservado =
+                        unidadesReservadas +
+                        cajasReservadas * pack;
+
+                    const totalFaltante = Math.max(
+                        0,
+                        totalSolicitado - totalReservado
+                    );
+
+                    let unidadesAdicionales = 0;
+
+                    if (stockArticulo && stockArticulo.salones) {
+                        const stockSalon = stockArticulo.salones[origen];
+
+                        if (stockSalon) {
+                            const unidadesDisponibles = Math.max(
+                                0,
+                                Number(stockSalon.unidades) || 0
+                            );
+
+                            const cajasDisponibles = Math.max(
+                                0,
+                                Number(stockSalon.cajas) || 0
+                            );
+
+                            const totalDisponible =
+                                unidadesDisponibles +
+                                cajasDisponibles * pack;
+
+                            unidadesAdicionales = Math.min(
+                                totalFaltante,
+                                totalDisponible
+                            );
+
+                            if (unidadesAdicionales > 0) {
+                                const nuevoTotal =
+                                    totalDisponible - unidadesAdicionales;
+
+                                const nuevasCajas = Math.floor(
+                                    nuevoTotal / pack
+                                );
+
+                                const nuevasUnidades =
+                                    nuevoTotal % pack;
+
+                                const nuevosSalones = {
+                                    ...stockArticulo.salones,
+                                    [origen]: {
+                                        ...stockSalon,
+                                        unidades: nuevasUnidades,
+                                        cajas: nuevasCajas
+                                    }
+                                };
+
+                                await updateDoc(stockArticulo.ref, {
+                                    salones: nuevosSalones
+                                });
+
+                                stockArticulo.salones = nuevosSalones;
+                            }
+                        }
+                    }
+
+                    const totalEnviar =
+                        totalReservado + unidadesAdicionales;
+
+                    unidadesEnviar = totalEnviar % pack;
+                    cajasEnviar = Math.floor(totalEnviar / pack);
+
+                    const totalRestante = Math.max(
+                        0,
+                        totalSolicitado - totalEnviar
+                    );
+
+                    if (totalRestante > 0) {
+                        unidadesPendientes = totalRestante;
+                        cajasPendientes = 0;
+                    }
+                } else {
+                    /*
+                     * Artículo existente sin pack definido:
+                     * unidades y cajas se manejan por separado.
+                     */
+                    const unidadesFaltantes = Math.max(
+                        0,
+                        unidadesSolicitadas - unidadesReservadas
+                    );
+
+                    const cajasFaltantes = Math.max(
+                        0,
+                        cajasSolicitadas - cajasReservadas
+                    );
+
+                    let unidadesAdicionales = 0;
+                    let cajasAdicionales = 0;
+
+                    if (stockArticulo && stockArticulo.salones) {
+                        const stockSalon = stockArticulo.salones[origen];
+
+                        if (stockSalon) {
+                            const unidadesDisponibles = Math.max(
+                                0,
+                                Number(stockSalon.unidades) || 0
+                            );
+
+                            const cajasDisponibles = Math.max(
+                                0,
+                                Number(stockSalon.cajas) || 0
+                            );
+
+                            unidadesAdicionales = Math.min(
+                                unidadesFaltantes,
+                                unidadesDisponibles
+                            );
+
+                            cajasAdicionales = Math.min(
+                                cajasFaltantes,
+                                cajasDisponibles
+                            );
+
+                            if (
+                                unidadesAdicionales > 0 ||
+                                cajasAdicionales > 0
+                            ) {
+                                const nuevosSalones = {
+                                    ...stockArticulo.salones,
+                                    [origen]: {
+                                        ...stockSalon,
+                                        unidades:
+                                            unidadesDisponibles -
+                                            unidadesAdicionales,
+                                        cajas:
+                                            cajasDisponibles -
+                                            cajasAdicionales
+                                    }
+                                };
+
+                                await updateDoc(stockArticulo.ref, {
+                                    salones: nuevosSalones
+                                });
+
+                                stockArticulo.salones = nuevosSalones;
+                            }
+                        }
+                    }
+
+                    unidadesEnviar =
+                        unidadesReservadas + unidadesAdicionales;
+
+                    cajasEnviar =
+                        cajasReservadas + cajasAdicionales;
+
+                    unidadesPendientes = Math.max(
+                        0,
+                        unidadesFaltantes - unidadesAdicionales
+                    );
+
+                    cajasPendientes = Math.max(
+                        0,
+                        cajasFaltantes - cajasAdicionales
+                    );
+                }
+            }
+
+            // Guardar el pedido con la estructura original.
+            if (unidadesEnviar > 0 || cajasEnviar > 0) {
+                await addDoc(collection(db, "stock-pedidos"), {
+                    articulo,
+                    unidades: unidadesEnviar,
+                    cajas: cajasEnviar,
+                    notas: item.notas || "",
+                    salones: destino,
+                    origen,
+                    usuario,
+                    fecha: Timestamp.fromDate(new Date())
+                });
+
+                cantidadesEnviadas++;
+            }
+
+            // Conservar solamente las cantidades que siguen pendientes.
+            if (
+                unidadesPendientes > 0 ||
+                cajasPendientes > 0
+            ) {
+                articulosPendientes.push({
+                    ...item,
+                    unidades: unidadesPendientes,
+                    cajas: cajasPendientes,
+                    unidadesReservadas: 0,
+                    cajasReservadas: 0,
+                    unidadesPendientes,
+                    cajasPendientes
+                });
+            }
+        }
+
+        if (articulosPendientes.length === 0) {
+            await deleteDoc(pedidoDoc.ref);
+        } else {
+            await updateDoc(pedidoDoc.ref, {
+                articulos: articulosPendientes,
+                estadoEnvio: "pendiente",
+                fechaUltimoEnvio: Timestamp.fromDate(new Date())
+            });
+        }
+
+       // Actualizar la tabla de pedidos inmediatamente.
+await cargarTablaPedidos("hoy");
+
+// Actualizar el listado de pedidos pendientes.
+await actualizarDatalistPedidos();
+
+// Limpiar el formulario.
+document.getElementById("tituloPedidoPendiente").value = "";
+
+const contenedor = document.getElementById(
+    "contenedorPedidoPendiente"
+);
+
+if (contenedor) {
+    contenedor.innerHTML = "";
+}
+
+// Cerrar el modal de pedidos pendientes.
+const modalElement = document.getElementById("modalPedidosPendientes");
+
+if (modalElement) {
+    const modal = bootstrap.Modal.getInstance(modalElement);
+
+    if (modal) {
+        modal.hide();
+    }
+}
+
+// Mostrar resultado.
+if (articulosPendientes.length > 0) {
+    await Swal.fire({
+        icon: "warning",
+        title: "Envío parcial",
+        html: `
+            <p>Se registraron los artículos con cantidades disponibles.</p>
+            <p><strong>Artículos enviados:</strong> ${cantidadesEnviadas}</p>
+            <p>Las cantidades faltantes permanecen en reserva.</p>
+        `,
+        confirmButtonText: "Aceptar"
+    });
+} else {
+    await Swal.fire({
+        icon: "success",
+        title: "Pedido enviado",
+        text: "Se enviaron las cantidades disponibles y no quedaron faltantes pendientes.",
+        confirmButtonText: "Aceptar"
+    });
+}
+
+    } catch (error) {
+        console.error("Error al enviar el pedido pendiente:", error);
+
+        await Swal.fire({
+            icon: "error",
+            title: "No se pudo completar el envío",
+            text: error.message || "Ocurrió un error inesperado.",
+            confirmButtonText: "Aceptar"
+        });
+
+    } finally {
+        window.enviandoPedidoPendiente = false;
+    }
+};
 
 //final modal pendientes
 
