@@ -3930,16 +3930,21 @@ async function restaurarStockPedidoPendiente(pedido) {
 }
 
 
+
 // ======================================================
 // GUARDAR PEDIDO PENDIENTE
+// Optimizado + barra de progreso.
 // Al editar, primero devuelve la reserva anterior.
 // ======================================================
+
 window.guardarPedidosPendientes = async function () {
+
     const boton = document.querySelector(
         '#modalPedidosPendientes button[onclick="guardarPedidosPendientes()"]'
     );
 
     if (window.guardandoPedidoPendiente) return;
+
     window.guardandoPedidoPendiente = true;
 
     if (boton) boton.disabled = true;
@@ -3947,7 +3952,31 @@ window.guardarPedidosPendientes = async function () {
     let pedidoAnterior = null;
     let reservaAnteriorRestaurada = false;
 
+    // --------------------------------------------------
+    // ACTUALIZAR BARRA DE PROGRESO
+    // --------------------------------------------------
+
+    function actualizarProgreso(porcentaje, mensaje) {
+
+        const barra = document.getElementById("barraProgresoPedido");
+        const texto = document.getElementById("textoProgresoPedido");
+        const estado = document.getElementById("estadoProgresoPedido");
+
+        if (barra) {
+            barra.style.width = `${porcentaje}%`;
+        }
+
+        if (texto) {
+            texto.textContent = `${porcentaje}%`;
+        }
+
+        if (estado) {
+            estado.textContent = mensaje;
+        }
+    }
+
     try {
+
         const titulo = document
             .getElementById("tituloPedidoPendiente")
             .value.trim();
@@ -3969,6 +3998,7 @@ window.guardarPedidosPendientes = async function () {
         const agrupados = {};
 
         filas.forEach(fila => {
+
             const articulo = fila
                 .querySelector(".input-articulo")
                 .value.trim();
@@ -4005,6 +4035,68 @@ window.guardarPedidosPendientes = async function () {
 
         const pedidosRef = collection(db, "stock-reservadas");
 
+        // --------------------------------------------------
+        // MOSTRAR BARRA DE PROGRESO
+        // --------------------------------------------------
+
+        Swal.fire({
+            title: "Guardando pedido pendiente",
+            html: `
+                <div style="margin:20px 0 10px;">
+                    <div style="
+                        width:100%;
+                        height:22px;
+                        background:#e9ecef;
+                        border-radius:20px;
+                        overflow:hidden;
+                    ">
+                        <div
+                            id="barraProgresoPedido"
+                            style="
+                                width:0%;
+                                height:100%;
+                                background:linear-gradient(90deg,#19b99a,#20c997);
+                                border-radius:20px;
+                                transition:width 0.25s ease;
+                            "
+                        ></div>
+                    </div>
+
+                    <div
+                        id="textoProgresoPedido"
+                        style="
+                            font-size:22px;
+                            font-weight:bold;
+                            margin-top:12px;
+                            color:#19a889;
+                        "
+                    >
+                        0%
+                    </div>
+
+                    <div
+                        id="estadoProgresoPedido"
+                        style="
+                            font-size:14px;
+                            color:#666;
+                            margin-top:8px;
+                        "
+                    >
+                        Preparando pedido...
+                    </div>
+                </div>
+            `,
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            showConfirmButton: false
+        });
+
+        actualizarProgreso(2, "Buscando pedido anterior...");
+
+        // --------------------------------------------------
+        // BUSCAR PEDIDO ANTERIOR
+        // --------------------------------------------------
+
         const existentes = await getDocs(
             query(
                 pedidosRef,
@@ -4015,18 +4107,82 @@ window.guardarPedidosPendientes = async function () {
         );
 
         if (!existentes.empty) {
+
             pedidoAnterior = existentes.docs[0];
 
-            // Devolver la reserva anterior antes de recalcularla.
-            await restaurarStockPedidoPendiente(pedidoAnterior.data());
+            actualizarProgreso(
+                5,
+                "Restaurando la reserva anterior..."
+            );
+
+            await restaurarStockPedidoPendiente(
+                pedidoAnterior.data()
+            );
+
             reservaAnteriorRestaurada = true;
         }
 
+        // --------------------------------------------------
+        // LEER STOCK UNA SOLA VEZ
+        // --------------------------------------------------
+
+        actualizarProgreso(
+            8,
+            "Consultando stock actualizado..."
+        );
+
+        const stockActual = await obtenerStockTotal();
+
+        // --------------------------------------------------
+        // LEER ARTÍCULOS UNA SOLA VEZ
+        // --------------------------------------------------
+
+        actualizarProgreso(
+            10,
+            "Consultando artículos y equivalencias..."
+        );
+
+        const articulosSnap = await getDocs(
+            collection(db, "stock-articulos")
+        );
+
+        const articulosMap = new Map();
+
+        articulosSnap.forEach(doc => {
+
+            const data = doc.data();
+
+            const nombre = data.articulo?.trim();
+
+            if (!nombre) return;
+
+            // Mantener el primer registro coincidente,
+            // como hacía la consulta individual anterior.
+            if (!articulosMap.has(nombre)) {
+                articulosMap.set(nombre, data);
+            }
+        });
+
+        // --------------------------------------------------
+        // PROCESAR ARTÍCULOS
+        // --------------------------------------------------
+
         const articulosGuardados = [];
 
-        for (const item of articulos) {
-            // Leer el stock actualizado después de restaurar la reserva anterior.
-            const stockActual = await obtenerStockTotal();
+        for (let i = 0; i < articulos.length; i++) {
+
+            const item = articulos[i];
+
+            const progreso = Math.min(
+                95,
+                10 + Math.round(((i + 1) / articulos.length) * 80)
+            );
+
+            actualizarProgreso(
+                progreso,
+                `Procesando artículo ${i + 1} de ${articulos.length}: ${item.articulo}`
+            );
+
             const stockSalon =
                 stockActual[item.articulo]?.salones?.[origen] || {};
 
@@ -4040,25 +4196,19 @@ window.guardarPedidosPendientes = async function () {
                 Number(stockSalon.cajas) || 0
             );
 
-            const artSnap = await getDocs(
-                query(
-                    collection(db, "stock-articulos"),
-                    where("articulo", "==", item.articulo)
-                )
-            );
+            const artData = articulosMap.get(item.articulo);
 
-            const unidadesPorCaja = !artSnap.empty
-                ? parseInt(artSnap.docs[0].data().unixcajapack, 10) || 0
+            const unidadesPorCaja = artData
+                ? parseInt(artData.unixcajapack, 10) || 0
                 : 0;
 
-            // Reservar las cajas solicitadas que estén disponibles.
+            // Reservar cajas solicitadas disponibles.
             const cajasReservadas = Math.min(
                 item.cajas,
                 cajasDisponibles
             );
 
-            // Las unidades pueden salir de unidades sueltas o de cajas
-            // que no se hayan utilizado para cubrir las cajas solicitadas.
+            // Unidades sueltas y capacidad de las cajas restantes.
             const cajasLibres = Math.max(
                 0,
                 cajasDisponibles - cajasReservadas
@@ -4066,14 +4216,20 @@ window.guardarPedidosPendientes = async function () {
 
             const capacidadUnidades =
                 unidadesDisponibles +
-                (unidadesPorCaja > 0 ? cajasLibres * unidadesPorCaja : 0);
+                (
+                    unidadesPorCaja > 0
+                        ? cajasLibres * unidadesPorCaja
+                        : 0
+                );
 
             const unidadesReservadas = Math.min(
                 item.unidades,
                 capacidadUnidades
             );
 
+            // Descontar únicamente lo que se reserva.
             if (unidadesReservadas > 0 || cajasReservadas > 0) {
+
                 await descontarStock(
                     item.articulo,
                     unidadesReservadas,
@@ -4093,6 +4249,15 @@ window.guardarPedidosPendientes = async function () {
             });
         }
 
+        // --------------------------------------------------
+        // GUARDAR DOCUMENTO
+        // --------------------------------------------------
+
+        actualizarProgreso(
+            95,
+            "Guardando información del pedido..."
+        );
+
         const datosPedido = {
             tipo: "pedido-pendiente",
             titulo,
@@ -4103,15 +4268,45 @@ window.guardarPedidosPendientes = async function () {
         };
 
         if (pedidoAnterior) {
-            await updateDoc(pedidoAnterior.ref, datosPedido);
+
+            await updateDoc(
+                pedidoAnterior.ref,
+                datosPedido
+            );
+
         } else {
-            await addDoc(pedidosRef, datosPedido);
+
+            await addDoc(
+                pedidosRef,
+                datosPedido
+            );
         }
+
+        // --------------------------------------------------
+        // ACTUALIZAR DATOS DE LA INTERFAZ
+        // --------------------------------------------------
+
+        actualizarProgreso(
+            98,
+            "Actualizando lista de pedidos..."
+        );
 
         await actualizarDatalistPedidos();
 
         document.getElementById("tituloPedidoPendiente").value = "";
-        document.getElementById("contenedorPedidosPendientes").innerHTML = "";
+
+        document.getElementById(
+            "contenedorPedidosPendientes"
+        ).innerHTML = "";
+
+        actualizarProgreso(
+            100,
+            "¡Pedido guardado correctamente!"
+        );
+
+        await new Promise(resolve => setTimeout(resolve, 400));
+
+        Swal.close();
 
         await Swal.fire({
             icon: "success",
@@ -4120,10 +4315,14 @@ window.guardarPedidosPendientes = async function () {
         });
 
     } catch (error) {
-        console.error("Error guardando pedido pendiente:", error);
 
-        // Si la reserva anterior se restauró pero no se pudo completar
-        // el guardado, se informa el error para evitar ocultar el problema.
+        console.error(
+            "Error guardando pedido pendiente:",
+            error
+        );
+
+        Swal.close();
+
         await Swal.fire({
             icon: "error",
             title: "No se pudo guardar",
@@ -4131,7 +4330,9 @@ window.guardarPedidosPendientes = async function () {
         });
 
     } finally {
+
         window.guardandoPedidoPendiente = false;
+
         if (boton) boton.disabled = false;
     }
 };
