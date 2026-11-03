@@ -1085,7 +1085,8 @@ import {
   deleteDoc,
   doc,
   arrayUnion,
-  increment
+  increment,
+  writeBatch
 } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
 // ✅ Configuración Firebase
@@ -4640,9 +4641,95 @@ window.enviarPedidoATabla = async function () {
     window.enviandoPedidoPendiente = true;
 
     let pedidoDoc = null;
-    let envioIniciado = false;
+    let loteGuardado = false;
+
+    // Actualizar la barra de progreso.
+    const actualizarProgreso = async (porcentaje, mensaje) => {
+        const barra = document.getElementById("barraProgresoEnvioPedido");
+        const texto = document.getElementById("textoProgresoEnvioPedido");
+        const porcentajeTexto = document.getElementById(
+            "porcentajeProgresoEnvioPedido"
+        );
+
+        if (barra) {
+            barra.style.width = `${porcentaje}%`;
+            barra.setAttribute("aria-valuenow", porcentaje);
+        }
+
+        if (texto) {
+            texto.textContent = mensaje;
+        }
+
+        if (porcentajeTexto) {
+            porcentajeTexto.textContent = `${Math.round(porcentaje)}%`;
+        }
+
+        // Permitir que el navegador actualice visualmente la barra.
+        await new Promise(resolve => requestAnimationFrame(resolve));
+    };
 
     try {
+        // Mostrar ventana de progreso.
+        Swal.fire({
+            title: "Enviando pedido",
+            html: `
+                <div style="text-align:left; margin-top:15px;">
+                    <div
+                        id="textoProgresoEnvioPedido"
+                        style="font-size:14px; margin-bottom:10px;"
+                    >
+                        Preparando envío...
+                    </div>
+
+                    <div style="
+                        width:100%;
+                        height:13px;
+                        background:#e9ecef;
+                        border-radius:20px;
+                        overflow:hidden;
+                    ">
+                        <div
+                            id="barraProgresoEnvioPedido"
+                            role="progressbar"
+                            aria-valuemin="0"
+                            aria-valuemax="100"
+                            aria-valuenow="0"
+                            style="
+                                width:0%;
+                                height:100%;
+                                background:#19b99a;
+                                border-radius:20px;
+                                transition:width .2s ease;
+                            "
+                        ></div>
+                    </div>
+
+                    <div
+                        id="porcentajeProgresoEnvioPedido"
+                        style="
+                            text-align:center;
+                            font-weight:bold;
+                            margin-top:8px;
+                        "
+                    >
+                        0%
+                    </div>
+                </div>
+            `,
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            showConfirmButton: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+
+        // --------------------------------------------------
+        // 1. BUSCAR PEDIDO PENDIENTE
+        // --------------------------------------------------
+
+        await actualizarProgreso(3, "Buscando pedido pendiente...");
+
         const pedidosSnap = await getDocs(
             query(
                 collection(db, "stock-reservadas"),
@@ -4670,7 +4757,12 @@ window.enviarPedidoATabla = async function () {
             throw new Error("El pedido no contiene artículos.");
         }
 
-        // Obtener únicamente los artículos registrados en stock-articulos.
+        // --------------------------------------------------
+        // 2. CARGAR ARTÍCULOS OFICIALES
+        // --------------------------------------------------
+
+        await actualizarProgreso(6, "Consultando artículos del inventario...");
+
         const articulosSnap = await getDocs(
             collection(db, "stock-articulos")
         );
@@ -4689,8 +4781,12 @@ window.enviarPedidoATabla = async function () {
             }
         });
 
-        // Obtener stock-total para consultar existencias físicas.
-        // Esto NO determina si un artículo existe en el inventario.
+        // --------------------------------------------------
+        // 3. CARGAR STOCK FÍSICO
+        // --------------------------------------------------
+
+        await actualizarProgreso(9, "Consultando existencias físicas...");
+
         const stockSnap = await getDocs(
             collection(db, "stock-total")
         );
@@ -4704,15 +4800,39 @@ window.enviarPedidoATabla = async function () {
             });
         });
 
+        // --------------------------------------------------
+        // 4. PREPARAR CAMBIOS
+        // --------------------------------------------------
+
         const articulosPendientes = [];
+
+        // Acumula las actualizaciones de stock.
+        // Si un artículo aparece varias veces, conserva el descuento acumulado.
+        const stockActualizaciones = new Map();
+
+        // Guarda las referencias y datos de los nuevos pedidos.
+        const pedidosParaGuardar = [];
+
         let cantidadesEnviadas = 0;
 
-        envioIniciado = true;
+        const totalArticulos = pedido.articulos.length;
 
-        for (const item of pedido.articulos) {
+        // --------------------------------------------------
+        // 5. PROCESAR ARTÍCULOS
+        // --------------------------------------------------
+
+        for (let i = 0; i < pedido.articulos.length; i++) {
+            const item = pedido.articulos[i];
+
             const articulo = String(item.articulo || "").trim();
 
-            if (!articulo) continue;
+            if (!articulo) {
+                await actualizarProgreso(
+                    10 + ((i + 1) / totalArticulos) * 65,
+                    `Procesando artículo ${i + 1} de ${totalArticulos}...`
+                );
+                continue;
+            }
 
             const unidadesSolicitadas = Math.max(
                 0,
@@ -4751,6 +4871,7 @@ window.enviarPedidoATabla = async function () {
             if (!articuloOficial) {
                 unidadesEnviar = unidadesSolicitadas;
                 cajasEnviar = cajasSolicitadas;
+
             } else {
                 /*
                  * ARTÍCULO EXISTENTE EN stock-articulos:
@@ -4822,11 +4943,16 @@ window.enviarPedidoATabla = async function () {
                                     }
                                 };
 
-                                await updateDoc(stockArticulo.ref, {
-                                    salones: nuevosSalones
-                                });
-
+                                // Acumular actualización sin escribir todavía.
                                 stockArticulo.salones = nuevosSalones;
+
+                                stockActualizaciones.set(
+                                    stockArticulo.ref.path,
+                                    {
+                                        ref: stockArticulo.ref,
+                                        salones: nuevosSalones
+                                    }
+                                );
                             }
                         }
                     }
@@ -4846,6 +4972,7 @@ window.enviarPedidoATabla = async function () {
                         unidadesPendientes = totalRestante;
                         cajasPendientes = 0;
                     }
+
                 } else {
                     /*
                      * Artículo existente sin pack definido:
@@ -4905,11 +5032,16 @@ window.enviarPedidoATabla = async function () {
                                     }
                                 };
 
-                                await updateDoc(stockArticulo.ref, {
-                                    salones: nuevosSalones
-                                });
-
+                                // Acumular actualización sin escribir todavía.
                                 stockArticulo.salones = nuevosSalones;
+
+                                stockActualizaciones.set(
+                                    stockArticulo.ref.path,
+                                    {
+                                        ref: stockArticulo.ref,
+                                        salones: nuevosSalones
+                                    }
+                                );
                             }
                         }
                     }
@@ -4932,9 +5064,9 @@ window.enviarPedidoATabla = async function () {
                 }
             }
 
-            // Guardar el pedido con la estructura original.
+            // Preparar pedido sin escribir todavía.
             if (unidadesEnviar > 0 || cajasEnviar > 0) {
-                await addDoc(collection(db, "stock-pedidos"), {
+                pedidosParaGuardar.push({
                     articulo,
                     unidades: unidadesEnviar,
                     cajas: cajasEnviar,
@@ -4963,76 +5095,183 @@ window.enviarPedidoATabla = async function () {
                     cajasPendientes
                 });
             }
+
+            const porcentaje =
+                10 + ((i + 1) / totalArticulos) * 65;
+
+            await actualizarProgreso(
+                porcentaje,
+                `Procesando artículos: ${i + 1} de ${totalArticulos}`
+            );
         }
 
+        // --------------------------------------------------
+        // 6. GUARDAR TODO EN UN SOLO LOTE
+        // --------------------------------------------------
+
+        await actualizarProgreso(
+            80,
+            "Preparando guardado de los cambios..."
+        );
+
+        /*
+         * Operaciones del lote:
+         * - Una actualización por cada artículo de stock afectado.
+         * - Un alta por cada artículo enviado.
+         * - Una actualización o eliminación del pedido pendiente.
+         */
+        const cantidadOperaciones =
+            stockActualizaciones.size +
+            pedidosParaGuardar.length +
+            1;
+
+        // Firestore permite un máximo de 500 operaciones por lote.
+        if (cantidadOperaciones > 500) {
+            throw new Error(
+                "Este pedido supera el límite de 500 operaciones de guardado de Firebase. Dividilo en pedidos más pequeños para poder enviarlo."
+            );
+        }
+
+        const batch = writeBatch(db);
+
+        // Actualizar stock físico.
+        for (const actualizacion of stockActualizaciones.values()) {
+            batch.update(actualizacion.ref, {
+                salones: actualizacion.salones
+            });
+        }
+
+        // Crear los pedidos de destino.
+        for (const datosPedido of pedidosParaGuardar) {
+            const nuevaReferencia = doc(
+                collection(db, "stock-pedidos")
+            );
+
+            batch.set(nuevaReferencia, datosPedido);
+        }
+
+        // Actualizar o eliminar la reserva pendiente.
         if (articulosPendientes.length === 0) {
-            await deleteDoc(pedidoDoc.ref);
+            batch.delete(pedidoDoc.ref);
         } else {
-            await updateDoc(pedidoDoc.ref, {
+            batch.update(pedidoDoc.ref, {
                 articulos: articulosPendientes,
                 estadoEnvio: "pendiente",
                 fechaUltimoEnvio: Timestamp.fromDate(new Date())
             });
         }
 
-       // Actualizar la tabla de pedidos inmediatamente.
-await cargarTablaPedidos("hoy");
+        await actualizarProgreso(
+            85,
+            "Guardando stock, pedidos y reservas..."
+        );
 
-// Actualizar el listado de pedidos pendientes.
-await actualizarDatalistPedidos();
+        // Una sola escritura para todas las operaciones.
+        await batch.commit();
 
-// Limpiar el formulario.
-document.getElementById("tituloPedidoPendiente").value = "";
+        loteGuardado = true;
 
-const contenedor = document.getElementById(
-    "contenedorPedidoPendiente"
-);
+        await actualizarProgreso(
+            91,
+            "Cambios guardados. Actualizando tabla de pedidos..."
+        );
 
-if (contenedor) {
-    contenedor.innerHTML = "";
-}
+        // --------------------------------------------------
+        // 7. ACTUALIZAR TABLA
+        // --------------------------------------------------
 
-// Cerrar el modal de pedidos pendientes.
-const modalElement = document.getElementById("modalPedidosPendientes");
+        await cargarTablaPedidos("hoy");
 
-if (modalElement) {
-    const modal = bootstrap.Modal.getInstance(modalElement);
+        await actualizarProgreso(
+            96,
+            "Actualizando listado de pedidos pendientes..."
+        );
 
-    if (modal) {
-        modal.hide();
-    }
-}
+        await actualizarDatalistPedidos();
 
-// Mostrar resultado.
-if (articulosPendientes.length > 0) {
-    await Swal.fire({
-        icon: "warning",
-        title: "Envío parcial",
-        html: `
-            <p>Se registraron los artículos con cantidades disponibles.</p>
-            <p><strong>Artículos enviados:</strong> ${cantidadesEnviadas}</p>
-            <p>Las cantidades faltantes permanecen en reserva.</p>
-        `,
-        confirmButtonText: "Aceptar"
-    });
-} else {
-    await Swal.fire({
-        icon: "success",
-        title: "Pedido enviado",
-        text: "Se enviaron las cantidades disponibles y no quedaron faltantes pendientes.",
-        confirmButtonText: "Aceptar"
-    });
-}
+        // --------------------------------------------------
+        // 8. LIMPIAR FORMULARIO
+        // --------------------------------------------------
+
+        document.getElementById("tituloPedidoPendiente").value = "";
+
+        const contenedor = document.getElementById(
+            "contenedorPedidoPendiente"
+        );
+
+        if (contenedor) {
+            contenedor.innerHTML = "";
+        }
+
+        // Cerrar modal de pedidos pendientes.
+        const modalElement = document.getElementById(
+            "modalPedidosPendientes"
+        );
+
+        if (modalElement) {
+            const modal = bootstrap.Modal.getInstance(modalElement);
+
+            if (modal) {
+                modal.hide();
+            }
+        }
+
+        await actualizarProgreso(
+            100,
+            "¡Pedido enviado correctamente!"
+        );
+
+        Swal.close();
+
+        // --------------------------------------------------
+        // 9. MOSTRAR RESULTADO
+        // --------------------------------------------------
+
+        if (articulosPendientes.length > 0) {
+            await Swal.fire({
+                icon: "warning",
+                title: "Envío parcial",
+                html: `
+                    <p>Se registraron los artículos con cantidades disponibles.</p>
+                    <p><strong>Artículos enviados:</strong> ${cantidadesEnviadas}</p>
+                    <p>Las cantidades faltantes permanecen en reserva.</p>
+                `,
+                confirmButtonText: "Aceptar"
+            });
+
+        } else {
+            await Swal.fire({
+                icon: "success",
+                title: "Pedido enviado",
+                text: "Se enviaron las cantidades disponibles y no quedaron faltantes pendientes.",
+                confirmButtonText: "Aceptar"
+            });
+        }
 
     } catch (error) {
-        console.error("Error al enviar el pedido pendiente:", error);
+        console.error(
+            "Error al enviar el pedido pendiente:",
+            error
+        );
 
-        await Swal.fire({
-            icon: "error",
-            title: "No se pudo completar el envío",
-            text: error.message || "Ocurrió un error inesperado.",
-            confirmButtonText: "Aceptar"
-        });
+        Swal.close();
+
+        if (loteGuardado) {
+            await Swal.fire({
+                icon: "warning",
+                title: "Pedido guardado",
+                text: "El envío se guardó correctamente, pero ocurrió un error al actualizar la pantalla. Recargá la tabla para ver los cambios.",
+                confirmButtonText: "Aceptar"
+            });
+
+        } else {
+            await Swal.fire({
+                icon: "error",
+                title: "No se pudo completar el envío",
+                text: error.message || "Ocurrió un error inesperado.",
+                confirmButtonText: "Aceptar"
+            });
+        }
 
     } finally {
         window.enviandoPedidoPendiente = false;
