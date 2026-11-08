@@ -695,6 +695,48 @@ footer {
 #proyectorBox:has(#proyectorFlechaIngreso[aria-expanded="true"]) {
      margin-top: 22px !important;
 }
+
+/* CORREGIR SUPERPOSICIÓN DEL MENÚ HAMBURGUESA */
+@media (max-width: 991px) {
+
+  .navbar.fixed-top {
+    z-index: 2000 !important;
+  }
+
+  .navbar-collapse {
+    z-index: 2001 !important;
+  }
+
+  #proyectorBoxPedidos {
+    z-index: auto !important;
+  }
+
+  #proyectorFlechaPedidos {
+    z-index: 1040 !important;
+  }
+
+}
+
+/* BANDEJA SIEMPRE POR ENCIMA DEL BOTÓN FORMULARIO */
+#bandejaFlotante {
+  position: fixed !important;
+  z-index: 3000 !important;
+}
+
+/* Fondo y contenido de la bandeja */
+#bandejaFlotante .modal-dialog,
+#bandejaFlotante .modal-content {
+  position: relative;
+  z-index: 3001 !important;
+}
+
+/* El formulario queda por debajo de la bandeja */
+@media (max-width: 991px) {
+  #proyectorFlechaPedidos,
+  #proyectorFlechaIngreso {
+    z-index: 1040 !important;
+  }
+}
   </style>
 
 </head>

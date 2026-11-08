@@ -297,11 +297,7 @@ body {
   }
 }
 
-@media (max-width: 991px) {
-  .bajar-formulario {
-    margin-top: 150px !important;
-  }
-}
+
 
 @media (max-width: 991px) {
   .container-fluid {
@@ -817,6 +813,48 @@ html body #proyectorBoxPedidos #proyectorFlechaPedidos.proyector-arrow {
 /* Separación entre el botón y el formulario abierto */
 #proyectorBoxPedidos:has(#proyectorFlechaPedidos[aria-expanded="true"]) #formularioPedidos {
     margin-top: 22px !important;
+}
+
+/* CORREGIR SUPERPOSICIÓN DEL MENÚ HAMBURGUESA */
+@media (max-width: 991px) {
+
+  .navbar.fixed-top {
+    z-index: 2000 !important;
+  }
+
+  .navbar-collapse {
+    z-index: 2001 !important;
+  }
+
+  #proyectorBoxPedidos {
+    z-index: auto !important;
+  }
+
+  #proyectorFlechaPedidos {
+    z-index: 1040 !important;
+  }
+
+}
+
+/* BANDEJA SIEMPRE POR ENCIMA DEL BOTÓN FORMULARIO */
+#bandejaFlotante {
+  position: fixed !important;
+  z-index: 3000 !important;
+}
+
+/* Fondo y contenido de la bandeja */
+#bandejaFlotante .modal-dialog,
+#bandejaFlotante .modal-content {
+  position: relative;
+  z-index: 3001 !important;
+}
+
+/* El formulario queda por debajo de la bandeja */
+@media (max-width: 991px) {
+  #proyectorFlechaPedidos,
+  #proyectorFlechaIngreso {
+    z-index: 1040 !important;
+  }
 }
   </style>
   
