@@ -63,15 +63,14 @@ table {
 /* Proyector simulando pantalla */
 
 .proyector-box {
-  background-color: #f8f9fa;
-  border-bottom: 1px solid #ccc;
-  box-shadow: 0 5px 6px rgba(0,0,0,0.15);
-  position: relative;
-  z-index: 2;
-  transition: all 0.3s ease;
-  padding-bottom: 20px; /* la mitad de alto cuando está cerrado */
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #ccc;
+    box-shadow: 0 5px 6px rgba(0,0,0,0.15);
+    position: relative;
+    z-index: 1060 !important;
+    transition: all 0.3s ease;
+    padding-bottom: 20px;
 }
-
 
 /* Formulario oculto */
 #formularioIngreso.oculto {
@@ -92,43 +91,97 @@ table {
 }
 
 
-/* Contenedor tipo flecha mostaza, medio oculto */
-.proyector-arrow {
-  width: 60px;                        /* ancho total desplegado */
-  height: 48px;
-  background-color: #d4a017;          /* mostaza */
-  border-top-right-radius: 12px;
-  border-bottom-right-radius: 12px;
-  cursor: pointer;
-  transition: all 0.35s ease;
-  position: fixed;
-  left: -45px;                        /* mitad oculta */
-  top: 80px;                          /* debajo del navbar */
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-weight: bold;
-  font-size: 0.85rem;
-  z-index: 9999;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-  letter-spacing: 0.5px;
+/* =====================================================
+   JANOS — BOTÓN SUPERIOR DEL FORMULARIO
+   ===================================================== */
+
+html body #proyectorBox #proyectorFlechaIngreso.proyector-arrow {
+    position: fixed !important;
+    top: 70px !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: auto !important;
+
+    width: 100% !important;
+    height: 52px !important;
+    min-height: 52px !important;
+    box-sizing: border-box !important;
+
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: center !important;
+    align-items: center !important;
+    gap: 10px !important;
+
+    margin: 0 !important;
+    padding: 4px 12px !important;
+    transform: none !important;
+
+    background: #343a40 !important;
+    color: #fff !important;
+    border: none !important;
+    border-radius: 0 !important;
+    z-index: 1040 !important;
+    box-shadow: none !important;
 }
 
-
-/* Cuando pasa el mouse o se activa, se despliega suavemente */
-.proyector-arrow:hover,
-.proyector-arrow.activa {
-  left: 0;                            /* se muestra completa */
-  transform: scale(1.05);
-  background-color: #e0b52b;
+#proyectorFlechaIngreso .proyector-formulario-icono {
+    position: static !important;
+    width: 25px !important;
+    height: 25px !important;
+    flex: 0 0 25px !important;
+    margin: 0 !important;
 }
 
-/* Texto centrado */
-.proyector-arrow span {
-  pointer-events: none;
+#proyectorFlechaIngreso .proyector-textos {
+    position: static !important;
+    display: flex !important;
+    flex: 0 0 auto !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: auto !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    text-align: center !important;
+    gap: 2px !important;
 }
 
+#proyectorFlechaIngreso .proyector-flecha-texto {
+    display: block !important;
+    color: #fff !important;
+    font-size: 13px !important;
+    line-height: 16px !important;
+    font-weight: 600 !important;
+}
+
+#proyectorFlechaIngreso .proyector-ayuda-texto {
+    display: block !important;
+    color: #ced4da !important;
+    font-size: 10px !important;
+    line-height: 12px !important;
+    font-weight: 400 !important;
+}
+
+#proyectorFlechaIngreso .proyector-flecha-icono {
+    position: static !important;
+    width: 22px !important;
+    height: 22px !important;
+    flex: 0 0 22px !important;
+    margin: 0 !important;
+    transition: transform .25s ease !important;
+}
+
+#proyectorFlechaIngreso[aria-expanded="true"] .proyector-flecha-icono {
+    transform: rotate(180deg) !important;
+}
+
+#proyectorFlechaIngreso.proyector-arrow:hover,
+#proyectorFlechaIngreso.proyector-arrow.activa,
+#proyectorFlechaIngreso.proyector-arrow[aria-expanded="true"] {
+    background: #495057 !important;
+    transform: none !important;
+}
 
 /* Oculta el texto cuando el formulario está abierto */
 .formulario-abierto .proyector-text {
@@ -137,11 +190,12 @@ table {
 
 
 /* Encabezado siempre visible debajo del proyector */
+/* Encabezado de tabla debajo del botón del formulario */
 thead th {
-  position: sticky;
-  top: 110px; /* nav + proyector abierto */
-  background-color: white;
-  z-index: 1;
+    position: sticky;
+    top: 110px !important;
+    background-color: white;
+    z-index: 2;
 }
 
 /* General */
@@ -182,11 +236,12 @@ body {
 }
 
 /* Encabezado flotante de tabla */
+/* Encabezado de tabla debajo del botón del formulario */
 thead th {
-  position: sticky;
-  top: 110px;
-  background-color: white;
-  z-index: 2;
+    position: sticky;
+    top: 150px !important;
+    background-color: white;
+    z-index: 2;
 }
 
 /* Fijar navbar en móviles también */
@@ -418,13 +473,7 @@ footer {
   user-select: none;
 }
 
-@media (max-width: 468px) and (orientation: portrait) {
 
-  thead th {
-    top: 40px !important;
-  }
-
-}
 
 .texto-cajapack {
     user-select: none;
@@ -636,6 +685,16 @@ footer {
   border-radius: 6px;
   font-weight: 600;
 }
+
+/* Separar la tabla del botón cuando el formulario está cerrado */
+#proyectorBox:has(#proyectorFlechaIngreso[aria-expanded="false"]) {
+    padding-top: 52px !important;
+}
+
+/* Al abrir el formulario, quitar ese espacio adicional */
+#proyectorBox:has(#proyectorFlechaIngreso[aria-expanded="true"]) {
+     margin-top: 22px !important;
+}
   </style>
 
 </head>
@@ -702,10 +761,70 @@ footer {
 <!-- Proyector + Formulario -->
 <div class="proyector-box text-center" id="proyectorBox">
 
-  <!-- Botón mostaza (medio oculto, texto CARGAR) -->
-  <div id="proyectorFlecha" class="proyector-arrow">
-    CARGAR
-  </div>
+<button
+    type="button"
+    class="proyector-arrow"
+    id="proyectorFlechaIngreso"
+    aria-label="Abrir formulario de ingresos"
+    aria-expanded="false"
+    title="Abrir o cerrar formulario"
+>
+    <svg
+        class="proyector-formulario-icono"
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+    >
+        <rect
+            x="4"
+            y="3"
+            width="16"
+            height="18"
+            rx="2"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+        />
+        <path
+            d="M8 8h8 M8 12h8 M8 16h5"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+        />
+    </svg>
+
+    <span class="proyector-textos">
+        <span
+            class="proyector-flecha-texto"
+            id="textoEstadoIngreso"
+        >
+            Formulario cerrado
+        </span>
+
+        <span
+            class="proyector-ayuda-texto"
+            id="textoAyudaIngreso"
+        >
+            Tocá para abrirlo
+        </span>
+    </span>
+
+    <svg
+        class="proyector-flecha-icono"
+        id="iconoFlechaIngreso"
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+    >
+        <path
+            d="M7 9l5 5 5-5"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+        />
+    </svg>
+</button>
 
 
   <!-- Formulario -->
@@ -1280,23 +1399,61 @@ function cerrarFlotante() {
 }
 
 
+
 function crearFila(ingreso, fecha, articulo, unidades, cajas, rotas, notas, usuario, docId = "") {
   return `
     <tr data-id="${docId}" onclick="toggleSeleccion(this)">
-      <td><input type="checkbox" onchange="toggleSeleccion(this.parentElement.parentElement, true)"></td>
+      <td>
+        <input type="checkbox"
+          onchange="toggleSeleccion(this.parentElement.parentElement, true)">
+      </td>
+
       <td contenteditable="true">${ingreso}</td>
       <td contenteditable="true" class="text-center">${fecha}</td>
       <td contenteditable="true">${articulo}</td>
       <td contenteditable="true" class="text-center">${unidades}</td>
+
       <td contenteditable="true" class="text-center" data-cajas="${cajas}">
-  ${formatearCajas(articulo, cajas)} </td>
+        ${formatearCajas(articulo, cajas)}
+      </td>
+
       <td contenteditable="true" class="text-center">${rotas}</td>
       <td contenteditable="true">${notas}</td>
-      <td><button class="btn btn-sm btn-danger" onclick="eliminarFila(this, event)">✕</button></td>
+
+      <td>
+        <button
+          type="button"
+          class="btn btn-sm btn-danger"
+          onclick="eliminarFila(this, event)"
+          aria-label="Eliminar fila"
+          title="Eliminar fila"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M3 6h18"/>
+            <path d="M8 6V4h8v2"/>
+            <path d="m19 6-1 14H6L5 6"/>
+            <path d="M10 11v5"/>
+            <path d="M14 11v5"/>
+          </svg>
+        </button>
+      </td>
+
       <td contenteditable="true">${usuario}</td>
     </tr>
   `;
 }
+
 
 document.addEventListener("DOMContentLoaded", () => {
   const salonGuardado =  sessionStorage.getItem("salon");
@@ -5273,68 +5430,69 @@ function toggleBandeja() {
 //fina bandeja
 
 document.addEventListener("DOMContentLoaded", () => {
+
   const formulario = document.getElementById("formularioIngreso");
-  const flecha = document.getElementById("proyectorFlecha");
+  const flecha = document.getElementById("proyectorFlechaIngreso");
+  const icono = document.getElementById("iconoFlechaIngreso");
+  const textoEstado = document.getElementById("textoEstadoIngreso");
+  const textoAyuda = document.getElementById("textoAyudaIngreso");
+
+  if (!formulario || !flecha) return;
 
   let abierto = false;
   let animando = false;
 
-  // Inicializar texto y clase
-  flecha.textContent = "CARGAR";
-  flecha.classList.add("boton-cargar");
-
   function abrirFormulario() {
     if (abierto || animando) return;
+
     animando = true;
-    formulario.classList.remove("oculto");
+
+    formulario.classList.remove("oculto", "desgranando");
     formulario.classList.add("visible");
+
     flecha.classList.add("activa");
+    flecha.setAttribute("aria-expanded", "true");
+
+    if (textoEstado) textoEstado.textContent = "Formulario abierto";
+    if (textoAyuda) textoAyuda.textContent = "Tocá para cerrar";
+    if (icono) icono.style.transform = "rotate(180deg)";
+
     setTimeout(() => {
       animando = false;
       abierto = true;
-    }, 400);
+    }, 450);
   }
 
   function cerrarFormulario() {
     if (!abierto || animando) return;
+
     animando = true;
+
     formulario.classList.remove("visible");
-    formulario.classList.add("oculto");
+    formulario.classList.add("desgranando");
+
     flecha.classList.remove("activa");
+    flecha.setAttribute("aria-expanded", "false");
+
+    if (textoEstado) textoEstado.textContent = "Formulario cerrado";
+    if (textoAyuda) textoAyuda.textContent = "Tocá para abrirlo";
+    if (icono) icono.style.transform = "rotate(0deg)";
+
     setTimeout(() => {
+      formulario.classList.remove("desgranando");
+      formulario.classList.add("oculto");
+
       animando = false;
       abierto = false;
-    }, 400);
+    }, 500);
   }
 
-  // Click sobre la flecha
   flecha.addEventListener("click", () => {
     if (abierto) cerrarFormulario();
     else abrirFormulario();
   });
 
-  // Pasar el mouse sobre la flecha (hover)
-  flecha.addEventListener("mouseenter", () => {
-    if (abierto) cerrarFormulario();
-    else abrirFormulario();
-  });
-
-  // Swipe táctil (móvil)
-  let startX = 0;
-  flecha.addEventListener("touchstart", (e) => {
-    startX = e.touches[0].clientX;
-  });
-
-  flecha.addEventListener("touchend", (e) => {
-    const endX = e.changedTouches[0].clientX;
-    const deltaX = startX - endX;
-    if (Math.abs(deltaX) > 50) {
-      if (abierto) cerrarFormulario();
-      else abrirFormulario();
-    }
-  });
 });
-
 
   </script>
 

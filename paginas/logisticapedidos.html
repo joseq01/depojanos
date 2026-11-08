@@ -692,6 +692,132 @@ th.filtro-activo::after {
   border-radius: 6px;
   font-weight: 600;
 }
+
+/* ==========================================
+   BOTÓN FORMULARIO PEDIDOS - MISMO DISEÑO INGRESO
+========================================== */
+
+#proyectorBoxPedidos {
+    position: relative;
+    z-index: 1060 !important;
+    transition: all 0.3s ease;
+}
+
+/* Botón horizontal fijo */
+html body #proyectorBoxPedidos #proyectorFlechaPedidos.proyector-arrow {
+    position: fixed !important;
+    top: 70px !important;
+    left: 0 !important;
+    right: 0 !important;
+
+    width: 100% !important;
+    height: 52px !important;
+    min-height: 52px !important;
+
+    box-sizing: border-box !important;
+    margin: 0 !important;
+    padding: 4px 12px !important;
+
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: center !important;
+    align-items: center !important;
+    gap: 10px !important;
+
+    background: #343a40 !important;
+    color: white !important;
+
+    border: none !important;
+    border-radius: 0 !important;
+
+    transform: none !important;
+    box-shadow: none !important;
+
+    cursor: pointer;
+    z-index: 1061 !important;
+}
+
+/* Icono formulario */
+#proyectorFlechaPedidos .proyector-formulario-icono {
+    position: static !important;
+    width: 25px !important;
+    height: 25px !important;
+    flex: 0 0 25px !important;
+    margin: 0 !important;
+}
+
+/* Textos centrados */
+#proyectorFlechaPedidos .proyector-textos {
+    position: static !important;
+    display: flex !important;
+    flex: 0 0 auto !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: auto !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    text-align: center !important;
+    gap: 2px !important;
+}
+
+#proyectorFlechaPedidos .proyector-flecha-texto {
+    display: block !important;
+    color: #fff !important;
+    font-size: 13px !important;
+    line-height: 16px !important;
+    font-weight: 600 !important;
+}
+
+#proyectorFlechaPedidos .proyector-ayuda-texto {
+    display: block !important;
+    color: #ced4da !important;
+    font-size: 10px !important;
+    line-height: 12px !important;
+    font-weight: 400 !important;
+}
+
+/* Flecha */
+#proyectorFlechaPedidos .proyector-flecha-icono {
+    position: static !important;
+    width: 22px !important;
+    height: 22px !important;
+    flex: 0 0 22px !important;
+    margin: 0 !important;
+    transition: transform 0.25s ease !important;
+}
+
+#proyectorFlechaPedidos[aria-expanded="true"] .proyector-flecha-icono {
+    transform: rotate(180deg) !important;
+}
+
+/* Hover y estado abierto */
+#proyectorFlechaPedidos.proyector-arrow:hover,
+#proyectorFlechaPedidos.proyector-arrow.activa,
+#proyectorFlechaPedidos.proyector-arrow[aria-expanded="true"] {
+    background: #495057 !important;
+    transform: none !important;
+}
+
+/* Espacio reservado cuando el formulario está cerrado */
+#proyectorBoxPedidos:has(#proyectorFlechaPedidos[aria-expanded="false"]) {
+    padding-top: 52px !important;
+}
+
+#proyectorBoxPedidos:has(#proyectorFlechaPedidos[aria-expanded="true"]) {
+    padding-top: 0 !important;
+}
+#formularioPedidos.oculto {
+    display: none !important;
+}
+
+#formularioPedidos.visible {
+    display: block !important;
+}
+/* Separación entre el botón y el formulario abierto */
+#proyectorBoxPedidos:has(#proyectorFlechaPedidos[aria-expanded="true"]) #formularioPedidos {
+    margin-top: 22px !important;
+}
   </style>
   
 </head>
@@ -749,6 +875,7 @@ th.filtro-activo::after {
   </div>
 </nav>
 
+
 <!-- CONTENEDOR que incluye tabla y footer -->
 <main class="flex-grow-1 d-flex flex-column" style="min-width: 1100px;">
 
@@ -776,8 +903,38 @@ th.filtro-activo::after {
 <!-- Pantalla proyector desplegable para PEDIDOS -->
 <div class="proyector-box" id="proyectorBoxPedidos">
   
-  <!-- Flecha izquierda -->
-  <div class="proyector-arrow" id="proyectorFlechaPedidos">CARGA</div>
+ <!-- Botón horizontal para abrir/cerrar el formulario -->
+<button
+    type="button"
+    class="proyector-arrow"
+    id="proyectorFlechaPedidos"
+    aria-label="Abrir formulario de pedidos"
+    aria-expanded="false"
+    title="Abrir o cerrar formulario"
+>
+    <svg class="proyector-formulario-icono" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M8 4H5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-3"
+              fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        <rect x="8" y="2" width="8" height="4" rx="1" fill="#343a40" stroke="currentColor" stroke-width="1.8"/>
+        <path d="M7 11h10M7 15h10M7 19h6"
+              fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+    </svg>
+
+    <span class="proyector-textos">
+        <span class="proyector-flecha-texto" id="textoEstadoPedidos">
+            Formulario cerrado
+        </span>
+        <span class="proyector-ayuda-texto" id="textoAyudaPedidos">
+            Tocá aquí para abrirlo
+        </span>
+    </span>
+
+    <svg class="proyector-flecha-icono" id="iconoFlechaPedidos" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="m6 9 6 6 6-6"
+              fill="none" stroke="currentColor" stroke-width="2.5"
+              stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+</button>
 
   <!-- Formulario de pedidos -->
   <div id="formularioPedidos" class="oculto container mt-3">
@@ -1354,22 +1511,60 @@ function cerrarFlotante() {
 
 
 // ✅ Crear fila HTML
+
 function crearFila(articulo, unidades, cajas, notas, destino, fecha, usuario, docId = "") {
   return `
    <tr data-id="${docId}" onclick="toggleSeleccion(this)">
-      <td><input type="checkbox" onchange="toggleSeleccion(this.parentElement.parentElement, true)"></td>
+      <td>
+        <input type="checkbox"
+          onchange="toggleSeleccion(this.parentElement.parentElement, true)">
+      </td>
+
       <td contenteditable="true">${destino}</td>
       <td contenteditable="true" class="text-center">${fecha}</td>
       <td contenteditable="true">${articulo}</td>
-      <td contenteditable="true" class="text-center" >${unidades}</td>
+      <td contenteditable="true" class="text-center">${unidades}</td>
+
       <td contenteditable="true" class="text-center" data-cajas="${cajas}">
-  ${formatearCajas(articulo, cajas)} </td>
+        ${formatearCajas(articulo, cajas)}
+      </td>
+
       <td contenteditable="true" class="text-center">${notas}</td>
-      <td><button class="btn btn-sm btn-danger" onclick="eliminarFila(this, event)">✕</button></td>
+
+      <td>
+        <button
+          type="button"
+          class="btn btn-sm btn-danger"
+          onclick="eliminarFila(this, event)"
+          aria-label="Eliminar fila"
+          title="Eliminar fila"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M3 6h18"/>
+            <path d="M8 6V4h8v2"/>
+            <path d="m19 6-1 14H6L5 6"/>
+            <path d="M10 11v5"/>
+            <path d="M14 11v5"/>
+          </svg>
+        </button>
+      </td>
+
       <td contenteditable="true">${usuario}</td>
     </tr>
   `;
 }
+
 
 async function obtenerStockDisponible() {
   const snapshot = await getDocs(collection(db, "stock-ingreso"));
@@ -4641,95 +4836,9 @@ window.enviarPedidoATabla = async function () {
     window.enviandoPedidoPendiente = true;
 
     let pedidoDoc = null;
-    let loteGuardado = false;
-
-    // Actualizar la barra de progreso.
-    const actualizarProgreso = async (porcentaje, mensaje) => {
-        const barra = document.getElementById("barraProgresoEnvioPedido");
-        const texto = document.getElementById("textoProgresoEnvioPedido");
-        const porcentajeTexto = document.getElementById(
-            "porcentajeProgresoEnvioPedido"
-        );
-
-        if (barra) {
-            barra.style.width = `${porcentaje}%`;
-            barra.setAttribute("aria-valuenow", porcentaje);
-        }
-
-        if (texto) {
-            texto.textContent = mensaje;
-        }
-
-        if (porcentajeTexto) {
-            porcentajeTexto.textContent = `${Math.round(porcentaje)}%`;
-        }
-
-        // Permitir que el navegador actualice visualmente la barra.
-        await new Promise(resolve => requestAnimationFrame(resolve));
-    };
+    let envioIniciado = false;
 
     try {
-        // Mostrar ventana de progreso.
-        Swal.fire({
-            title: "Enviando pedido",
-            html: `
-                <div style="text-align:left; margin-top:15px;">
-                    <div
-                        id="textoProgresoEnvioPedido"
-                        style="font-size:14px; margin-bottom:10px;"
-                    >
-                        Preparando envío...
-                    </div>
-
-                    <div style="
-                        width:100%;
-                        height:13px;
-                        background:#e9ecef;
-                        border-radius:20px;
-                        overflow:hidden;
-                    ">
-                        <div
-                            id="barraProgresoEnvioPedido"
-                            role="progressbar"
-                            aria-valuemin="0"
-                            aria-valuemax="100"
-                            aria-valuenow="0"
-                            style="
-                                width:0%;
-                                height:100%;
-                                background:#19b99a;
-                                border-radius:20px;
-                                transition:width .2s ease;
-                            "
-                        ></div>
-                    </div>
-
-                    <div
-                        id="porcentajeProgresoEnvioPedido"
-                        style="
-                            text-align:center;
-                            font-weight:bold;
-                            margin-top:8px;
-                        "
-                    >
-                        0%
-                    </div>
-                </div>
-            `,
-            allowOutsideClick: false,
-            allowEscapeKey: false,
-            showConfirmButton: false,
-            didOpen: () => {
-                Swal.showLoading();
-            }
-        });
-
-        // --------------------------------------------------
-        // 1. BUSCAR PEDIDO PENDIENTE
-        // --------------------------------------------------
-
-        await actualizarProgreso(3, "Buscando pedido pendiente...");
-
         const pedidosSnap = await getDocs(
             query(
                 collection(db, "stock-reservadas"),
@@ -4757,12 +4866,7 @@ window.enviarPedidoATabla = async function () {
             throw new Error("El pedido no contiene artículos.");
         }
 
-        // --------------------------------------------------
-        // 2. CARGAR ARTÍCULOS OFICIALES
-        // --------------------------------------------------
-
-        await actualizarProgreso(6, "Consultando artículos del inventario...");
-
+        // Obtener únicamente los artículos registrados en stock-articulos.
         const articulosSnap = await getDocs(
             collection(db, "stock-articulos")
         );
@@ -4781,12 +4885,8 @@ window.enviarPedidoATabla = async function () {
             }
         });
 
-        // --------------------------------------------------
-        // 3. CARGAR STOCK FÍSICO
-        // --------------------------------------------------
-
-        await actualizarProgreso(9, "Consultando existencias físicas...");
-
+        // Obtener stock-total para consultar existencias físicas.
+        // Esto NO determina si un artículo existe en el inventario.
         const stockSnap = await getDocs(
             collection(db, "stock-total")
         );
@@ -4800,39 +4900,15 @@ window.enviarPedidoATabla = async function () {
             });
         });
 
-        // --------------------------------------------------
-        // 4. PREPARAR CAMBIOS
-        // --------------------------------------------------
-
         const articulosPendientes = [];
-
-        // Acumula las actualizaciones de stock.
-        // Si un artículo aparece varias veces, conserva el descuento acumulado.
-        const stockActualizaciones = new Map();
-
-        // Guarda las referencias y datos de los nuevos pedidos.
-        const pedidosParaGuardar = [];
-
         let cantidadesEnviadas = 0;
 
-        const totalArticulos = pedido.articulos.length;
+        envioIniciado = true;
 
-        // --------------------------------------------------
-        // 5. PROCESAR ARTÍCULOS
-        // --------------------------------------------------
-
-        for (let i = 0; i < pedido.articulos.length; i++) {
-            const item = pedido.articulos[i];
-
+        for (const item of pedido.articulos) {
             const articulo = String(item.articulo || "").trim();
 
-            if (!articulo) {
-                await actualizarProgreso(
-                    10 + ((i + 1) / totalArticulos) * 65,
-                    `Procesando artículo ${i + 1} de ${totalArticulos}...`
-                );
-                continue;
-            }
+            if (!articulo) continue;
 
             const unidadesSolicitadas = Math.max(
                 0,
@@ -4871,7 +4947,6 @@ window.enviarPedidoATabla = async function () {
             if (!articuloOficial) {
                 unidadesEnviar = unidadesSolicitadas;
                 cajasEnviar = cajasSolicitadas;
-
             } else {
                 /*
                  * ARTÍCULO EXISTENTE EN stock-articulos:
@@ -4943,16 +5018,11 @@ window.enviarPedidoATabla = async function () {
                                     }
                                 };
 
-                                // Acumular actualización sin escribir todavía.
-                                stockArticulo.salones = nuevosSalones;
+                                await updateDoc(stockArticulo.ref, {
+                                    salones: nuevosSalones
+                                });
 
-                                stockActualizaciones.set(
-                                    stockArticulo.ref.path,
-                                    {
-                                        ref: stockArticulo.ref,
-                                        salones: nuevosSalones
-                                    }
-                                );
+                                stockArticulo.salones = nuevosSalones;
                             }
                         }
                     }
@@ -4972,7 +5042,6 @@ window.enviarPedidoATabla = async function () {
                         unidadesPendientes = totalRestante;
                         cajasPendientes = 0;
                     }
-
                 } else {
                     /*
                      * Artículo existente sin pack definido:
@@ -5032,16 +5101,11 @@ window.enviarPedidoATabla = async function () {
                                     }
                                 };
 
-                                // Acumular actualización sin escribir todavía.
-                                stockArticulo.salones = nuevosSalones;
+                                await updateDoc(stockArticulo.ref, {
+                                    salones: nuevosSalones
+                                });
 
-                                stockActualizaciones.set(
-                                    stockArticulo.ref.path,
-                                    {
-                                        ref: stockArticulo.ref,
-                                        salones: nuevosSalones
-                                    }
-                                );
+                                stockArticulo.salones = nuevosSalones;
                             }
                         }
                     }
@@ -5064,9 +5128,9 @@ window.enviarPedidoATabla = async function () {
                 }
             }
 
-            // Preparar pedido sin escribir todavía.
+            // Guardar el pedido con la estructura original.
             if (unidadesEnviar > 0 || cajasEnviar > 0) {
-                pedidosParaGuardar.push({
+                await addDoc(collection(db, "stock-pedidos"), {
                     articulo,
                     unidades: unidadesEnviar,
                     cajas: cajasEnviar,
@@ -5095,183 +5159,76 @@ window.enviarPedidoATabla = async function () {
                     cajasPendientes
                 });
             }
-
-            const porcentaje =
-                10 + ((i + 1) / totalArticulos) * 65;
-
-            await actualizarProgreso(
-                porcentaje,
-                `Procesando artículos: ${i + 1} de ${totalArticulos}`
-            );
         }
 
-        // --------------------------------------------------
-        // 6. GUARDAR TODO EN UN SOLO LOTE
-        // --------------------------------------------------
-
-        await actualizarProgreso(
-            80,
-            "Preparando guardado de los cambios..."
-        );
-
-        /*
-         * Operaciones del lote:
-         * - Una actualización por cada artículo de stock afectado.
-         * - Un alta por cada artículo enviado.
-         * - Una actualización o eliminación del pedido pendiente.
-         */
-        const cantidadOperaciones =
-            stockActualizaciones.size +
-            pedidosParaGuardar.length +
-            1;
-
-        // Firestore permite un máximo de 500 operaciones por lote.
-        if (cantidadOperaciones > 500) {
-            throw new Error(
-                "Este pedido supera el límite de 500 operaciones de guardado de Firebase. Dividilo en pedidos más pequeños para poder enviarlo."
-            );
-        }
-
-        const batch = writeBatch(db);
-
-        // Actualizar stock físico.
-        for (const actualizacion of stockActualizaciones.values()) {
-            batch.update(actualizacion.ref, {
-                salones: actualizacion.salones
-            });
-        }
-
-        // Crear los pedidos de destino.
-        for (const datosPedido of pedidosParaGuardar) {
-            const nuevaReferencia = doc(
-                collection(db, "stock-pedidos")
-            );
-
-            batch.set(nuevaReferencia, datosPedido);
-        }
-
-        // Actualizar o eliminar la reserva pendiente.
         if (articulosPendientes.length === 0) {
-            batch.delete(pedidoDoc.ref);
+            await deleteDoc(pedidoDoc.ref);
         } else {
-            batch.update(pedidoDoc.ref, {
+            await updateDoc(pedidoDoc.ref, {
                 articulos: articulosPendientes,
                 estadoEnvio: "pendiente",
                 fechaUltimoEnvio: Timestamp.fromDate(new Date())
             });
         }
 
-        await actualizarProgreso(
-            85,
-            "Guardando stock, pedidos y reservas..."
-        );
+       // Actualizar la tabla de pedidos inmediatamente.
+await cargarTablaPedidos("hoy");
 
-        // Una sola escritura para todas las operaciones.
-        await batch.commit();
+// Actualizar el listado de pedidos pendientes.
+await actualizarDatalistPedidos();
 
-        loteGuardado = true;
+// Limpiar el formulario.
+document.getElementById("tituloPedidoPendiente").value = "";
 
-        await actualizarProgreso(
-            91,
-            "Cambios guardados. Actualizando tabla de pedidos..."
-        );
+const contenedor = document.getElementById(
+    "contenedorPedidoPendiente"
+);
 
-        // --------------------------------------------------
-        // 7. ACTUALIZAR TABLA
-        // --------------------------------------------------
+if (contenedor) {
+    contenedor.innerHTML = "";
+}
 
-        await cargarTablaPedidos("hoy");
+// Cerrar el modal de pedidos pendientes.
+const modalElement = document.getElementById("modalPedidosPendientes");
 
-        await actualizarProgreso(
-            96,
-            "Actualizando listado de pedidos pendientes..."
-        );
+if (modalElement) {
+    const modal = bootstrap.Modal.getInstance(modalElement);
 
-        await actualizarDatalistPedidos();
+    if (modal) {
+        modal.hide();
+    }
+}
 
-        // --------------------------------------------------
-        // 8. LIMPIAR FORMULARIO
-        // --------------------------------------------------
-
-        document.getElementById("tituloPedidoPendiente").value = "";
-
-        const contenedor = document.getElementById(
-            "contenedorPedidoPendiente"
-        );
-
-        if (contenedor) {
-            contenedor.innerHTML = "";
-        }
-
-        // Cerrar modal de pedidos pendientes.
-        const modalElement = document.getElementById(
-            "modalPedidosPendientes"
-        );
-
-        if (modalElement) {
-            const modal = bootstrap.Modal.getInstance(modalElement);
-
-            if (modal) {
-                modal.hide();
-            }
-        }
-
-        await actualizarProgreso(
-            100,
-            "¡Pedido enviado correctamente!"
-        );
-
-        Swal.close();
-
-        // --------------------------------------------------
-        // 9. MOSTRAR RESULTADO
-        // --------------------------------------------------
-
-        if (articulosPendientes.length > 0) {
-            await Swal.fire({
-                icon: "warning",
-                title: "Envío parcial",
-                html: `
-                    <p>Se registraron los artículos con cantidades disponibles.</p>
-                    <p><strong>Artículos enviados:</strong> ${cantidadesEnviadas}</p>
-                    <p>Las cantidades faltantes permanecen en reserva.</p>
-                `,
-                confirmButtonText: "Aceptar"
-            });
-
-        } else {
-            await Swal.fire({
-                icon: "success",
-                title: "Pedido enviado",
-                text: "Se enviaron las cantidades disponibles y no quedaron faltantes pendientes.",
-                confirmButtonText: "Aceptar"
-            });
-        }
+// Mostrar resultado.
+if (articulosPendientes.length > 0) {
+    await Swal.fire({
+        icon: "warning",
+        title: "Envío parcial",
+        html: `
+            <p>Se registraron los artículos con cantidades disponibles.</p>
+            <p><strong>Artículos enviados:</strong> ${cantidadesEnviadas}</p>
+            <p>Las cantidades faltantes permanecen en reserva.</p>
+        `,
+        confirmButtonText: "Aceptar"
+    });
+} else {
+    await Swal.fire({
+        icon: "success",
+        title: "Pedido enviado",
+        text: "Se enviaron las cantidades disponibles y no quedaron faltantes pendientes.",
+        confirmButtonText: "Aceptar"
+    });
+}
 
     } catch (error) {
-        console.error(
-            "Error al enviar el pedido pendiente:",
-            error
-        );
+        console.error("Error al enviar el pedido pendiente:", error);
 
-        Swal.close();
-
-        if (loteGuardado) {
-            await Swal.fire({
-                icon: "warning",
-                title: "Pedido guardado",
-                text: "El envío se guardó correctamente, pero ocurrió un error al actualizar la pantalla. Recargá la tabla para ver los cambios.",
-                confirmButtonText: "Aceptar"
-            });
-
-        } else {
-            await Swal.fire({
-                icon: "error",
-                title: "No se pudo completar el envío",
-                text: error.message || "Ocurrió un error inesperado.",
-                confirmButtonText: "Aceptar"
-            });
-        }
+        await Swal.fire({
+            icon: "error",
+            title: "No se pudo completar el envío",
+            text: error.message || "Ocurrió un error inesperado.",
+            confirmButtonText: "Aceptar"
+        });
 
     } finally {
         window.enviandoPedidoPendiente = false;
@@ -7695,40 +7652,67 @@ document.addEventListener("DOMContentLoaded", () => {
   const formularioPedidos = document.getElementById("formularioPedidos");
   const flechaPedidos = document.getElementById("proyectorFlechaPedidos");
   const mensajePedidos = document.getElementById("proyectorMensajePedidos");
+  const textoEstado = document.getElementById("textoEstadoPedidos");
+  const textoAyuda = document.getElementById("textoAyudaPedidos");
+
+  if (!formularioPedidos || !flechaPedidos) return;
 
   let abierto = false;
   let animando = false;
 
   function abrirFormulario() {
     if (abierto || animando) return;
+
     animando = true;
+
     formularioPedidos.classList.remove("oculto");
     formularioPedidos.classList.add("visible");
+
     flechaPedidos.classList.add("abierto");
-    // mensajePedidos.textContent = "deslice hacia arriba";
-    setTimeout(() => { animando = false; abierto = true; }, 400);
+    flechaPedidos.classList.add("activa");
+    flechaPedidos.setAttribute("aria-expanded", "true");
+
+    if (textoEstado) textoEstado.textContent = "Formulario abierto";
+    if (textoAyuda) textoAyuda.textContent = "Tocá aquí para cerrarlo";
+
+    setTimeout(() => {
+      animando = false;
+      abierto = true;
+    }, 400);
   }
 
   function cerrarFormulario() {
     if (!abierto || animando) return;
+
     animando = true;
+
     formularioPedidos.classList.remove("visible");
     formularioPedidos.classList.add("oculto");
+
     flechaPedidos.classList.remove("abierto");
-    // mensajePedidos.textContent = "deslice hacia abajo";
-    setTimeout(() => { animando = false; abierto = false; }, 400);
+    flechaPedidos.classList.remove("activa");
+    flechaPedidos.setAttribute("aria-expanded", "false");
+
+    if (textoEstado) textoEstado.textContent = "Formulario cerrado";
+    if (textoAyuda) textoAyuda.textContent = "Tocá aquí para abrirlo";
+
+    setTimeout(() => {
+      animando = false;
+      abierto = false;
+    }, 400);
   }
 
-  // Hover horizontal sobre la flecha: alterna abrir/cerrar
-  flechaPedidos.addEventListener("mouseenter", () => {
+  flechaPedidos.addEventListener("click", () => {
     if (abierto) {
       cerrarFormulario();
     } else {
       abrirFormulario();
     }
   });
-});
 
+  // Estado inicial
+  flechaPedidos.setAttribute("aria-expanded", "false");
+});
 
 //bandeja temporal
 const navbar = document.getElementById("navbarContenido");

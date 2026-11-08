@@ -442,28 +442,88 @@ body {
   }
 }
 
+/* ==========================================
+   FONDO DE LOGIN - JANOS GROUP
+========================================== */
+
+#fondoLoginJanos {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background-image: url("image/fondo-janos-group.webp");
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
+  z-index: 1040;
+  display: none;
+}
+
+/* Login siempre por encima del fondo */
+#loginInicial {
+  z-index: 1055;
+  background-color: rgba(0, 0, 0, 0.40);
+}
+
+/* Evitar que el fondo interfiera con las pantallas internas */
+#fondoLoginJanos.oculto {
+  display: none !important;
+}
+
+/* Adaptación para celulares */
+@media (max-width: 768px) {
+  #fondoLoginJanos {
+    background-position: center center;
+  }
+
+  #loginInicial .modal-dialog {
+    width: calc(100% - 30px);
+    margin: 15px;
+  }
+}
+
 </style>
 
 
 </head>
 <body class="d-flex flex-column min-vh-100">
 
+<!-- 🌟 Fondo exclusivo del login JANOS GROUP -->
+<div id="fondoLoginJanos"></div>
+
 <!-- 🔐 Modal de login inicial -->
-<div id="loginInicial" class="modal d-flex align-items-center justify-content-center show invisible" tabindex="-1"
-  style="display: flex; background-color: rgba(0,0,0,0.5);">
+<div id="loginInicial"
+  class="modal d-flex align-items-center justify-content-center show invisible"
+  tabindex="-1">
+
   <div class="modal-dialog">
     <div class="modal-content p-4 rounded-4 shadow-lg">
+
       <div class="modal-header border-0">
         <h5 class="modal-title">Acceso a la aplicación</h5>
       </div>
+
       <div class="modal-body">
-        <input type="text" id="usuarioInicio" class="form-control mb-3" placeholder="Usuario" />
-        <input type="password" id="contraseniaInicio" class="form-control mb-3" placeholder="Contraseña" />
-        <button class="btn btn-primary w-100" onclick="validarLoginInicial()">Ingresar</button>
+        <input type="text"
+          id="usuarioInicio"
+          class="form-control mb-3"
+          placeholder="Usuario" />
+
+        <input type="password"
+          id="contraseniaInicio"
+          class="form-control mb-3"
+          placeholder="Contraseña" />
+
+        <button class="btn btn-primary w-100"
+          onclick="validarLoginInicial()">
+          Ingresar
+        </button>
       </div>
+
     </div>
   </div>
 </div>
+
 <!-- Modal Selección de Salón -->
 <div class="modal fade d-none" id="modalSeleccionSalon" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
@@ -1262,61 +1322,113 @@ export async function cargarStockActual() {
 
   tabla.innerHTML = "";
 
-  // === Mostrar cartel "Cargando..." ===
-  let overlay = document.getElementById("overlayCarga");
+  // ==========================================================
+  // MOSTRAR CARTEL CON PORCENTAJE DE CARGA
+  // ==========================================================
 
-  if (!overlay) {
-    overlay = document.createElement("div");
-    overlay.id = "overlayCarga";
+  // ==========================================================
+// MOSTRAR CARTEL COMPACTO CON PORCENTAJE
+// ==========================================================
 
-    overlay.innerHTML = `
+let overlay = document.getElementById("overlayCarga");
+
+if (!overlay) {
+  overlay = document.createElement("div");
+  overlay.id = "overlayCarga";
+
+  overlay.innerHTML = `
+    <div style="
+      position:fixed;
+      inset:0;
+      background:rgba(0,0,0,0.6);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      z-index:9999;
+      transition:opacity 0.3s ease;
+    ">
       <div style="
-        background: rgba(0,0,0,0.6);
-        position: fixed;
-        inset: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 9999;
-        transition: opacity 0.3s ease;
+        background:#fff;
+        padding:15px 22px;
+        border-radius:12px;
+        box-shadow:0 0 15px rgba(0,0,0,0.25);
+        font-family:Arial,sans-serif;
+        display:flex;
+        align-items:center;
+        gap:15px;
+        min-width:270px;
       ">
+
+        <div id="porcentajeCarga" style="
+          font-size:25px;
+          font-weight:bold;
+          color:#19b99a;
+          min-width:55px;
+          text-align:center;
+        ">0%</div>
+
         <div style="
-          background: #fff;
-          padding: 25px 40px;
-          border-radius: 15px;
-          box-shadow: 0 0 15px rgba(0,0,0,0.3);
-          font-family: Arial, sans-serif;
-          font-size: 18px;
-          text-align: center;
-          color: #333;
-          animation: pulse 1.2s infinite ease-in-out;
+          font-size:15px;
+          color:#333;
+          font-weight:600;
+          white-space:nowrap;
         ">
-          🔄 Cargando datos del salón...
+          Cargando datos del salón...
         </div>
+
       </div>
+    </div>
+  `;
 
-      <style>
-        @keyframes pulse {
-          0%, 100% {
-            opacity: 0.8;
-            transform: scale(1);
-          }
+  document.body.appendChild(overlay);
 
-          50% {
-            opacity: 1;
-            transform: scale(1.05);
-          }
-        }
-      </style>
-    `;
+} else {
+  overlay.style.display = "flex";
+  overlay.style.opacity = "1";
+}
 
-    document.body.appendChild(overlay);
-  } else {
-    overlay.style.display = "flex";
-    overlay.style.opacity = "1";
+let porcentajeActual = 0;
+
+function actualizarPorcentaje(porcentaje) {
+  porcentajeActual = Math.max(
+    porcentajeActual,
+    Math.min(100, porcentaje)
+  );
+
+  const texto = document.getElementById("porcentajeCarga");
+
+  if (texto) {
+    texto.textContent = `${porcentajeActual}%`;
+  }
+}
+
+actualizarPorcentaje(0);
+
+  function actualizarPorcentaje(porcentaje) {
+    porcentajeActual = Math.max(
+      porcentajeActual,
+      Math.min(100, porcentaje)
+    );
+
+    const texto = document.getElementById("porcentajeCarga");
+    const barra = document.getElementById("barraCarga");
+
+    if (texto) {
+      texto.textContent = `${porcentajeActual}%`;
+    }
+
+    if (barra) {
+      barra.style.width = `${porcentajeActual}%`;
+    }
   }
 
-  // === Evitar suscripciones duplicadas ===
+  // Reiniciar porcentaje al cambiar de salón
+  actualizarPorcentaje(0);
+
+  // ==========================================================
+  // EVITAR SUSCRIPCIONES DUPLICADAS
+  // ==========================================================
+
   if (unsubscribeIngresos) unsubscribeIngresos();
   if (unsubscribePedidos) unsubscribePedidos();
   if (unsubscribeTotal) unsubscribeTotal();
@@ -1339,9 +1451,8 @@ export async function cargarStockActual() {
 
   function datosReservaFaltantes(articulo) {
     return reservadasMap.get(articulo)?.faltantes || 0;
-}
+  }
 
-  // Para saber cuándo llegaron todos los datos necesarios
   let ingresosCargados = false;
   let stockTotalCargado = false;
   let reservadasCargadas = false;
@@ -1359,7 +1470,6 @@ export async function cargarStockActual() {
   let listaArticulos = [];
 
   if (cacheArticulos) {
-
     console.log("✅ Artículos desde cache local");
 
     listaArticulos = JSON.parse(cacheArticulos);
@@ -1367,7 +1477,6 @@ export async function cargarStockActual() {
     console.timeEnd("⏱ Leer y procesar cache artículos");
 
   } else {
-
     console.log("⚠️ Cache vacío, cargando artículos...");
 
     const articulosSnap = await getDocs(
@@ -1382,7 +1491,11 @@ export async function cargarStockActual() {
       "articulosCache",
       JSON.stringify(listaArticulos)
     );
+
+    console.timeEnd("⏱ Leer y procesar cache artículos");
   }
+
+  actualizarPorcentaje(20);
 
   // ==========================================================
   // CACHE PARA AUTOCOMPLETADO
@@ -1397,29 +1510,20 @@ export async function cargarStockActual() {
   const datalist = document.getElementById("listaSugerencias");
 
   if (datalist) {
-
     datalist.innerHTML = "";
 
     const fragment = document.createDocumentFragment();
 
     articulosCache.forEach(nombre => {
-
       const option = document.createElement("option");
-
       option.value = nombre;
-
       fragment.appendChild(option);
     });
 
     datalist.appendChild(fragment);
-
-    console.timeEnd("⏱ Autocompletado");
-
-  } else {
-
-    console.timeEnd("⏱ Autocompletado");
-
   }
+
+  console.timeEnd("⏱ Autocompletado");
 
   // ==========================================================
   // PREPARAR MAPAS DE ARTÍCULOS
@@ -1428,24 +1532,14 @@ export async function cargarStockActual() {
   console.time("⏱ Preparar mapas artículos");
 
   listaArticulos.forEach(data => {
-
     if (!data.articulo) return;
 
-    const nombre = data.articulo
-      .trim()
-      .toLowerCase();
+    const nombre = data.articulo.trim().toLowerCase();
 
     articulosValidos.add(nombre);
 
-    categoriasMap.set(
-      nombre,
-      data.categoria || ""
-    );
-
-    areasMap.set(
-      nombre,
-      data.area || ""
-    );
+    categoriasMap.set(nombre, data.categoria || "");
+    areasMap.set(nombre, data.area || "");
 
     unidadesPorCajaMap.set(
       nombre,
@@ -1454,6 +1548,8 @@ export async function cargarStockActual() {
   });
 
   console.timeEnd("⏱ Preparar mapas artículos");
+
+  actualizarPorcentaje(30);
 
   console.timeEnd("⏱ Preparación de carga de stock");
 
@@ -1475,46 +1571,34 @@ export async function cargarStockActual() {
 
     const filas = [];
 
-    // --------------------------------------------------------
-    // RECORRER ARTÍCULOS EXISTENTES EN STOCK-TOTAL
-    // --------------------------------------------------------
-
     stockTotalMap.forEach((stockData, articulo) => {
 
       if (!articulosValidos.has(articulo)) return;
 
-      const categoria =
-        categoriasMap.get(articulo) || "";
-
-      const area =
-        areasMap.get(articulo) || "";
+      const categoria = categoriasMap.get(articulo) || "";
+      const area = areasMap.get(articulo) || "";
 
       const unidadesPorCaja =
         unidadesPorCajaMap.get(articulo) || 0;
 
-      const rota =
-        rotas.get(articulo) || 0;
+      const rota = rotas.get(articulo) || 0;
 
-      const unidades =
-        stockData.unidades || 0;
-
-      const cajas =
-        stockData.cajas || 0;
+      const unidades = stockData.unidades || 0;
+      const cajas = stockData.cajas || 0;
 
       const datosReserva = reservadasMap.get(articulo) || {
-    reservadas: 0,
-    faltantes: 0,
-    detalle: ""
-};
+        reservadas: 0,
+        faltantes: 0,
+        detalle: ""
+      };
 
-const reservadas = datosReserva.reservadas;
-const faltantes = datosReserva.faltantes;
+      const reservadas = datosReserva.reservadas;
+      const faltantes = datosReserva.faltantes;
 
       const totalUnidades =
         unidades + (cajas * unidadesPorCaja);
 
-     // El stock disponible NO se descuenta por las reservas.
-const totalDisponibles = totalUnidades;
+      const totalDisponibles = totalUnidades;
 
       filas.push({
         articulo,
@@ -1536,11 +1620,8 @@ const totalDisponibles = totalUnidades;
 
     filas.sort((a, b) => {
 
-      const categoriaA =
-        a.categoria.trim().toLowerCase();
-
-      const categoriaB =
-        b.categoria.trim().toLowerCase();
+      const categoriaA = a.categoria.trim().toLowerCase();
+      const categoriaB = b.categoria.trim().toLowerCase();
 
       if (categoriaA < categoriaB) return -1;
       if (categoriaA > categoriaB) return 1;
@@ -1568,73 +1649,69 @@ const totalDisponibles = totalUnidades;
       fila.dataset.articulo = data.articulo;
 
       fila.innerHTML = `
-  <td>${data.categoria}</td>
+        <td>${data.categoria}</td>
 
-  <td style="white-space: normal; overflow-wrap: anywhere;">
-    ${data.area}
-  </td>
+        <td style="white-space: normal; overflow-wrap: anywhere;">
+          ${data.area}
+        </td>
 
-  <td>${data.articulo}</td>
+        <td>${data.articulo}</td>
 
-  <!-- UNIDADES FÍSICAS DISPONIBLES -->
-  <td class="text-center">
-    <strong>${data.unidades}</strong>
-  </td>
+        <td class="text-center">
+          <strong>${data.unidades}</strong>
+        </td>
 
-  <!-- CAJAS FÍSICAS DISPONIBLES -->
-  <td class="text-center">
-    ${
-      data.cajas > 0
-        ? `
-          <strong>${data.cajas}</strong>
+        <td class="text-center">
+          ${
+            data.cajas > 0
+              ? `
+                <strong>${data.cajas}</strong>
+
+                ${
+                  data.unidadesPorCaja > 0
+                    ? `
+                      <span style="
+                        font-size:11px;
+                        color:#888;
+                      ">
+                        (${data.unidadesPorCaja} c/u)
+                      </span>
+                    `
+                    : ""
+                }
+              `
+              : ""
+          }
+        </td>
+
+        <td class="text-center">
+          <strong>${data.reservadas}</strong>
 
           ${
-            data.unidadesPorCaja > 0
+            datosReservaFaltantes(data.articulo) > 0
               ? `
                 <span style="
-                  font-size:11px;
-                  color:#888;
+                  display:block;
+                  color:#dc3545;
+                  font-size:12px;
+                  font-weight:bold;
                 ">
-                  (${data.unidadesPorCaja} c/u)
+                  Faltan: ${datosReservaFaltantes(data.articulo)}
                 </span>
               `
               : ""
           }
-        `
-        : ""
-    }
-  </td>
+        </td>
 
-  <!-- RESERVAS Y FALTANTES -->
-  <td class="text-center">
-    <strong>${data.reservadas}</strong>
+        <td class="text-center fw-bold">
+          ${data.totalDisponibles}
+        </td>
 
-    ${
-      datosReservaFaltantes(data.articulo) > 0
-        ? `
-          <span style="
-            display:block;
-            color:#dc3545;
-            font-size:12px;
-            font-weight:bold;
-          ">
-            Faltan: ${datosReservaFaltantes(data.articulo)}
-          </span>
-        `
-        : ""
-    }
-  </td>
+        <td class="text-center">
+          ${data.rota}
+        </td>
+      `;
 
-  <!-- TOTAL FÍSICO -->
-  <td class="text-center fw-bold">
-    ${data.totalDisponibles}
-  </td>
-
-  <!-- ROTAS -->
-  <td class="text-center">
-    ${data.rota}
-  </td>
-`;
       fragment.appendChild(fila);
     });
 
@@ -1643,42 +1720,41 @@ const totalDisponibles = totalUnidades;
     // ========================================================
 
     tabla.innerHTML = "";
-
     tabla.appendChild(fragment);
 
     requestAnimationFrame(() => {
+
       console.log("🖥️ TABLA YA FUE PINTADA POR EL NAVEGADOR");
+
+      actualizarPorcentaje(100);
+
+      // Ocultar cartel después de mostrar el 100%
+      setTimeout(() => {
+        overlay.style.opacity = "0";
+
+        setTimeout(() => {
+          overlay.style.display = "none";
+        }, 400);
+
+      }, 250);
     });
 
     console.timeEnd("⏱ DESDE RESTAURAR USUARIO HASTA TABLA");
 
-    console.log(
-      "📊 Filas renderizadas:",
-      filas.length
-    );
+    console.log("📊 Filas renderizadas:", filas.length);
 
     console.timeEnd("⏱ Render tabla stock");
-
-    // ========================================================
-    // OCULTAR CARTEL
-    // ========================================================
-
-    overlay.style.opacity = "0";
-
-    setTimeout(() => {
-      overlay.style.display = "none";
-    }, 400);
   }
 
   // ==========================================================
   // STOCK-INGRESO
-  // SOLO SE UTILIZA PARA OBTENER LAS ROTAS
   // ==========================================================
 
-  const qIngresos = query(
-    collection(db, "stock-ingreso"),
-    where("origen", "==", salon)
-  );
+const qIngresos = query(
+  collection(db, "stock-ingreso"),
+  where("origen", "==", salon),
+  where("rotas", ">", 0)
+);
 
   const inicioSnapshots = performance.now();
 
@@ -1704,18 +1780,11 @@ const totalDisponibles = totalUnidades;
 
         const d = doc.data();
 
-        const art =
-          d.articulo?.trim().toLowerCase();
+        const art = d.articulo?.trim().toLowerCase();
 
-        if (
-          !art ||
-          !articulosValidos.has(art)
-        ) {
-          return;
-        }
+        if (!art || !articulosValidos.has(art)) return;
 
-        const rot =
-          parseInt(d.rotas) || 0;
+        const rot = parseInt(d.rotas) || 0;
 
         rotas.set(
           art,
@@ -1725,14 +1794,11 @@ const totalDisponibles = totalUnidades;
 
       ingresosCargados = true;
 
-      console.log(
-        "📦 Artículos con rotas:",
-        rotas.size
-      );
+      actualizarPorcentaje(50);
 
-      console.timeEnd(
-        "⏱ Procesamiento stock-ingreso"
-      );
+      console.log("📦 Artículos con rotas:", rotas.size);
+
+      console.timeEnd("⏱ Procesamiento stock-ingreso");
 
       if (stockTotalCargado && reservadasCargadas) {
         renderizarTabla();
@@ -1742,7 +1808,6 @@ const totalDisponibles = totalUnidades;
 
   // ==========================================================
   // STOCK-TOTAL
-  // FUENTE PRINCIPAL DEL INVENTARIO FÍSICO
   // ==========================================================
 
   unsubscribeTotal = onSnapshot(
@@ -1765,8 +1830,7 @@ const totalDisponibles = totalUnidades;
 
         const data = doc.data();
 
-        const art =
-          doc.id?.trim().toLowerCase();
+        const art = doc.id?.trim().toLowerCase();
 
         if (
           !art ||
@@ -1776,31 +1840,24 @@ const totalDisponibles = totalUnidades;
           return;
         }
 
-        const datosSalon =
-          data.salones[salon];
+        const datosSalon = data.salones[salon];
 
         stockTotalMap.set(
           art,
           {
-            unidades:
-              parseInt(datosSalon.unidades) || 0,
-
-            cajas:
-              parseInt(datosSalon.cajas) || 0
+            unidades: parseInt(datosSalon.unidades) || 0,
+            cajas: parseInt(datosSalon.cajas) || 0
           }
         );
       });
 
       stockTotalCargado = true;
 
-      console.log(
-        "📊 Artículos en stock-total:",
-        stockTotalMap.size
-      );
+      actualizarPorcentaje(70);
 
-      console.timeEnd(
-        "⏱ Procesamiento stock-total"
-      );
+      console.log("📊 Artículos en stock-total:", stockTotalMap.size);
+
+      console.timeEnd("⏱ Procesamiento stock-total");
 
       if (ingresosCargados && reservadasCargadas) {
         renderizarTabla();
@@ -1810,126 +1867,117 @@ const totalDisponibles = totalUnidades;
 
   // ==========================================================
   // STOCK-RESERVADAS
-  // FUENTE DE LAS UNIDADES RESERVADAS POR SALÓN
   // ==========================================================
 
   globalThis.unsubscribeReservadas = onSnapshot(
     collection(db, "stock-reservadas"),
     snapshot => {
 
-        console.log(
-            "🟢 SNAPSHOT STOCK-RESERVADAS LLEGÓ",
-            snapshot.size
-        );
+      console.log(
+        "🟢 SNAPSHOT STOCK-RESERVADAS LLEGÓ",
+        snapshot.size
+      );
 
-        console.time("⏱ Procesamiento stock-reservadas");
+      console.time("⏱ Procesamiento stock-reservadas");
 
-        reservadasMap.clear();
+      reservadasMap.clear();
 
-        snapshot.forEach(pedidoDoc => {
+      snapshot.forEach(pedidoDoc => {
 
-            const pedido = pedidoDoc.data();
+        const pedido = pedidoDoc.data();
 
-            // Solo pedidos pendientes del salón seleccionado.
-            if (
-                pedido.tipo !== "pedido-pendiente" ||
-                pedido.origen !== salon
-            ) {
-                return;
-            }
+        if (
+          pedido.tipo !== "pedido-pendiente" ||
+          pedido.origen !== salon
+        ) {
+          return;
+        }
 
-            (pedido.articulos || []).forEach(item => {
+        (pedido.articulos || []).forEach(item => {
 
-                const art = item.articulo
-                    ?.trim()
-                    .toLowerCase();
+          const art = item.articulo?.trim().toLowerCase();
 
-                if (!art || !articulosValidos.has(art)) {
-                    return;
-                }
+          if (!art || !articulosValidos.has(art)) return;
 
-                const pack = unidadesPorCajaMap.get(art) || 0;
+          const pack = unidadesPorCajaMap.get(art) || 0;
 
-                const unidadesSolicitadas =
-                    Number(item.unidades) || 0;
+          const unidadesSolicitadas =
+            Number(item.unidades) || 0;
 
-                const cajasSolicitadas =
-                    Number(item.cajas) || 0;
+          const cajasSolicitadas =
+            Number(item.cajas) || 0;
 
-                const unidadesReservadas =
-                    Number(item.unidadesReservadas) || 0;
+          const unidadesReservadas =
+            Number(item.unidadesReservadas) || 0;
 
-                const cajasReservadas =
-                    Number(item.cajasReservadas) || 0;
+          const cajasReservadas =
+            Number(item.cajasReservadas) || 0;
 
-                let reservadas = 0;
-                let faltantes = 0;
+          let reservadas = 0;
+          let faltantes = 0;
 
-                if (pack > 0) {
+          if (pack > 0) {
 
-                    const totalSolicitado =
-                        unidadesSolicitadas +
-                        (cajasSolicitadas * pack);
+            const totalSolicitado =
+              unidadesSolicitadas +
+              (cajasSolicitadas * pack);
 
-                    reservadas =
-                        unidadesReservadas +
-                        (cajasReservadas * pack);
+            reservadas =
+              unidadesReservadas +
+              (cajasReservadas * pack);
 
-                    faltantes = Math.max(
-                        0,
-                        totalSolicitado - reservadas
-                    );
+            faltantes = Math.max(
+              0,
+              totalSolicitado - reservadas
+            );
 
-                } else {
+          } else {
 
-                    // Para artículos sin equivalencia de caja,
-                    // se contabilizan las unidades y cajas por separado.
-                    const unidadesPendientes =
-                        Number(item.unidadesPendientes) || 0;
+            const unidadesPendientes =
+              Number(item.unidadesPendientes) || 0;
 
-                    const cajasPendientes =
-                        Number(item.cajasPendientes) || 0;
+            const cajasPendientes =
+              Number(item.cajasPendientes) || 0;
 
-                    reservadas =
-                        unidadesReservadas + cajasReservadas;
+            reservadas =
+              unidadesReservadas + cajasReservadas;
 
-                    faltantes =
-                        unidadesPendientes + cajasPendientes;
-                }
+            faltantes =
+              unidadesPendientes + cajasPendientes;
+          }
 
-                const anterior = reservadasMap.get(art) || {
-                    reservadas: 0,
-                    faltantes: 0
-                };
+          const anterior = reservadasMap.get(art) || {
+            reservadas: 0,
+            faltantes: 0
+          };
 
-                reservadasMap.set(art, {
-                    reservadas: anterior.reservadas + reservadas,
-                    faltantes: anterior.faltantes + faltantes
-                });
-
-            });
+          reservadasMap.set(art, {
+            reservadas: anterior.reservadas + reservadas,
+            faltantes: anterior.faltantes + faltantes
+          });
 
         });
 
-        reservadasCargadas = true;
+      });
 
-        console.log(
-            "📦 Artículos con reservas:",
-            reservadasMap.size
-        );
+      reservadasCargadas = true;
 
-        console.log(
-            "📋 Reservas calculadas:",
-            Array.from(reservadasMap.entries())
-        );
+      actualizarPorcentaje(90);
 
-        console.timeEnd("⏱ Procesamiento stock-reservadas");
+      console.log("📦 Artículos con reservas:", reservadasMap.size);
 
-        if (ingresosCargados && stockTotalCargado) {
-            renderizarTabla();
-        }
+      console.log(
+        "📋 Reservas calculadas:",
+        Array.from(reservadasMap.entries())
+      );
+
+      console.timeEnd("⏱ Procesamiento stock-reservadas");
+
+      if (ingresosCargados && stockTotalCargado) {
+        renderizarTabla();
+      }
     }
-);
+  );
 
   // ==========================================================
   // CARGA PREPARADA
@@ -3077,48 +3125,30 @@ window.cancelarSeleccionSalon = function() {
   const modalSalon = document.getElementById("modalSeleccionSalon");
   const modalLogin = document.getElementById("loginInicial");
 
-  // Ocultar modal de salones
   modalSalon.classList.remove("show", "d-flex");
   modalSalon.classList.add("d-none");
   modalSalon.style.display = "none";
 
-  // Mostrar modal de login
   modalLogin.classList.remove("d-none");
   modalLogin.classList.add("show", "d-flex");
   modalLogin.style.display = "flex";
 
-  // Limpiar campos de login
   document.getElementById("usuarioInicio").value = "";
   document.getElementById("contraseniaInicio").value = "";
 };
 
-// ✅ Función para cancelar selección de salón y volver al login
-function cancelarSeleccionSalon() {
-  const modalSalon = document.getElementById("modalSeleccionSalon");
-  const modalLogin = document.getElementById("loginInicial");
-
-  // Ocultar modal de salones
-  modalSalon.classList.remove("show", "d-flex");
-  modalSalon.classList.add("d-none");
-  modalSalon.style.display = "none";
-
-  // Mostrar modal de login
-  modalLogin.classList.remove("d-none");
-  modalLogin.classList.add("show", "d-flex");
-  modalLogin.style.display = "flex";
-
-  // Limpiar campos de login
-  document.getElementById("usuarioInicio").value = "";
-  document.getElementById("contraseniaInicio").value = "";
-}
-
-
 // función auxiliar para ocultar login
 function ocultarLoginModal() {
   const loginModal = document.getElementById("loginInicial");
+  const fondoLogin = document.getElementById("fondoLoginJanos");
+
   loginModal.classList.remove("show", "d-flex");
   loginModal.classList.add("d-none");
   loginModal.style.display = "none";
+
+  if (fondoLogin) {
+    fondoLogin.style.display = "none";
+  }
 }
 
 // restaurar usuario/salón de sessionStorage al cargar
@@ -3129,21 +3159,23 @@ window.addEventListener('load', () => {
 
   const loginModal = document.getElementById("loginInicial");
   const selectorSalon = document.getElementById("selectorSalon");
+  const fondoLogin = document.getElementById("fondoLoginJanos");
 
   if (usuarioGuardado && salonGuardado) {
 
     usuarioActual = usuarioGuardado;
     salonActual = salonGuardado;
 
-    // ✅ restaurar visualmente el salón
     if (selectorSalon) {
       selectorSalon.value = salonActual;
     }
 
-    // Ocultar modal login
     loginModal.classList.remove("show", "d-flex");
     loginModal.classList.add("d-none");
     loginModal.style.display = "none";
+
+    // Ocultar fondo porque ya existe una sesión
+    if (fondoLogin) fondoLogin.style.display = "none";
 
     console.log(`Usuario restaurado: ${usuarioActual}, salón: ${salonActual}`);
 
@@ -3151,10 +3183,12 @@ window.addEventListener('load', () => {
 
   } else {
 
-    // Mostrar modal login
     loginModal.classList.remove("d-none");
     loginModal.classList.add("show", "d-flex");
     loginModal.classList.remove("invisible");
+
+    // Mostrar fondo junto al login
+    if (fondoLogin) fondoLogin.style.display = "block";
   }
 });
 //clave acceso fin
@@ -6035,10 +6069,6 @@ function mostrarOpcionesFiltradasHistorial() {
 
 }
 
-
-// ==========================================
-// APLICAR FILTRO
-// ==========================================
 
 // ==========================================
 // APLICAR FILTRO
