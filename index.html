@@ -3066,6 +3066,8 @@ function mostrarModalSeleccionSalon(salones) {
   const listaSalonesDiv = document.getElementById("listaSalones"); //puede fallar aca
   const buscarSalonInput = document.getElementById("buscarSalon");
 
+sessionStorage.setItem("salonesAsignados", JSON.stringify(salones));
+
   // Render dinámico
   function mostrarSalones(filtro = "") {
     listaSalonesDiv.innerHTML = "";
@@ -3213,6 +3215,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 });
 
+
 async function cargarUnidadesDefectuosas() {
 
   const contenedor = document.getElementById(
@@ -3234,6 +3237,35 @@ async function cargarUnidadesDefectuosas() {
 
   try {
 
+    // ==========================================
+    // OBTENER TODOS LOS SALONES ASIGNADOS
+    // ==========================================
+
+    const salonesAsignados = JSON.parse(
+      sessionStorage.getItem("salonesAsignados") || "[]"
+    );
+
+    const salonesPermitidos = new Set(
+      salonesAsignados.map(salon =>
+        String(salon).trim().toLowerCase()
+      )
+    );
+
+    if (salonesPermitidos.size === 0) {
+
+      contenedor.innerHTML = `
+        <div class="alert alert-info">
+          Este usuario no tiene salones asignados.
+        </div>
+      `;
+
+      return;
+    }
+
+    // ==========================================
+    // CONSULTAR UNIDADES DEFECTUOSAS
+    // ==========================================
+
     const snapshot = await getDocs(
       collection(db, "stock-danios")
     );
@@ -3245,28 +3277,13 @@ async function cargarUnidadesDefectuosas() {
 
     snapshot.forEach(docSnap => {
 
-      console.log(
-        "🆔 ID:",
-        docSnap.id
-      );
-
-      console.log(
-        "📄 DATOS:",
-        docSnap.data()
-      );
+      console.log("🆔 ID:", docSnap.id);
+      console.log("📄 DATOS:", docSnap.data());
 
     });
 
-    const salonActual = sessionStorage.getItem("salon");
-
-if (!salonActual) {
-  console.error("❌ No hay salón seleccionado.");
-  return;
-}
-
-
     // ==========================================
-    // SIN REGISTROS
+    // SIN DOCUMENTOS
     // ==========================================
 
     if (snapshot.empty) {
@@ -3279,7 +3296,6 @@ if (!salonActual) {
 
       return;
     }
-
 
     // ==========================================
     // CONSTRUIR TABLA
@@ -3294,25 +3310,15 @@ if (!salonActual) {
           <thead class="table-dark">
 
             <tr>
-
               <th>Artículo</th>
-
               <th>Unidades</th>
-
               <th>Daños</th>
-
               <th>Origen</th>
-
               <th>Destino</th>
-
               <th>Estado</th>
-
               <th>Fecha ingreso</th>
-
               <th>Inicio reparación</th>
-
               <th>Acciones</th>
-
             </tr>
 
           </thead>
@@ -3321,19 +3327,26 @@ if (!salonActual) {
 
     `;
 
+    // Contar solamente los registros de los salones asignados
+    let registrosMostrados = 0;
 
     snapshot.forEach(docSnap => {
 
-  const data = docSnap.data();
+      const data = docSnap.data();
 
-  // Mostrar solamente los registros cuyo ORIGEN
-  // corresponde al salón donde estoy trabajando
-  if (
-    (data.origen || "").trim().toLowerCase() !==
-    salonActual.trim().toLowerCase()
-  ) {
-    return;
-  }
+      // ==========================================
+      // FILTRAR POR TODOS LOS SALONES ASIGNADOS
+      // ==========================================
+
+      if (
+        !salonesPermitidos.has(
+          String(data.origen || "").trim().toLowerCase()
+        )
+      ) {
+        return;
+      }
+
+      registrosMostrados++;
 
       // ==========================================
       // DAÑOS
@@ -3343,7 +3356,6 @@ if (!salonActual) {
         Array.isArray(data.tiposDanio)
           ? data.tiposDanio.join(", ")
           : "Sin especificar";
-
 
       // ==========================================
       // FECHA INGRESO
@@ -3360,32 +3372,26 @@ if (!salonActual) {
 
       }
 
-
       // ==========================================
       // ESTADO
       // ==========================================
 
       let estadoTexto = "Pendiente";
-
       let estadoClase = "text-bg-secondary";
 
       if (data.estado === "reparacion") {
 
         estadoTexto = "En reparación";
-
         estadoClase = "text-bg-warning";
 
       }
 
-
       if (data.estado === "reparado") {
 
         estadoTexto = "Reparado";
-
         estadoClase = "text-bg-success";
 
       }
-
 
       // ==========================================
       // INICIO REPARACIÓN
@@ -3402,47 +3408,44 @@ if (!salonActual) {
 
       }
 
+      // ==========================================
+      // BOTONES REPARAR Y TIRAR
+      // ==========================================
 
-// ==========================================
-// BOTONES REPARAR Y TIRAR
-// ==========================================
+      let botonesAcciones = "";
 
-let botonesAcciones = "";
+      if (data.estado !== "reparado") {
 
-if (data.estado !== "reparado") {
+        const funcionReparar =
+          data.estado === "reparacion"
+            ? `marcarReparado('${docSnap.id}')`
+            : `iniciarReparacion('${docSnap.id}')`;
 
-  const funcionReparar =
-    data.estado === "reparacion"
-      ? `marcarReparado('${docSnap.id}')`
-      : `iniciarReparacion('${docSnap.id}')`;
+        botonesAcciones = `
 
+          <button
+            type="button"
+            class="btn ${
+              data.estado === "reparacion"
+                ? "btn-success"
+                : "btn-warning"
+            } btn-sm w-100 mb-1"
+            onclick="${funcionReparar}"
+          >
+            Reparar
+          </button>
 
-  botonesAcciones = `
+          <button
+            type="button"
+            class="btn btn-danger btn-sm w-100"
+            onclick="tirarArticulo('${docSnap.id}')"
+          >
+            Tirar
+          </button>
 
-    <button
-      type="button"
-      class="btn ${
-        data.estado === "reparacion"
-          ? "btn-success"
-          : "btn-warning"
-      } btn-sm w-100 mb-1"
-      onclick="${funcionReparar}"
-    >
-      Reparar
-    </button>
+        `;
 
-
-    <button
-      type="button"
-      class="btn btn-danger btn-sm w-100"
-      onclick="tirarArticulo('${docSnap.id}')"
-    >
-      Tirar
-    </button>
-
-  `;
-
-}
+      }
 
       // ==========================================
       // FILA
@@ -3458,54 +3461,40 @@ if (data.estado !== "reparado") {
             </strong>
           </td>
 
-
           <td class="text-center">
-
             <strong>
               ${data.unidades ?? 0}
             </strong>
-
           </td>
-
 
           <td>
             ${tiposDanio}
           </td>
 
-
           <td>
             ${data.salonIngreso || "—"}
           </td>
-
 
           <td>
             ${data.salonEnviar || "—"}
           </td>
 
-
           <td class="text-center">
-
             <span class="badge ${estadoClase}">
               ${estadoTexto}
             </span>
-
           </td>
-
 
           <td>
             ${fechaIngreso || "—"}
           </td>
 
-
           <td>
             ${inicioReparacion || "—"}
           </td>
 
-
           <td>
-
             ${botonesAcciones}
-
           </td>
 
         </tr>
@@ -3514,6 +3503,21 @@ if (data.estado !== "reparado") {
 
     });
 
+    // ==========================================
+    // NINGÚN REGISTRO COINCIDE CON LOS SALONES
+    // ==========================================
+
+    if (registrosMostrados === 0) {
+
+      contenedor.innerHTML = `
+        <div class="alert alert-info">
+          No hay unidades defectuosas pendientes
+          en los salones asignados.
+        </div>
+      `;
+
+      return;
+    }
 
     html += `
 
@@ -3525,15 +3529,12 @@ if (data.estado !== "reparado") {
 
     `;
 
-
     console.log(
-      "🧾 TABLA GENERADA:",
-      html
+      "🧾 REGISTROS MOSTRADOS:",
+      registrosMostrados
     );
 
-
     contenedor.innerHTML = html;
-
 
   } catch (error) {
 
@@ -3542,16 +3543,8 @@ if (data.estado !== "reparado") {
       error
     );
 
-    console.error(
-      "Código:",
-      error.code
-    );
-
-    console.error(
-      "Mensaje:",
-      error.message
-    );
-
+    console.error("Código:", error.code);
+    console.error("Mensaje:", error.message);
 
     contenedor.innerHTML = `
 
@@ -3570,6 +3563,7 @@ if (data.estado !== "reparado") {
   }
 
 }
+
 // termina unidades defectuosas
 
 

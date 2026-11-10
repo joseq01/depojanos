@@ -856,6 +856,24 @@ html body #proyectorBoxPedidos #proyectorFlechaPedidos.proyector-arrow {
     z-index: 1040 !important;
   }
 }
+
+/* ==========================================
+   MODALES POR ENCIMA DEL BOTÓN FORMULARIO
+========================================== */
+
+#modalResumenImpresion,
+#modalPedidosPendientes {
+  position: fixed !important;
+  z-index: 3000 !important;
+}
+
+#modalResumenImpresion .modal-dialog,
+#modalResumenImpresion .modal-content,
+#modalPedidosPendientes .modal-dialog,
+#modalPedidosPendientes .modal-content {
+  position: relative;
+  z-index: 3001 !important;
+}
   </style>
   
 </head>
@@ -4873,404 +4891,512 @@ window.enviarPedidoATabla = async function () {
 
     window.enviandoPedidoPendiente = true;
 
-    let pedidoDoc = null;
-    let envioIniciado = false;
 
-    try {
-        const pedidosSnap = await getDocs(
-            query(
-                collection(db, "stock-reservadas"),
-                where("tipo", "==", "pedido-pendiente"),
-                where("titulo", "==", titulo),
-                where("origen", "==", origen)
-            )
+let overlay = document.getElementById("overlayCarga");
+
+if (!overlay) {
+    overlay = document.createElement("div");
+    overlay.id = "overlayCarga";
+
+    overlay.innerHTML = `
+        <div style="
+            position:fixed;
+            inset:0;
+            background:rgba(0,0,0,0.6);
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            z-index:9999;
+            transition:opacity 0.3s ease;
+        ">
+            <div style="
+                background:#fff;
+                padding:15px 22px;
+                border-radius:12px;
+                box-shadow:0 0 15px rgba(0,0,0,0.25);
+                font-family:Arial,sans-serif;
+                display:flex;
+                align-items:center;
+                gap:15px;
+                min-width:270px;
+            ">
+                <div id="porcentajeCarga" style="
+                    font-size:25px;
+                    font-weight:bold;
+                    color:#19b99a;
+                    min-width:55px;
+                    text-align:center;
+                ">0%</div>
+
+                <div style="
+                    font-size:15px;
+                    color:#333;
+                    font-weight:600;
+                    white-space:nowrap;
+                ">
+                    Cargando datos...
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+} else {
+    overlay.style.display = "flex";
+    overlay.style.opacity = "1";
+}
+
+let porcentajeActual = 0;
+
+function actualizarPorcentaje(porcentaje) {
+    porcentajeActual = Math.max(
+        porcentajeActual,
+        Math.min(100, porcentaje)
+    );
+
+    const texto = document.getElementById("porcentajeCarga");
+
+    if (texto) {
+        texto.textContent = `${porcentajeActual}%`;
+    }
+}
+
+actualizarPorcentaje(0);
+
+let pedidoDoc = null;
+let envioIniciado = false;
+
+try {
+    const pedidosSnap = await getDocs(
+        query(
+            collection(db, "stock-reservadas"),
+            where("tipo", "==", "pedido-pendiente"),
+            where("titulo", "==", titulo),
+            where("origen", "==", origen)
+        )
+    );
+
+    if (pedidosSnap.empty) {
+        throw new Error("No se encontró el pedido pendiente.");
+    }
+
+    if (pedidosSnap.docs.length > 1) {
+        throw new Error(
+            "Hay más de un pedido con ese título y origen. No se realizó el envío para evitar duplicaciones."
         );
+    }
 
-        if (pedidosSnap.empty) {
-            throw new Error("No se encontró el pedido pendiente.");
-        }
+    pedidoDoc = pedidosSnap.docs[0];
 
-        if (pedidosSnap.docs.length > 1) {
-            throw new Error(
-                "Hay más de un pedido con ese título y origen. No se realizó el envío para evitar duplicaciones."
-            );
-        }
+    const pedido = pedidoDoc.data();
 
-        pedidoDoc = pedidosSnap.docs[0];
+    actualizarPorcentaje(10);
 
-        const pedido = pedidoDoc.data();
+    if (!Array.isArray(pedido.articulos) || pedido.articulos.length === 0) {
+        throw new Error("El pedido no contiene artículos.");
+    }
 
-        if (!Array.isArray(pedido.articulos) || pedido.articulos.length === 0) {
-            throw new Error("El pedido no contiene artículos.");
-        }
+    // Obtener únicamente los artículos registrados en stock-articulos.
+    const articulosSnap = await getDocs(
+        collection(db, "stock-articulos")
+    );
 
-        // Obtener únicamente los artículos registrados en stock-articulos.
-        const articulosSnap = await getDocs(
-            collection(db, "stock-articulos")
-        );
+    const articulosOficiales = new Map();
 
-        const articulosOficiales = new Map();
+    articulosSnap.forEach((docArticulo) => {
+        const datos = docArticulo.data();
+        const nombre = String(datos.articulo || "").trim();
 
-        articulosSnap.forEach((docArticulo) => {
-            const datos = docArticulo.data();
-            const nombre = String(datos.articulo || "").trim();
-
-            if (nombre) {
-                articulosOficiales.set(nombre, {
-                    ...datos,
-                    id: docArticulo.id
-                });
-            }
-        });
-
-        // Obtener stock-total para consultar existencias físicas.
-        // Esto NO determina si un artículo existe en el inventario.
-        const stockSnap = await getDocs(
-            collection(db, "stock-total")
-        );
-
-        const stockPorArticulo = new Map();
-
-        stockSnap.forEach((docStock) => {
-            stockPorArticulo.set(docStock.id, {
-                ...docStock.data(),
-                ref: docStock.ref
+        if (nombre) {
+            articulosOficiales.set(nombre, {
+                ...datos,
+                id: docArticulo.id
             });
+        }
+    });
+
+    actualizarPorcentaje(20);
+
+    // Obtener stock-total para consultar existencias físicas.
+    // Esto NO determina si un artículo existe en el inventario.
+    const stockSnap = await getDocs(
+        collection(db, "stock-total")
+    );
+
+    const stockPorArticulo = new Map();
+
+    stockSnap.forEach((docStock) => {
+        stockPorArticulo.set(docStock.id, {
+            ...docStock.data(),
+            ref: docStock.ref
         });
+    });
 
-        const articulosPendientes = [];
-        let cantidadesEnviadas = 0;
+    actualizarPorcentaje(30);
 
-        envioIniciado = true;
+    const totalArticulos = pedido.articulos.length;
+    let articulosProcesados = 0;
 
-        for (const item of pedido.articulos) {
-            const articulo = String(item.articulo || "").trim();
+    const articulosPendientes = [];
+    let cantidadesEnviadas = 0;
 
-            if (!articulo) continue;
+    envioIniciado = true;
 
-            const unidadesSolicitadas = Math.max(
-                0,
-                Number(item.unidades) || 0
+    for (const item of pedido.articulos) {
+        const articulo = String(item.articulo || "").trim();
+
+        if (!articulo) {
+            articulosProcesados++;
+
+            actualizarPorcentaje(
+                30 + Math.round(
+                    (articulosProcesados / totalArticulos) * 60
+                )
             );
 
-            const cajasSolicitadas = Math.max(
-                0,
-                Number(item.cajas) || 0
-            );
+            continue;
+        }
 
-            const unidadesReservadas = Math.max(
-                0,
-                Number(item.unidadesReservadas) || 0
-            );
+        const unidadesSolicitadas = Math.max(
+            0,
+            Number(item.unidades) || 0
+        );
 
-            const cajasReservadas = Math.max(
-                0,
-                Number(item.cajasReservadas) || 0
-            );
+        const cajasSolicitadas = Math.max(
+            0,
+            Number(item.cajas) || 0
+        );
 
-            // La existencia del artículo se determina exclusivamente
-            // por su presencia en stock-articulos.
-            const articuloOficial = articulosOficiales.get(articulo);
+        const unidadesReservadas = Math.max(
+            0,
+            Number(item.unidadesReservadas) || 0
+        );
 
-            let unidadesEnviar = 0;
-            let cajasEnviar = 0;
-            let unidadesPendientes = 0;
-            let cajasPendientes = 0;
+        const cajasReservadas = Math.max(
+            0,
+            Number(item.cajasReservadas) || 0
+        );
 
+        // La existencia del artículo se determina exclusivamente
+        // por su presencia en stock-articulos.
+        const articuloOficial = articulosOficiales.get(articulo);
+
+        let unidadesEnviar = 0;
+        let cajasEnviar = 0;
+        let unidadesPendientes = 0;
+        let cajasPendientes = 0;
+
+        /*
+         * ARTÍCULO INEXISTENTE EN stock-articulos:
+         * Se envía el pedido completo.
+         * No se consulta ni se descuenta stock-total.
+         */
+        if (!articuloOficial) {
+            unidadesEnviar = unidadesSolicitadas;
+            cajasEnviar = cajasSolicitadas;
+        } else {
             /*
-             * ARTÍCULO INEXISTENTE EN stock-articulos:
-             * Se envía el pedido completo.
-             * No se consulta ni se descuenta stock-total.
+             * ARTÍCULO EXISTENTE EN stock-articulos:
+             * Ahora sí se consulta stock-total.
              */
-            if (!articuloOficial) {
-                unidadesEnviar = unidadesSolicitadas;
-                cajasEnviar = cajasSolicitadas;
-            } else {
-                /*
-                 * ARTÍCULO EXISTENTE EN stock-articulos:
-                 * Ahora sí se consulta stock-total.
-                 */
-                const stockArticulo = stockPorArticulo.get(articulo);
+            const stockArticulo = stockPorArticulo.get(articulo);
 
-                const pack = Math.max(
+            const pack = Math.max(
+                0,
+                Number(articuloOficial.unixcajapack) || 0
+            );
+
+            if (pack > 0) {
+                const totalSolicitado =
+                    unidadesSolicitadas +
+                    cajasSolicitadas * pack;
+
+                const totalReservado =
+                    unidadesReservadas +
+                    cajasReservadas * pack;
+
+                const totalFaltante = Math.max(
                     0,
-                    Number(articuloOficial.unixcajapack) || 0
+                    totalSolicitado - totalReservado
                 );
 
-                if (pack > 0) {
-                    const totalSolicitado =
-                        unidadesSolicitadas +
-                        cajasSolicitadas * pack;
+                let unidadesAdicionales = 0;
 
-                    const totalReservado =
-                        unidadesReservadas +
-                        cajasReservadas * pack;
+                if (stockArticulo && stockArticulo.salones) {
+                    const stockSalon = stockArticulo.salones[origen];
 
-                    const totalFaltante = Math.max(
-                        0,
-                        totalSolicitado - totalReservado
-                    );
+                    if (stockSalon) {
+                        const unidadesDisponibles = Math.max(
+                            0,
+                            Number(stockSalon.unidades) || 0
+                        );
 
-                    let unidadesAdicionales = 0;
+                        const cajasDisponibles = Math.max(
+                            0,
+                            Number(stockSalon.cajas) || 0
+                        );
 
-                    if (stockArticulo && stockArticulo.salones) {
-                        const stockSalon = stockArticulo.salones[origen];
+                        const totalDisponible =
+                            unidadesDisponibles +
+                            cajasDisponibles * pack;
 
-                        if (stockSalon) {
-                            const unidadesDisponibles = Math.max(
-                                0,
-                                Number(stockSalon.unidades) || 0
+                        unidadesAdicionales = Math.min(
+                            totalFaltante,
+                            totalDisponible
+                        );
+
+                        if (unidadesAdicionales > 0) {
+                            const nuevoTotal =
+                                totalDisponible - unidadesAdicionales;
+
+                            const nuevasCajas = Math.floor(
+                                nuevoTotal / pack
                             );
 
-                            const cajasDisponibles = Math.max(
-                                0,
-                                Number(stockSalon.cajas) || 0
-                            );
+                            const nuevasUnidades =
+                                nuevoTotal % pack;
 
-                            const totalDisponible =
-                                unidadesDisponibles +
-                                cajasDisponibles * pack;
+                            const nuevosSalones = {
+                                ...stockArticulo.salones,
+                                [origen]: {
+                                    ...stockSalon,
+                                    unidades: nuevasUnidades,
+                                    cajas: nuevasCajas
+                                }
+                            };
 
-                            unidadesAdicionales = Math.min(
-                                totalFaltante,
-                                totalDisponible
-                            );
+                            await updateDoc(stockArticulo.ref, {
+                                salones: nuevosSalones
+                            });
 
-                            if (unidadesAdicionales > 0) {
-                                const nuevoTotal =
-                                    totalDisponible - unidadesAdicionales;
-
-                                const nuevasCajas = Math.floor(
-                                    nuevoTotal / pack
-                                );
-
-                                const nuevasUnidades =
-                                    nuevoTotal % pack;
-
-                                const nuevosSalones = {
-                                    ...stockArticulo.salones,
-                                    [origen]: {
-                                        ...stockSalon,
-                                        unidades: nuevasUnidades,
-                                        cajas: nuevasCajas
-                                    }
-                                };
-
-                                await updateDoc(stockArticulo.ref, {
-                                    salones: nuevosSalones
-                                });
-
-                                stockArticulo.salones = nuevosSalones;
-                            }
+                            stockArticulo.salones = nuevosSalones;
                         }
                     }
-
-                    const totalEnviar =
-                        totalReservado + unidadesAdicionales;
-
-                    unidadesEnviar = totalEnviar % pack;
-                    cajasEnviar = Math.floor(totalEnviar / pack);
-
-                    const totalRestante = Math.max(
-                        0,
-                        totalSolicitado - totalEnviar
-                    );
-
-                    if (totalRestante > 0) {
-                        unidadesPendientes = totalRestante;
-                        cajasPendientes = 0;
-                    }
-                } else {
-                    /*
-                     * Artículo existente sin pack definido:
-                     * unidades y cajas se manejan por separado.
-                     */
-                    const unidadesFaltantes = Math.max(
-                        0,
-                        unidadesSolicitadas - unidadesReservadas
-                    );
-
-                    const cajasFaltantes = Math.max(
-                        0,
-                        cajasSolicitadas - cajasReservadas
-                    );
-
-                    let unidadesAdicionales = 0;
-                    let cajasAdicionales = 0;
-
-                    if (stockArticulo && stockArticulo.salones) {
-                        const stockSalon = stockArticulo.salones[origen];
-
-                        if (stockSalon) {
-                            const unidadesDisponibles = Math.max(
-                                0,
-                                Number(stockSalon.unidades) || 0
-                            );
-
-                            const cajasDisponibles = Math.max(
-                                0,
-                                Number(stockSalon.cajas) || 0
-                            );
-
-                            unidadesAdicionales = Math.min(
-                                unidadesFaltantes,
-                                unidadesDisponibles
-                            );
-
-                            cajasAdicionales = Math.min(
-                                cajasFaltantes,
-                                cajasDisponibles
-                            );
-
-                            if (
-                                unidadesAdicionales > 0 ||
-                                cajasAdicionales > 0
-                            ) {
-                                const nuevosSalones = {
-                                    ...stockArticulo.salones,
-                                    [origen]: {
-                                        ...stockSalon,
-                                        unidades:
-                                            unidadesDisponibles -
-                                            unidadesAdicionales,
-                                        cajas:
-                                            cajasDisponibles -
-                                            cajasAdicionales
-                                    }
-                                };
-
-                                await updateDoc(stockArticulo.ref, {
-                                    salones: nuevosSalones
-                                });
-
-                                stockArticulo.salones = nuevosSalones;
-                            }
-                        }
-                    }
-
-                    unidadesEnviar =
-                        unidadesReservadas + unidadesAdicionales;
-
-                    cajasEnviar =
-                        cajasReservadas + cajasAdicionales;
-
-                    unidadesPendientes = Math.max(
-                        0,
-                        unidadesFaltantes - unidadesAdicionales
-                    );
-
-                    cajasPendientes = Math.max(
-                        0,
-                        cajasFaltantes - cajasAdicionales
-                    );
                 }
-            }
 
-            // Guardar el pedido con la estructura original.
-            if (unidadesEnviar > 0 || cajasEnviar > 0) {
-                await addDoc(collection(db, "stock-pedidos"), {
-                    articulo,
-                    unidades: unidadesEnviar,
-                    cajas: cajasEnviar,
-                    notas: item.notas || "",
-                    salones: destino,
-                    origen,
-                    usuario,
-                    fecha: Timestamp.fromDate(new Date())
-                });
+                const totalEnviar =
+                    totalReservado + unidadesAdicionales;
 
-                cantidadesEnviadas++;
-            }
+                unidadesEnviar = totalEnviar % pack;
+                cajasEnviar = Math.floor(totalEnviar / pack);
 
-            // Conservar solamente las cantidades que siguen pendientes.
-            if (
-                unidadesPendientes > 0 ||
-                cajasPendientes > 0
-            ) {
-                articulosPendientes.push({
-                    ...item,
-                    unidades: unidadesPendientes,
-                    cajas: cajasPendientes,
-                    unidadesReservadas: 0,
-                    cajasReservadas: 0,
-                    unidadesPendientes,
-                    cajasPendientes
-                });
+                const totalRestante = Math.max(
+                    0,
+                    totalSolicitado - totalEnviar
+                );
+
+                if (totalRestante > 0) {
+                    unidadesPendientes = totalRestante;
+                    cajasPendientes = 0;
+                }
+            } else {
+                /*
+                 * Artículo existente sin pack definido:
+                 * unidades y cajas se manejan por separado.
+                 */
+                const unidadesFaltantes = Math.max(
+                    0,
+                    unidadesSolicitadas - unidadesReservadas
+                );
+
+                const cajasFaltantes = Math.max(
+                    0,
+                    cajasSolicitadas - cajasReservadas
+                );
+
+                let unidadesAdicionales = 0;
+                let cajasAdicionales = 0;
+
+                if (stockArticulo && stockArticulo.salones) {
+                    const stockSalon = stockArticulo.salones[origen];
+
+                    if (stockSalon) {
+                        const unidadesDisponibles = Math.max(
+                            0,
+                            Number(stockSalon.unidades) || 0
+                        );
+
+                        const cajasDisponibles = Math.max(
+                            0,
+                            Number(stockSalon.cajas) || 0
+                        );
+
+                        unidadesAdicionales = Math.min(
+                            unidadesFaltantes,
+                            unidadesDisponibles
+                        );
+
+                        cajasAdicionales = Math.min(
+                            cajasFaltantes,
+                            cajasDisponibles
+                        );
+
+                        if (
+                            unidadesAdicionales > 0 ||
+                            cajasAdicionales > 0
+                        ) {
+                            const nuevosSalones = {
+                                ...stockArticulo.salones,
+                                [origen]: {
+                                    ...stockSalon,
+                                    unidades:
+                                        unidadesDisponibles -
+                                        unidadesAdicionales,
+                                    cajas:
+                                        cajasDisponibles -
+                                        cajasAdicionales
+                                }
+                            };
+
+                            await updateDoc(stockArticulo.ref, {
+                                salones: nuevosSalones
+                            });
+
+                            stockArticulo.salones = nuevosSalones;
+                        }
+                    }
+                }
+
+                unidadesEnviar =
+                    unidadesReservadas + unidadesAdicionales;
+
+                cajasEnviar =
+                    cajasReservadas + cajasAdicionales;
+
+                unidadesPendientes = Math.max(
+                    0,
+                    unidadesFaltantes - unidadesAdicionales
+                );
+
+                cajasPendientes = Math.max(
+                    0,
+                    cajasFaltantes - cajasAdicionales
+                );
             }
         }
 
-        if (articulosPendientes.length === 0) {
-            await deleteDoc(pedidoDoc.ref);
-        } else {
-            await updateDoc(pedidoDoc.ref, {
-                articulos: articulosPendientes,
-                estadoEnvio: "pendiente",
-                fechaUltimoEnvio: Timestamp.fromDate(new Date())
+        // Guardar el pedido con la estructura original.
+        if (unidadesEnviar > 0 || cajasEnviar > 0) {
+            await addDoc(collection(db, "stock-pedidos"), {
+                articulo,
+                unidades: unidadesEnviar,
+                cajas: cajasEnviar,
+                notas: item.notas || "",
+                salones: destino,
+                origen,
+                usuario,
+                fecha: Timestamp.fromDate(new Date())
+            });
+
+            cantidadesEnviadas++;
+        }
+
+        // Conservar solamente las cantidades que siguen pendientes.
+        if (
+            unidadesPendientes > 0 ||
+            cajasPendientes > 0
+        ) {
+            articulosPendientes.push({
+                ...item,
+                unidades: unidadesPendientes,
+                cajas: cajasPendientes,
+                unidadesReservadas: 0,
+                cajasReservadas: 0,
+                unidadesPendientes,
+                cajasPendientes
             });
         }
 
-       // Actualizar la tabla de pedidos inmediatamente.
-await cargarTablaPedidos("hoy");
+        articulosProcesados++;
 
-// Actualizar el listado de pedidos pendientes.
-await actualizarDatalistPedidos();
-
-// Limpiar el formulario.
-document.getElementById("tituloPedidoPendiente").value = "";
-
-const contenedor = document.getElementById(
-    "contenedorPedidoPendiente"
-);
-
-if (contenedor) {
-    contenedor.innerHTML = "";
-}
-
-// Cerrar el modal de pedidos pendientes.
-const modalElement = document.getElementById("modalPedidosPendientes");
-
-if (modalElement) {
-    const modal = bootstrap.Modal.getInstance(modalElement);
-
-    if (modal) {
-        modal.hide();
+        actualizarPorcentaje(
+            30 + Math.round(
+                (articulosProcesados / totalArticulos) * 60
+            )
+        );
     }
-}
 
-// Mostrar resultado.
-if (articulosPendientes.length > 0) {
-    await Swal.fire({
-        icon: "warning",
-        title: "Envío parcial",
-        html: `
-            <p>Se registraron los artículos con cantidades disponibles.</p>
-            <p><strong>Artículos enviados:</strong> ${cantidadesEnviadas}</p>
-            <p>Las cantidades faltantes permanecen en reserva.</p>
-        `,
-        confirmButtonText: "Aceptar"
-    });
-} else {
-    await Swal.fire({
-        icon: "success",
-        title: "Pedido enviado",
-        text: "Se enviaron las cantidades disponibles y no quedaron faltantes pendientes.",
-        confirmButtonText: "Aceptar"
-    });
-}
+    if (articulosPendientes.length === 0) {
+        await deleteDoc(pedidoDoc.ref);
+    } else {
+        await updateDoc(pedidoDoc.ref, {
+            articulos: articulosPendientes,
+            estadoEnvio: "pendiente",
+            fechaUltimoEnvio: Timestamp.fromDate(new Date())
+        });
+    }
 
-    } catch (error) {
-        console.error("Error al enviar el pedido pendiente:", error);
+    // Actualizar la tabla de pedidos.
+    actualizarPorcentaje(93);
+    await cargarTablaPedidos("hoy");
 
+    actualizarPorcentaje(97);
+
+    // Actualizar el listado de pedidos pendientes.
+    await actualizarDatalistPedidos();
+
+    actualizarPorcentaje(100);
+
+    // Limpiar el formulario.
+    document.getElementById("tituloPedidoPendiente").value = "";
+
+    const contenedor = document.getElementById(
+        "contenedorPedidoPendiente"
+    );
+
+    if (contenedor) {
+        contenedor.innerHTML = "";
+    }
+
+    // Cerrar el modal de pedidos pendientes.
+    const modalElement = document.getElementById("modalPedidosPendientes");
+
+    if (modalElement) {
+        const modal = bootstrap.Modal.getInstance(modalElement);
+
+        if (modal) {
+            modal.hide();
+        }
+    }
+
+    // Mostrar resultado.
+    if (articulosPendientes.length > 0) {
         await Swal.fire({
-            icon: "error",
-            title: "No se pudo completar el envío",
-            text: error.message || "Ocurrió un error inesperado.",
+            icon: "warning",
+            title: "Envío parcial",
+            html: `
+                <p>Se registraron los artículos con cantidades disponibles.</p>
+                <p><strong>Artículos enviados:</strong> ${cantidadesEnviadas}</p>
+                <p>Las cantidades faltantes permanecen en reserva.</p>
+            `,
             confirmButtonText: "Aceptar"
         });
-
-    } finally {
-        window.enviandoPedidoPendiente = false;
+    } else {
+        await Swal.fire({
+            icon: "success",
+            title: "Pedido enviado",
+            text: "Se enviaron las cantidades disponibles y no quedaron faltantes pendientes.",
+            confirmButtonText: "Aceptar"
+        });
     }
+
+} catch (error) {
+    console.error("Error al enviar el pedido pendiente:", error);
+
+    await Swal.fire({
+        icon: "error",
+        title: "No se pudo completar el envío",
+        text: error.message || "Ocurrió un error inesperado.",
+        confirmButtonText: "Aceptar"
+    });
+
+} finally {
+    if (overlay) {
+        overlay.style.display = "none";
+    }
+
+    window.enviandoPedidoPendiente = false;
+}
 };
 
 //final modal pendientes
@@ -6466,62 +6592,78 @@ const verTodos =
     // Mostrar overlay
     // -----------------------------------------------
 
-    let overlay =
-      document.getElementById("overlayCarga");
+    
+let overlay = document.getElementById("overlayCarga");
 
+if (!overlay) {
+  overlay = document.createElement("div");
+  overlay.id = "overlayCarga";
 
-    if (!overlay) {
+  overlay.innerHTML = `
+    <div style="
+      position:fixed;
+      inset:0;
+      background:rgba(0,0,0,0.6);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      z-index:9999;
+      transition:opacity 0.3s ease;
+    ">
+      <div style="
+        background:#fff;
+        padding:15px 22px;
+        border-radius:12px;
+        box-shadow:0 0 15px rgba(0,0,0,0.25);
+        font-family:Arial,sans-serif;
+        display:flex;
+        align-items:center;
+        gap:15px;
+        min-width:270px;
+      ">
+        <div id="porcentajeCarga" style="
+          font-size:25px;
+          font-weight:bold;
+          color:#19b99a;
+          min-width:55px;
+          text-align:center;
+        ">0%</div>
 
-      overlay = document.createElement("div");
-
-      overlay.id = "overlayCarga";
-
-      overlay.innerHTML = `
         <div style="
-          background: rgba(0,0,0,0.6);
-          position: fixed;
-          inset: 0;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 9999;
+          font-size:15px;
+          color:#333;
+          font-weight:600;
+          white-space:nowrap;
         ">
-          <div style="
-            background: #fff;
-            padding: 25px 40px;
-            border-radius: 15px;
-            box-shadow: 0 0 15px rgba(0,0,0,0.3);
-            font-family: Arial, sans-serif;
-            font-size: 18px;
-            text-align: center;
-            color: #333;
-            animation: pulse 1.2s infinite ease-in-out;
-          ">
-            🔄 Cargando datos...
-          </div>
+          Cargando datos...
         </div>
+      </div>
+    </div>
+  `;
 
-        <style>
-          @keyframes pulse {
-            0%, 100% {
-              opacity: 0.8;
-              transform: scale(1);
-            }
+  document.body.appendChild(overlay);
 
-            50% {
-              opacity: 1;
-              transform: scale(1.05);
-            }
-          }
-        </style>
-      `;
+} else {
+  overlay.style.display = "flex";
+  overlay.style.opacity = "1";
+}
 
-      document.body.appendChild(overlay);
+let porcentajeActual = 0;
 
-    } else {
+function actualizarPorcentaje(porcentaje) {
+  porcentajeActual = Math.max(
+    porcentajeActual,
+    Math.min(100, porcentaje)
+  );
 
-      overlay.style.display = "flex";
-    }
+  const texto = document.getElementById("porcentajeCarga");
+
+  if (texto) {
+    texto.textContent = `${porcentajeActual}%`;
+  }
+}
+
+actualizarPorcentaje(0);
 
 
     delete filtrosActivos[columnaActualIndex];
