@@ -4622,6 +4622,84 @@ window.eliminarPedidoPendiente = async function () {
 
     let pedidoRef = null;
     let devolucionIniciada = false;
+    let overlay = null;
+
+    // =====================================================
+    // BARRA DE PORCENTAJE
+    // =====================================================
+
+    overlay = document.getElementById("overlayCarga");
+
+    if (!overlay) {
+        overlay = document.createElement("div");
+        overlay.id = "overlayCarga";
+
+        overlay.innerHTML = `
+            <div style="
+                position:fixed;
+                inset:0;
+                background:rgba(0,0,0,0.6);
+                display:flex;
+                align-items:center;
+                justify-content:center;
+                z-index:9999;
+                transition:opacity 0.3s ease;
+            ">
+                <div style="
+                    background:#fff;
+                    padding:15px 22px;
+                    border-radius:12px;
+                    box-shadow:0 0 15px rgba(0,0,0,0.25);
+                    font-family:Arial,sans-serif;
+                    display:flex;
+                    align-items:center;
+                    gap:15px;
+                    min-width:270px;
+                ">
+                    <div id="porcentajeCarga" style="
+                        font-size:25px;
+                        font-weight:bold;
+                        color:#19b99a;
+                        min-width:55px;
+                        text-align:center;
+                    ">0%</div>
+
+                    <div style="
+                        font-size:15px;
+                        color:#333;
+                        font-weight:600;
+                        white-space:nowrap;
+                    ">
+                        Eliminando datos...
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(overlay);
+
+    } else {
+        overlay.style.display = "flex";
+        overlay.style.opacity = "1";
+    }
+
+    let porcentajeActual = 0;
+
+    function actualizarPorcentaje(porcentaje) {
+
+        porcentajeActual = Math.max(
+            porcentajeActual,
+            Math.min(100, porcentaje)
+        );
+
+        const texto = document.getElementById("porcentajeCarga");
+
+        if (texto) {
+            texto.textContent = `${porcentajeActual}%`;
+        }
+    }
+
+    actualizarPorcentaje(0);
 
     try {
 
@@ -4664,8 +4742,19 @@ window.eliminarPedidoPendiente = async function () {
 
         devolucionIniciada = true;
 
-        // Devolver exclusivamente las cantidades reservadas.
-        for (const item of (pedido.articulos || [])) {
+        // =====================================================
+        // DEVOLVER STOCK Y ACTUALIZAR PORCENTAJE
+        // =====================================================
+
+        const articulos = pedido.articulos || [];
+
+        const totalArticulos = articulos.length;
+
+        let articulosProcesados = 0;
+
+        actualizarPorcentaje(10);
+
+        for (const item of articulos) {
 
             const unidades =
                 Number(item.unidadesReservadas) || 0;
@@ -4673,26 +4762,50 @@ window.eliminarPedidoPendiente = async function () {
             const cajas =
                 Number(item.cajasReservadas) || 0;
 
-            if (unidades === 0 && cajas === 0) continue;
+            if (unidades !== 0 || cajas !== 0) {
 
-            if (!item.articulo) {
-                throw new Error(
-                    "Hay un artículo sin identificar en el pedido."
+                if (!item.articulo) {
+                    throw new Error(
+                        "Hay un artículo sin identificar en el pedido."
+                    );
+                }
+
+                await restaurarStockTotal(
+                    item.articulo,
+                    unidades,
+                    cajas,
+                    pedido.origen
                 );
             }
 
-            await restaurarStockTotal(
-                item.articulo,
-                unidades,
-                cajas,
-                pedido.origen
-            );
+            articulosProcesados++;
+
+            if (totalArticulos > 0) {
+                actualizarPorcentaje(
+                    10 + Math.round(
+                        (articulosProcesados / totalArticulos) * 80
+                    )
+                );
+            }
         }
 
-        // Eliminar el pedido únicamente después de devolver todo el stock.
+        actualizarPorcentaje(90);
+
+        // =====================================================
+        // ELIMINAR DOCUMENTO
+        // =====================================================
+
         await deleteDoc(pedidoRef);
 
+        actualizarPorcentaje(95);
+
+        // =====================================================
+        // ACTUALIZAR LISTADO
+        // =====================================================
+
         await actualizarDatalistPedidos();
+
+        actualizarPorcentaje(100);
 
         inputTitulo.value = "";
         contenedor.innerHTML = "";
@@ -4710,8 +4823,6 @@ window.eliminarPedidoPendiente = async function () {
             error
         );
 
-        // Si comenzó la devolución, no habilitar un nuevo intento
-        // automático que pueda devolver stock duplicado.
         if (devolucionIniciada && pedidoRef) {
             console.error(
                 "El pedido quedó marcado en Firestore para revisión manual."
@@ -4725,10 +4836,14 @@ window.eliminarPedidoPendiente = async function () {
         });
 
     } finally {
+
+        if (overlay) {
+            overlay.style.display = "none";
+        }
+
         window.eliminandoPedidoPendiente = false;
     }
 };
-
 
 // FINALIZA GUARDAR PENDIENTES
 

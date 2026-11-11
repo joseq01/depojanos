@@ -1838,65 +1838,67 @@ actualizarPorcentaje(0);
   }
 
   // ==========================================================
-  // STOCK-INGRESO
-  // ==========================================================
+// STOCK-DANIOS - UNIDADES DEFECTUOSAS
+// ==========================================================
 
-const qIngresos = query(
-  collection(db, "stock-ingreso"),
-  where("origen", "==", salon),
-  where("rotas", ">", 0)
+const qDanios = query(
+  collection(db, "stock-danios"),
+  where("origen", "==", salon)
 );
 
-  const inicioSnapshots = performance.now();
+const inicioSnapshots = performance.now();
 
-  console.log("🚀 Registrando snapshots...");
+console.log("🚀 Registrando snapshots...");
 
-  unsubscribeIngresos = onSnapshot(
-    qIngresos,
-    snapshot => {
+unsubscribeIngresos = onSnapshot(
+  qDanios,
+  snapshot => {
 
-      console.log(
-        "🟢 SNAPSHOT INGRESOS LLEGÓ",
-        snapshot.size,
-        "→ después de",
-        (performance.now() - inicioSnapshots).toFixed(0),
-        "ms"
+    console.log(
+      "🟢 SNAPSHOT DANIOS LLEGÓ",
+      snapshot.size,
+      "→ después de",
+      (performance.now() - inicioSnapshots).toFixed(0),
+      "ms"
+    );
+
+    console.time("⏱ Procesamiento stock-danios");
+
+    rotas.clear();
+
+    snapshot.forEach(doc => {
+
+      const d = doc.data();
+
+      const art = d.articulo?.trim().toLowerCase();
+
+      if (!art || !articulosValidos.has(art)) return;
+
+      if (d.estado === "reparado") return;
+
+      const unidades = Math.abs(
+        parseInt(d.unidades) || 0
       );
 
-      console.time("⏱ Procesamiento stock-ingreso");
+      rotas.set(
+        art,
+        (rotas.get(art) || 0) + unidades
+      );
+    });
 
-      rotas.clear();
+    ingresosCargados = true;
 
-      snapshot.forEach(doc => {
+    actualizarPorcentaje(50);
 
-        const d = doc.data();
+    console.log("📦 Artículos defectuosos:", rotas.size);
 
-        const art = d.articulo?.trim().toLowerCase();
+    console.timeEnd("⏱ Procesamiento stock-danios");
 
-        if (!art || !articulosValidos.has(art)) return;
-
-        const rot = parseInt(d.rotas) || 0;
-
-        rotas.set(
-          art,
-          (rotas.get(art) || 0) + rot
-        );
-      });
-
-      ingresosCargados = true;
-
-      actualizarPorcentaje(50);
-
-      console.log("📦 Artículos con rotas:", rotas.size);
-
-      console.timeEnd("⏱ Procesamiento stock-ingreso");
-
-      if (stockTotalCargado && reservadasCargadas) {
-        renderizarTabla();
-      }
+    if (stockTotalCargado && reservadasCargadas) {
+      renderizarTabla();
     }
-  );
-
+  }
+);
   // ==========================================================
   // STOCK-TOTAL
   // ==========================================================
@@ -2093,32 +2095,46 @@ export function actualizarStock(cell) {
   }
 }
 
-async function cargarCategorias() {  //autocompletar categorias
-  const categoriasSet = new Set(); // Evita duplicados
+async function cargarCategorias() {
+
+  const categoriasSet = new Set();
 
   try {
+
     const snapshot = await getDocs(collection(db, "stock-articulos"));
+
     snapshot.forEach((doc) => {
+
       const data = doc.data();
+
       if (data.categoria) {
         categoriasSet.add(data.categoria.trim());
       }
     });
 
     const datalist = document.getElementById("listaCategorias");
-    datalist.innerHTML = ""; // Limpiar
 
-    categoriasSet.forEach((categoria) => {
-      const option = document.createElement("option");
-      option.value = categoria;
-      datalist.appendChild(option);
-    });
+    if (datalist) {
+
+      datalist.innerHTML = "";
+
+      categoriasSet.forEach((categoria) => {
+
+        const option = document.createElement("option");
+
+        option.value = categoria;
+
+        datalist.appendChild(option);
+      });
+    }
 
   } catch (error) {
+
     console.error("Error cargando categorías:", error);
+
+    throw error;
   }
 }
-
 //cargar articulos
 const articulosRef = collection(db, "stock-articulos");
 
@@ -2250,7 +2266,6 @@ window.cargarListaArticulos = async function () {
     });
   }
 };
-
 
 // ==========================================================
 // CARGAR DATOS AL ELEGIR UN ARTÍCULO
