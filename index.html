@@ -551,9 +551,10 @@ body {
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
   <div class="container-fluid px-4 d-flex justify-content-between align-items-center">
 
-    <!-- 🧭 IZQUIERDA: Botón hamburguesa (solo móviles) + logo + menú Ingreso/Pedidos en desktop -->
+    <!-- IZQUIERDA: Logo + menú de navegación -->
     <div class="d-flex align-items-center">
-      <button class="navbar-toggler d-lg-none me-2" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNavMobile">
+      <button class="navbar-toggler d-lg-none me-2" type="button"
+        data-bs-toggle="collapse" data-bs-target="#navbarNavMobile">
         <span class="navbar-toggler-icon"></span>
       </button>
 
@@ -562,60 +563,145 @@ body {
         <span class="ms-3 text-white small">Logística - Stock</span>
       </a>
 
-      <!-- Ingreso y Pedidos SOLO en pantallas grandes -->
+      <!-- Menú SOLO en pantallas grandes -->
       <ul class="navbar-nav flex-row ms-4 d-none d-lg-flex">
+
         <li class="nav-item me-3">
           <a class="nav-link" href="./paginas/logiticaingreso.html">Ingreso</a>
         </li>
+
         <li class="nav-item me-3">
           <a class="nav-link" href="./paginas/logisticapedidos.html">Pedidos</a>
         </li>
+
+        <!-- Unidades defectuosas a la derecha de Pedidos -->
+        <li class="nav-item me-3">
+          <a class="nav-link" href="#"
+             onclick="abrirFlotanteProtegido('modalUnidadesDefectuosas')">
+            Unidades defectuosas
+          </a>
+        </li>
+
       </ul>
     </div>
 
-    <!-- 📄 Botón Imprimir + ⚙️ Ajuste SOLO en pantallas grandes -->
+    <!-- DERECHA: Imprimir + Ajuste -->
     <div class="d-flex align-items-center">
-      <button id="btnImprimirStock" onclick="imprimirStockActual()" class="btn btn-outline-light btn-sm me-4"
+
+      <button id="btnImprimirStock"
+        onclick="imprimirStockActual()"
+        class="btn btn-outline-light btn-sm me-4"
         style="opacity: 0.15; transition: opacity 0.4s; pointer-events: none;">
         🖨️ Imprimir
       </button>
 
       <!-- Ajuste visible solo en pantallas grandes -->
       <div class="dropdown-ajuste d-none d-lg-block">
+
         <a class="nav-link text-white" href="#" id="ajusteLink">Ajuste</a>
+
         <div class="dropdown-menu d-none" id="ajusteMenu">
-          <a class="dropdown-item" href="#" onclick="abrirFlotanteProtegido('modalEditarCombos')">editar combos</a>
-          <a class="dropdown-item" href="#" onclick="abrirFlotanteProtegido('modalArticulos')">agr/elim articulo</a>
-          <a class="dropdown-item" href="#" onclick="abrirFlotanteProtegido('modalAgregarSalon')">agregar salones</a>
-          <a class="dropdown-item" href="#" onclick="abrirFlotanteProtegido('modalUsuarios')">agregar usuarios</a>
-          <a class="dropdown-item" href="#" onclick="abrirFlotanteProtegido('modalUnidadesDefectuosas')">unidades defectuosas</a>
-          <a class="dropdown-item" href="#" onclick="abrirFlotanteProtegido('modalArticulosEliminados')"> artículos eliminados</a>
+
+          <a class="dropdown-item" href="#"
+             onclick="abrirFlotanteProtegido('modalEditarCombos')">
+            editar combos
+          </a>
+
+          <a class="dropdown-item" href="#"
+             onclick="abrirFlotanteProtegido('modalArticulos')">
+            agr/elim articulo
+          </a>
+
+          <a class="dropdown-item" href="#"
+             onclick="abrirFlotanteProtegido('modalAgregarSalon')">
+            agregar salones
+          </a>
+
+          <a class="dropdown-item" href="#"
+             onclick="abrirFlotanteProtegido('modalUsuarios')">
+            agregar usuarios
+          </a>
+
+          <a class="dropdown-item" href="#"
+             onclick="abrirFlotanteProtegido('modalArticulosEliminados')">
+            artículos eliminados
+          </a>
+
         </div>
       </div>
+
     </div>
   </div>
 
-  <!-- 📱 Menú hamburguesa: Ingreso, Pedidos y Ajuste SOLO en móviles -->
+  <!-- MENÚ MÓVIL -->
   <div class="collapse navbar-collapse px-4 d-lg-none" id="navbarNavMobile">
+
     <ul class="navbar-nav">
+
       <li class="nav-item">
         <a class="nav-link" href="./paginas/logiticaingreso.html">Ingreso</a>
       </li>
+
       <li class="nav-item">
         <a class="nav-link" href="./paginas/logisticapedidos.html">Pedidos</a>
       </li>
+
+      <!-- Unidades defectuosas fuera de Ajuste -->
       <li class="nav-item">
-        <a class="nav-link" href="#" onclick="mostrarMenuAjusteMobile()">Ajuste</a>
-        <!-- Submenú Ajuste en móviles -->
-        <ul class="nav flex-column ms-3" id="submenuAjusteMobile" style="display: none;">
-          <li class="nav-item"><a class="nav-link" href="#" onclick="abrirFlotanteProtegido('modalEditarCombos')">editar combos</a></li>
-          <li class="nav-item"><a class="nav-link" href="#" onclick="abrirFlotanteProtegido('modalArticulos')">agr/elim articulo</a></li>
-          <li class="nav-item"><a class="nav-link" href="#" onclick="abrirFlotanteProtegido('modalAgregarSalon')">agregar salones</a></li>
-          <li class="nav-item"><a class="nav-link" href="#" onclick="abrirFlotanteProtegido('modalUsuarios')">agregar usuarios</a></li>
-          <li class="nav-item"><a class="nav-link" href="#" onclick="abrirFlotanteProtegido('modalUnidadesDefectuosas')">unidades defectuosas</a></li>
-          <li class="nav-item"><a class="nav-link" href="#" onclick="abrirFlotanteProtegido('modalArticulosEliminados')">artículos eliminados</a></li>
-         </ul>
+        <a class="nav-link" href="#"
+           onclick="abrirFlotanteProtegido('modalUnidadesDefectuosas')">
+          Unidades defectuosas
+        </a>
       </li>
+
+      <li class="nav-item">
+        <a class="nav-link" href="#" onclick="mostrarMenuAjusteMobile()">
+          Ajuste
+        </a>
+
+        <!-- Submenú Ajuste -->
+        <ul class="nav flex-column ms-3"
+            id="submenuAjusteMobile"
+            style="display: none;">
+
+          <li class="nav-item">
+            <a class="nav-link" href="#"
+               onclick="abrirFlotanteProtegido('modalEditarCombos')">
+              editar combos
+            </a>
+          </li>
+
+          <li class="nav-item">
+            <a class="nav-link" href="#"
+               onclick="abrirFlotanteProtegido('modalArticulos')">
+              agr/elim articulo
+            </a>
+          </li>
+
+          <li class="nav-item">
+            <a class="nav-link" href="#"
+               onclick="abrirFlotanteProtegido('modalAgregarSalon')">
+              agregar salones
+            </a>
+          </li>
+
+          <li class="nav-item">
+            <a class="nav-link" href="#"
+               onclick="abrirFlotanteProtegido('modalUsuarios')">
+              agregar usuarios
+            </a>
+          </li>
+
+          <li class="nav-item">
+            <a class="nav-link" href="#"
+               onclick="abrirFlotanteProtegido('modalArticulosEliminados')">
+              artículos eliminados
+            </a>
+          </li>
+
+        </ul>
+      </li>
+
     </ul>
   </div>
 </nav>
@@ -680,7 +766,7 @@ body {
     <thead>
       <tr>
         <th style="width: 14%;">Categoría</th>
-        <th style="width: 5%;">Sector</th>
+        <th style="width: auto; white-space: nowrap;">Sector</th>
         <th style="width: 28%;">Artículo</th>
         <th class="text-center" style="width: 7%;">Unidades</th>
         <th class="text-center" style="width: 10%;">Cajas / Packs</th>
@@ -1651,9 +1737,14 @@ actualizarPorcentaje(0);
       fila.innerHTML = `
         <td>${data.categoria}</td>
 
-        <td style="white-space: normal; overflow-wrap: anywhere;">
-          ${data.area}
-        </td>
+        <td style="
+  white-space: nowrap;
+  width: 1%;
+  padding-left: 10px;
+  padding-right: 10px;
+">
+  ${data.area || ""}
+</td>
 
         <td>${data.articulo}</td>
 
