@@ -1480,8 +1480,10 @@ function mostrarFlotante() {
     }
   });
 
+ 
   // Crear cards de combos (usando combos, no combosCache)
   Object.entries(combos).forEach(([nombre, productos]) => {
+
     const card = document.createElement("div");
     card.className = "combo-card";
     card.id = `combo-${nombre.replace(/\s+/g, "-")}`;
@@ -1493,6 +1495,38 @@ function mostrarFlotante() {
       ${nombre}
     `;
     card.appendChild(encabezado);
+
+    // Botón debajo del título del combo cotillon
+    if (nombre.trim().toLowerCase() === "cotillon") {
+
+      const botonGenerar = document.createElement("button");
+
+      botonGenerar.type = "button";
+      botonGenerar.className = "btn btn-success btn-sm mb-3";
+      botonGenerar.textContent = "Generar cotillones";
+
+      botonGenerar.addEventListener("click", async function () {
+
+        if (botonGenerar.disabled) return;
+
+        botonGenerar.disabled = true;
+        botonGenerar.textContent = "Generando...";
+
+        try {
+
+          await window.generarCotillonesDesdeEventos();
+
+        } finally {
+
+          botonGenerar.disabled = false;
+          botonGenerar.textContent = "Generar cotillones";
+
+        }
+
+      });
+
+      card.appendChild(botonGenerar);
+    }
 
     // Cabecera personalizada para columnas
     const rowHeader = document.createElement("div");
@@ -1506,6 +1540,7 @@ function mostrarFlotante() {
     card.appendChild(rowHeader);
 
     productos.forEach((p) => {
+
       const row = document.createElement("div");
       row.className = "row mb-2";
       row.innerHTML = `
@@ -1522,49 +1557,360 @@ function mostrarFlotante() {
           <input class="form-control notas" placeholder="Notas..." value="${p.nota}" />
         </div>
       `;
+
       card.appendChild(row);
     });
 
     contenedor.appendChild(card);
 
-    
   });
 
   document.getElementById("pantallaFlotante").style.display = "flex";
 
-  // 🠗 Mostrar flecha si hay scroll disponible
-setTimeout(() => {
-  const contenedor = document.getElementById("contenedorCombos");
-  const flechaId = "flechaScrollFinal";
-  let flecha = document.getElementById(flechaId);
+  // Mostrar flecha si hay scroll disponible
+  setTimeout(() => {
 
-  if (!flecha) {
-    flecha = document.createElement("div");
-    flecha.id = flechaId;
-    flecha.innerHTML = "&#x25BC;"; // ▼ (flecha sin relleno)
-    contenedor.appendChild(flecha); // ✅ Se agrega dentro del contenedor
-  }
+    const contenedor = document.getElementById("contenedorCombos");
+    const flechaId = "flechaScrollFinal";
+    let flecha = document.getElementById(flechaId);
 
-  const actualizarVisibilidad = () => {
-    const alFinal = contenedor.scrollTop + contenedor.clientHeight >= contenedor.scrollHeight - 1;
-    flecha.style.display = alFinal ? "none" : "block";
-  };
+    if (!flecha) {
+      flecha = document.createElement("div");
+      flecha.id = flechaId;
+      flecha.innerHTML = "&#x25BC;";
+      contenedor.appendChild(flecha);
+    }
 
-  flecha.onclick = () => {
-    contenedor.scrollTo({ top: contenedor.scrollHeight, behavior: "smooth" });
-  };
+    const actualizarVisibilidad = () => {
+      const alFinal = contenedor.scrollTop + contenedor.clientHeight >= contenedor.scrollHeight - 1;
+      flecha.style.display = alFinal ? "none" : "block";
+    };
 
-  contenedor.addEventListener("scroll", actualizarVisibilidad);
-  actualizarVisibilidad();
-}, 300);
+    flecha.onclick = () => {
+      contenedor.scrollTo({
+        top: contenedor.scrollHeight,
+        behavior: "smooth"
+      });
+    };
+
+    contenedor.addEventListener("scroll", actualizarVisibilidad);
+    actualizarVisibilidad();
+
+  }, 300);
 
 }
+
 
 function cerrarFlotante() {
   document.getElementById("pantallaFlotante").style.display = "none";
 }
 
+//creamos los coti
 
+// ==========================================================
+// GENERAR COMBO DE COTILLONES SEGÚN LOS EVENTOS
+// ==========================================================
+
+
+window.generarCotillonesDesdeEventos = async function () {
+
+  const salonDestino = document.getElementById("salonDestino")?.value.trim();
+
+  if (!salonDestino) {
+    alert("Primero seleccioná un Salón Destino.");
+    return;
+  }
+
+  try {
+
+    // Leer eventos importados
+    const snapshotEventos = await getDocs(
+      collection(db, "cotillones-eventos")
+    );
+
+    const eventos = [];
+
+    snapshotEventos.forEach(documento => {
+
+      const evento = documento.data();
+
+      const salonEvento = String(evento.salon || "")
+        .trim()
+        .toLowerCase();
+
+      if (salonEvento === salonDestino.toLowerCase()) {
+
+        const pax = Number(evento.pax) || 0;
+
+        if (pax > 0 && evento.fechaEvento) {
+          eventos.push(evento);
+        }
+
+      }
+
+    });
+
+    if (!eventos.length) {
+      alert(`No hay eventos pendientes con cotillón para ${salonDestino}.`);
+      return;
+    }
+
+    // Ordenar eventos por fecha
+    eventos.sort((a, b) =>
+      String(a.fechaEvento).localeCompare(String(b.fechaEvento))
+    );
+
+    // Leer composición base de 100 PAX
+    const referenciaComposicion = doc(
+      db,
+      "configuracion-cotillones",
+      "base"
+    );
+
+    const documentoComposicion = await getDoc(referenciaComposicion);
+
+    if (!documentoComposicion.exists()) {
+      alert("Todavía no guardaste la composición base del cotillón.");
+      return;
+    }
+
+    const composicion = documentoComposicion.data().productos || [];
+
+    if (!composicion.length) {
+      alert("La composición base no tiene artículos.");
+      return;
+    }
+
+    // Acumular artículos de todos los eventos
+    const acumulados = {};
+
+    eventos.forEach(evento => {
+
+      const factor = Number(evento.pax) / 100;
+
+      composicion.forEach(producto => {
+
+        const articulo = String(producto.articulo || "").trim();
+
+        if (!articulo) return;
+
+        const clave = articulo.toLowerCase();
+
+        if (!acumulados[clave]) {
+          acumulados[clave] = {
+            articulo: articulo,
+            unidades: 0,
+            cajas: 0,
+            nota: ""
+          };
+        }
+
+        const unidadesBase = Number(producto.unidades) || 0;
+
+        // La composición guarda cajaPack como cantidad de cajas/packs
+        const cajasBase = Number(
+          producto.cajaPack ?? producto.cajas ?? 0
+        );
+
+        acumulados[clave].unidades += Math.round(
+          unidadesBase * factor
+        );
+
+        acumulados[clave].cajas += Math.round(
+          cajasBase * factor
+        );
+
+      });
+
+    });
+
+    const productosGenerados = Object.values(acumulados).filter(
+      producto => producto.unidades > 0 || producto.cajas > 0
+    );
+
+    if (!productosGenerados.length) {
+      alert("No se generaron artículos. Revisá la composición base.");
+      return;
+    }
+
+    // Formato DD-MM
+    function fechaCorta(fecha) {
+
+      const partes = String(fecha).split("-");
+
+      if (partes.length !== 3) return fecha;
+
+      return `${partes[2]}-${partes[1]}`;
+    }
+
+    const primeraFecha = fechaCorta(eventos[0].fechaEvento);
+
+    const ultimaFecha = fechaCorta(
+      eventos[eventos.length - 1].fechaEvento
+    );
+
+    const nombreCombo = `cotillones ${primeraFecha} - ${ultimaFecha}`;
+    const cantidadCotillones = eventos.length;
+
+    // Guardar en memoria
+    combos[nombreCombo] = productosGenerados;
+combos[nombreCombo].cantidadCotillones = cantidadCotillones;
+
+    // Evitar duplicar la tarjeta si se vuelve a generar
+    const idCard = `combo-${nombreCombo.replace(/\s+/g, "-")}`;
+
+    const tarjetaAnterior = document.getElementById(idCard);
+
+    if (tarjetaAnterior) {
+      tarjetaAnterior.remove();
+    }
+
+    // Crear tarjeta con la misma estructura que los combos normales
+    const card = document.createElement("div");
+
+    card.className = "combo-card";
+    card.id = idCard;
+
+    const encabezado = document.createElement("div");
+
+    encabezado.className = "mb-2 fw-bold";
+
+    const checkbox = document.createElement("input");
+
+    checkbox.type = "checkbox";
+    checkbox.className = "combo-checkbox me-2";
+    checkbox.dataset.nombre = nombreCombo;
+
+    encabezado.appendChild(checkbox);
+    encabezado.appendChild(
+      document.createTextNode(nombreCombo)
+    );
+
+    card.appendChild(encabezado);
+
+    const rowHeader = document.createElement("div");
+
+    rowHeader.className =
+      "row fw-semibold mb-1 text-muted small";
+
+    rowHeader.innerHTML = `
+      <div class="col-md-4">Artículo</div>
+      <div class="col">Unidades</div>
+      <div class="col">Caj/Pack</div>
+      <div class="col">Notas</div>
+    `;
+
+    card.appendChild(rowHeader);
+
+    productosGenerados.forEach(producto => {
+
+      const row = document.createElement("div");
+      row.className = "row mb-2";
+
+      const colArticulo = document.createElement("div");
+      colArticulo.className = "col-md-4";
+
+      const inputArticulo = document.createElement("input");
+      inputArticulo.className = "form-control articulo";
+      inputArticulo.value = producto.articulo;
+
+      colArticulo.appendChild(inputArticulo);
+
+      const colUnidades = document.createElement("div");
+      colUnidades.className = "col";
+
+      const inputUnidades = document.createElement("input");
+      inputUnidades.className = "form-control unidades";
+      inputUnidades.type = "number";
+      inputUnidades.value = producto.unidades;
+
+      colUnidades.appendChild(inputUnidades);
+
+      const colCajas = document.createElement("div");
+      colCajas.className = "col";
+
+      const inputCajas = document.createElement("input");
+      inputCajas.className = "form-control cajas";
+      inputCajas.type = "number";
+      inputCajas.value = producto.cajas;
+
+      colCajas.appendChild(inputCajas);
+
+      const colNotas = document.createElement("div");
+      colNotas.className = "col";
+
+      const inputNotas = document.createElement("input");
+      inputNotas.className = "form-control notas";
+      inputNotas.placeholder = "Notas...";
+      inputNotas.value = "";
+
+      colNotas.appendChild(inputNotas);
+
+      row.append(
+        colArticulo,
+        colUnidades,
+        colCajas,
+        colNotas
+      );
+
+      card.appendChild(row);
+
+    });
+
+    // ==========================================================
+    // INSERTAR TARJETA GENERADA DEBAJO DE COTILLON
+    // ==========================================================
+
+    const contenedor = document.getElementById("contenedorCombos");
+
+    const tarjetaCotillon = document.getElementById("combo-cotillon");
+
+    if (tarjetaCotillon) {
+
+      tarjetaCotillon.insertAdjacentElement("afterend", card);
+
+    } else {
+
+      contenedor.appendChild(card);
+
+    }
+
+    // Llevar la tarjeta generada a la vista
+    card.scrollIntoView({
+      behavior: "smooth",
+      block: "start"
+    });
+
+    card.classList.add("border", "border-success");
+
+    setTimeout(() => {
+      card.classList.remove("border", "border-success");
+    }, 2500);
+
+    console.log("Cotillones generados:", {
+      salon: salonDestino,
+      eventos: eventos.length,
+      nombreCombo,
+      productos: productosGenerados
+    });
+
+  } catch (error) {
+
+    console.error("Error generando cotillones:", error);
+
+    if (typeof Swal !== "undefined") {
+      Swal.fire({
+        icon: "error",
+        title: "Error al generar cotillones",
+        text: error.message
+      });
+    }
+
+  }
+
+};
+
+//finaliza crear coti
 
 // ✅ Crear fila HTML
 
@@ -2087,6 +2433,396 @@ async function cargarSalonesEnDatalist() {
 // Ejecutar al cargar la página
 cargarSalonesEnDatalist();
 
+
+// ==========================================================
+// COTILLONES: FILA PRINCIPAL Y ARTÍCULOS DESPLEGABLES
+// ==========================================================
+
+let contadorFilasCotillon = 0;
+
+window.toggleDesplegableCotillon = function (grupoId) {
+
+  const filas = document.querySelectorAll(
+    `[data-cotillon-parent="${grupoId}"]`
+  );
+
+  if (!filas.length) return;
+
+  const expandir = Array.from(filas).some(
+    fila => fila.style.display === "none"
+  );
+
+  filas.forEach(fila => {
+    fila.style.display = expandir ? "" : "none";
+  });
+
+  const boton = document.querySelector(
+    `[data-cotillon-boton="${grupoId}"]`
+  );
+
+  if (boton) {
+    boton.setAttribute("aria-expanded", String(expandir));
+
+    const svg = boton.querySelector("svg");
+
+    if (svg) {
+      svg.innerHTML = expandir
+        ? '<path d="m6 9 6 6 6-6"/>'
+        : '<path d="m9 18 6-6-6-6"/>';
+    }
+  };
+};
+
+// ==========================================================
+// ELIMINAR COTILLÓN COMPLETO
+// ==========================================================
+
+window.eliminarCotillonCompleto = async function (btn, event, grupoId) {
+
+  event.stopPropagation();
+
+  const filaPrincipal = btn.closest("tr");
+
+  const filasArticulos = Array.from(
+    document.querySelectorAll(
+      `[data-cotillon-parent="${grupoId}"]`
+    )
+  );
+
+  if (!filasArticulos.length) {
+    filaPrincipal.remove();
+    mostrarMensajeEliminado();
+    return;
+  }
+
+  try {
+
+    const confirmacion = await Swal.fire({
+      title: "¿Eliminar cotillón completo?",
+      html: `
+        <div style="text-align: left;">
+          Se eliminará el título del cotillón y todos sus artículos.
+          <br><br>
+          <strong>Artículos:</strong> ${filasArticulos.length}
+          <br><br>
+          También se restaurará el stock correspondiente.
+          <br><br>
+          <span>Esta acción no se puede deshacer.</span>
+        </div>
+      `,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#6c757d",
+      confirmButtonText: "Sí, eliminar todo",
+      cancelButtonText: "Cancelar"
+    });
+
+    if (!confirmacion.isConfirmed) return;
+
+    btn.disabled = true;
+
+    for (const fila of filasArticulos) {
+
+      const docId = fila.getAttribute("data-id");
+
+      if (!docId) continue;
+
+      // Obtener los datos del artículo
+      const data = await obtenerDatosPedido(docId);
+
+      if (!data) continue;
+
+      const {
+        articulo,
+        unidades,
+        cajas,
+        origen
+      } = data;
+
+      // Verificar si existe en stock-articulos
+      const artSnap = await getDocs(
+        query(
+          collection(db, "stock-articulos"),
+          where("articulo", "==", articulo)
+        )
+      );
+
+      // Restaurar stock con la misma lógica de eliminación individual
+      if (!artSnap.empty) {
+
+        await restaurarStockTotal(
+          articulo,
+          parseInt(unidades) || 0,
+          parseInt(cajas) || 0,
+          origen
+        );
+
+      }
+
+      // Archivar y eliminar el documento
+      // false evita mostrar un mensaje por cada artículo
+      await eliminarPedido(docId, fila, false);
+
+    }
+
+    // Eliminar el título del cotillón
+    filaPrincipal.remove();
+
+    // Mostrar un único mensaje
+    mostrarMensajeEliminado();
+
+  } catch (error) {
+
+    console.error(
+      "Error eliminando cotillón completo:",
+      error
+    );
+
+    Swal.fire(
+      "Error",
+      "No se pudo completar la eliminación del cotillón.",
+      "error"
+    );
+
+  }
+
+};
+// ==========================================================
+// RENDERIZAR PEDIDOS AGRUPANDO SOLO LOS COTILLONES
+// ==========================================================
+
+function renderizarPedidosEnTabla(documentos, tabla) {
+
+  const gruposCotillones = new Map();
+
+  // Identificar exclusivamente combos de cotillones
+  documentos.forEach(docSnap => {
+
+    const data = docSnap.data();
+    const nombreCombo = String(data.combo || "").trim();
+
+    if (!nombreCombo.toLowerCase().startsWith("cotillones ")) {
+      return;
+    }
+
+    if (!gruposCotillones.has(nombreCombo)) {
+      gruposCotillones.set(nombreCombo, []);
+    }
+
+    gruposCotillones.get(nombreCombo).push(docSnap);
+
+  });
+
+
+  const gruposMostrados = new Set();
+
+  documentos.forEach(docSnap => {
+
+    const data = docSnap.data();
+    const nombreCombo = String(data.combo || "").trim();
+
+    // ======================================================
+    // COTILLONES GENERADOS
+    // ======================================================
+
+    if (nombreCombo.toLowerCase().startsWith("cotillones ")) {
+
+      if (gruposMostrados.has(nombreCombo)) return;
+
+      gruposMostrados.add(nombreCombo);
+
+      const grupoId = `cotillon-${contadorFilasCotillon++}`;
+
+      const documentosGrupo = gruposCotillones.get(nombreCombo) || [];
+
+      const primerDocumento = documentosGrupo[0];
+      const primerData = primerDocumento.data();
+
+      const fecha = primerData.fecha instanceof Timestamp
+        ? primerData.fecha.toDate().toLocaleDateString(
+            "es-AR",
+            {
+              day: "2-digit",
+              month: "2-digit",
+              year: "numeric"
+            }
+          )
+        : primerData.fecha || "";
+
+
+      // Fila principal del cotillón
+      const filaPrincipal = document.createElement("tr");
+
+      filaPrincipal.className = "fila-titulo-cotillon";
+
+      filaPrincipal.onclick = function () {
+        toggleSeleccion(this);
+      };
+
+      filaPrincipal.innerHTML = `
+
+  <td>
+    <input
+      type="checkbox"
+      onclick="event.stopPropagation()"
+      onchange="toggleSeleccion(this.closest('tr'), true)"
+    >
+  </td>
+
+  <td>${primerData.salones || ""}</td>
+
+  <td class="text-center">${fecha}</td>
+
+  <td style="position: relative; padding-left: 34px;">
+
+    <button
+      type="button"
+      class="btn btn-sm btn-link p-0"
+      data-cotillon-boton="${grupoId}"
+      aria-expanded="false"
+      title="Desplegar artículos"
+      style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%);"
+      onclick="event.stopPropagation(); toggleDesplegableCotillon('${grupoId}')"
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="m9 18 6-6-6-6"/>
+      </svg>
+    </button>
+
+    <strong>${nombreCombo}</strong>
+
+  </td>
+
+  <td class="text-center">${primerData.cantidadCotillones ?? 0}</td>
+
+  <td class="text-center"></td>
+
+  <td></td>
+
+  <td style="text-align: left; padding-left: 8px; padding-right: 12px;">
+  <button
+    type="button"
+    class="btn btn-sm btn-danger"
+    title="Eliminar cotillón completo"
+    onclick="eliminarCotillonCompleto(this, event, '${grupoId}')"
+  >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M3 6h18"/>
+        <path d="M8 6V4h8v2"/>
+        <path d="M19 6l-1 14H6L5 6"/>
+        <path d="M10 11v5"/>
+        <path d="M14 11v5"/>
+      </svg>
+    </button>
+  </td>
+
+  <td>${primerData.usuario || ""}</td>
+
+`;
+      tabla.appendChild(filaPrincipal);
+
+
+      // Artículos del cotillón: inicialmente ocultos
+      documentosGrupo.forEach(documento => {
+
+        const articuloData = documento.data();
+
+        const fechaArticulo = articuloData.fecha instanceof Timestamp
+          ? articuloData.fecha.toDate().toLocaleDateString(
+              "es-AR",
+              {
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric"
+              }
+            )
+          : articuloData.fecha || "";
+
+        const filaHTML = crearFila(
+          articuloData.articulo,
+          articuloData.unidades,
+          articuloData.cajas,
+          articuloData.notas,
+          articuloData.salones,
+          fechaArticulo,
+          articuloData.usuario,
+          documento.id
+        );
+
+        const filaTemporal = document.createElement("tbody");
+        filaTemporal.innerHTML = filaHTML;
+
+        const filaArticulo = filaTemporal.querySelector("tr");
+
+        if (!filaArticulo) return;
+
+        filaArticulo.classList.add("fila-articulo-cotillon");
+        filaArticulo.dataset.cotillonParent = grupoId;
+        filaArticulo.style.display = "none";
+
+        tabla.appendChild(filaArticulo);
+
+      });
+
+      return;
+    }
+
+
+    // ======================================================
+    // PEDIDOS NORMALES Y DEMÁS COMBOS
+    // SE MANTIENEN COMO ESTÁN
+    // ======================================================
+
+    const fecha = data.fecha instanceof Timestamp
+      ? data.fecha.toDate().toLocaleDateString(
+          "es-AR",
+          {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric"
+          }
+        )
+      : data.fecha;
+
+    const fila = crearFila(
+      data.articulo,
+      data.unidades,
+      data.cajas,
+      data.notas,
+      data.salones,
+      fecha,
+      data.usuario,
+      docSnap.id
+    );
+
+    tabla.insertAdjacentHTML("beforeend", fila);
+
+  });
+
+}
+
+
 async function cargarTablaPedidos(filtro = "ultimos2") {
 
   const tabla = document.getElementById("tablaArticulos");
@@ -2357,54 +3093,12 @@ async function cargarTablaPedidos(filtro = "ultimos2") {
     // MOSTRAR RESULTADOS
     // =====================================================
 
-    resultados.forEach(({ docSnap }) => {
+   renderizarPedidosEnTabla(
+  resultados.map(resultado => resultado.docSnap),
+  tabla
+);
 
-      if (documentosMostrados.has(docSnap.id)) {
-        return;
-      }
-
-      documentosMostrados.add(docSnap.id);
-
-
-      const data =
-        docSnap.data();
-
-
-      const fecha =
-        data.fecha instanceof Timestamp
-          ? data.fecha.toDate().toLocaleDateString(
-              "es-AR",
-              {
-                day: "2-digit",
-                month: "2-digit",
-                year: "numeric"
-              }
-            )
-          : data.fecha;
-
-
-      const fila =
-        crearFila(
-          data.articulo,
-          data.unidades,
-          data.cajas,
-          data.notas,
-          data.salones,
-          fecha,
-          data.usuario,
-          docSnap.id
-        );
-
-
-      tabla.insertAdjacentHTML(
-        "beforeend",
-        fila
-      );
-
-    });
-
-    return;
-  }
+return;  }
 
   // =====================================================
   // CONSULTA NORMAL
@@ -2689,44 +3383,10 @@ async function cargarTablaPedidos(filtro = "ultimos2") {
     await getDocs(q);
 
 
-  snapshot.forEach((docSnap) => {
-
-    const data =
-      docSnap.data();
-
-
-    const fecha =
-      data.fecha instanceof Timestamp
-        ? data.fecha.toDate().toLocaleDateString(
-            "es-AR",
-            {
-              day: "2-digit",
-              month: "2-digit",
-              year: "numeric"
-            }
-          )
-        : data.fecha;
-
-
-    const fila =
-      crearFila(
-        data.articulo,
-        data.unidades,
-        data.cajas,
-        data.notas,
-        data.salones,
-        fecha,
-        data.usuario,
-        docSnap.id
-      );
-
-
-    tabla.insertAdjacentHTML(
-      "beforeend",
-      fila
-    );
-
-  });
+  renderizarPedidosEnTabla(
+  snapshot.docs,
+  tabla
+);
 }
 
 window.cargarTablaPedidos =
@@ -2936,7 +3596,7 @@ async function eliminarFila(btn, event) {
   }
 }
 
-async function eliminarPedido(docId, fila) {
+async function eliminarPedido(docId, fila, mostrarMensaje = true) {
   try {
 
     // ==========================================
@@ -3041,9 +3701,11 @@ async function eliminarPedido(docId, fila) {
     // QUITAR FILA DE LA TABLA
     // ==========================================
 
-    fila.remove();
+       fila.remove();
 
-    mostrarMensajeEliminado();
+    if (mostrarMensaje) {
+      mostrarMensajeEliminado();
+    }
 
 
   } catch (error) {
@@ -3052,6 +3714,8 @@ async function eliminarPedido(docId, fila) {
       "Error al eliminar el pedido:",
       error
     );
+
+     throw error;
 
   }
 }
@@ -3116,6 +3780,11 @@ async function guardarSeleccion() {
       if (!checkbox || !checkbox.checked) continue;
 
       const comboNombre = checkbox.dataset.nombre;
+      const esCotillon = comboNombre  ?.trim()  .toLowerCase()  .startsWith("cotillones ");
+
+     const cantidadCotillones = esCotillon
+  ? Number(combos[comboNombre]?.cantidadCotillones) || 0
+  : 0;
       const rows = card.getElementsByClassName("row");
 
       for (let row of rows) {
@@ -3227,7 +3896,8 @@ async function guardarSeleccion() {
               usuario,
               fecha,
               origen,
-              combo: comboNombre
+              combo: comboNombre,
+              cantidadCotillones
             });
 
             // ✅ Descontar stock
@@ -3250,7 +3920,8 @@ async function guardarSeleccion() {
               usuario,
               fecha,
               origen,
-              combo: comboNombre
+              combo: comboNombre,
+              cantidadCotillones
             });
           }
         }
