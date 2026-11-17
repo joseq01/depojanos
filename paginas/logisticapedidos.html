@@ -1612,6 +1612,7 @@ function cerrarFlotante() {
 // ==========================================================
 
 
+
 window.generarCotillonesDesdeEventos = async function () {
 
   const salonDestino = document.getElementById("salonDestino")?.value.trim();
@@ -1623,10 +1624,41 @@ window.generarCotillonesDesdeEventos = async function () {
 
   try {
 
-    // Leer eventos importados
-    const snapshotEventos = await getDocs(
-      collection(db, "cotillones-eventos")
+    // =====================================================
+    // LEER LA VERSION ACTIVA DE LOS EVENTOS
+    // =====================================================
+
+    const estadoImportacion = await getDoc(
+      doc(db, "configuracion-cotillones", "estado-importacion")
     );
+
+    let coleccionEventos;
+
+    if (
+      estadoImportacion.exists() &&
+      estadoImportacion.data().versionActiva
+    ) {
+
+      const versionActiva = estadoImportacion.data().versionActiva;
+
+      coleccionEventos = collection(
+        db,
+        "cotillones-eventos-versiones",
+        versionActiva,
+        "eventos"
+      );
+
+    } else {
+
+      // Compatibilidad con los eventos anteriores
+      coleccionEventos = collection(
+        db,
+        "cotillones-eventos"
+      );
+
+    }
+
+    const snapshotEventos = await getDocs(coleccionEventos);
 
     const eventos = [];
 
@@ -1655,12 +1687,21 @@ window.generarCotillonesDesdeEventos = async function () {
       return;
     }
 
-    // Ordenar eventos por fecha
+    // =====================================================
+    // ORDENAR EVENTOS POR FECHA
+    // =====================================================
+
     eventos.sort((a, b) =>
       String(a.fechaEvento).localeCompare(String(b.fechaEvento))
     );
 
-    // Leer composición base de 100 PAX
+    // Un evento equivale a un cotillón
+    const cantidadCotillones = eventos.length;
+
+    // =====================================================
+    // LEER COMPOSICION BASE DE 100 PAX
+    // =====================================================
+
     const referenciaComposicion = doc(
       db,
       "configuracion-cotillones",
@@ -1681,7 +1722,10 @@ window.generarCotillonesDesdeEventos = async function () {
       return;
     }
 
-    // Acumular artículos de todos los eventos
+    // =====================================================
+    // ACUMULAR ARTICULOS DE TODOS LOS EVENTOS
+    // =====================================================
+
     const acumulados = {};
 
     eventos.forEach(evento => {
@@ -1707,7 +1751,6 @@ window.generarCotillonesDesdeEventos = async function () {
 
         const unidadesBase = Number(producto.unidades) || 0;
 
-        // La composición guarda cajaPack como cantidad de cajas/packs
         const cajasBase = Number(
           producto.cajaPack ?? producto.cajas ?? 0
         );
@@ -1733,7 +1776,11 @@ window.generarCotillonesDesdeEventos = async function () {
       return;
     }
 
-    // Formato DD-MM
+
+    // =====================================================
+    // ARMAR NOMBRE DEL COMBO CON TODAS LAS FECHAS
+    // =====================================================
+
     function fechaCorta(fecha) {
 
       const partes = String(fecha).split("-");
@@ -1743,20 +1790,24 @@ window.generarCotillonesDesdeEventos = async function () {
       return `${partes[2]}-${partes[1]}`;
     }
 
-    const primeraFecha = fechaCorta(eventos[0].fechaEvento);
-
-    const ultimaFecha = fechaCorta(
-      eventos[eventos.length - 1].fechaEvento
+    const fechasCotillones = eventos.map(evento =>
+      fechaCorta(evento.fechaEvento)
     );
 
-    const nombreCombo = `cotillones ${primeraFecha} - ${ultimaFecha}`;
-    const cantidadCotillones = eventos.length;
+    const nombreCombo = `cotillones ${fechasCotillones.join(" - ")}`;
 
-    // Guardar en memoria
+
+    // =====================================================
+    // GUARDAR EN MEMORIA
+    // =====================================================
+
     combos[nombreCombo] = productosGenerados;
-combos[nombreCombo].cantidadCotillones = cantidadCotillones;
+    combos[nombreCombo].cantidadCotillones = cantidadCotillones;
 
-    // Evitar duplicar la tarjeta si se vuelve a generar
+    // =====================================================
+    // EVITAR DUPLICAR LA TARJETA
+    // =====================================================
+
     const idCard = `combo-${nombreCombo.replace(/\s+/g, "-")}`;
 
     const tarjetaAnterior = document.getElementById(idCard);
@@ -1765,7 +1816,10 @@ combos[nombreCombo].cantidadCotillones = cantidadCotillones;
       tarjetaAnterior.remove();
     }
 
-    // Crear tarjeta con la misma estructura que los combos normales
+    // =====================================================
+    // CREAR TARJETA
+    // =====================================================
+
     const card = document.createElement("div");
 
     card.className = "combo-card";
@@ -1857,9 +1911,9 @@ combos[nombreCombo].cantidadCotillones = cantidadCotillones;
 
     });
 
-    // ==========================================================
-    // INSERTAR TARJETA GENERADA DEBAJO DE COTILLON
-    // ==========================================================
+    // =====================================================
+    // INSERTAR DEBAJO DEL COMBO COTILLON
+    // =====================================================
 
     const contenedor = document.getElementById("contenedorCombos");
 
@@ -1875,7 +1929,10 @@ combos[nombreCombo].cantidadCotillones = cantidadCotillones;
 
     }
 
-    // Llevar la tarjeta generada a la vista
+    // =====================================================
+    // MOSTRAR TARJETA
+    // =====================================================
+
     card.scrollIntoView({
       behavior: "smooth",
       block: "start"
@@ -1889,6 +1946,7 @@ combos[nombreCombo].cantidadCotillones = cantidadCotillones;
 
     console.log("Cotillones generados:", {
       salon: salonDestino,
+      cantidadCotillones,
       eventos: eventos.length,
       nombreCombo,
       productos: productosGenerados
