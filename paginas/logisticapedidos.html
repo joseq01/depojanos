@@ -1611,8 +1611,6 @@ function cerrarFlotante() {
 // GENERAR COMBO DE COTILLONES SEGÚN LOS EVENTOS
 // ==========================================================
 
-
-
 window.generarCotillonesDesdeEventos = async function () {
 
   const salonDestino = document.getElementById("salonDestino")?.value.trim();
@@ -1824,8 +1822,12 @@ combos[nombreCombo].composicionCotillon = composicion;
 
     const card = document.createElement("div");
 
-    card.className = "combo-card";
-    card.id = idCard;
+ card.className = "combo-card";
+card.id = idCard;
+
+// Identificación exclusiva de cotillones generados desde eventos
+card.dataset.tipoCombo = "cotillon-generado";
+card.dataset.tituloCotillon = nombreCombo;
 
     const encabezado = document.createElement("div");
 
@@ -3123,50 +3125,70 @@ window.eliminarCotillonCompleto = async function (btn, event, grupoId) {
 
 function renderizarPedidosEnTabla(documentos, tabla) {
 
+  // ======================================================
+  // AGRUPAR EXCLUSIVAMENTE LOS COTILLONES GENERADOS
+  // ======================================================
+
   const gruposCotillones = new Map();
 
-  // Identificar exclusivamente combos de cotillones
   documentos.forEach(docSnap => {
 
     const data = docSnap.data();
-    const nombreCombo = String(data.combo || "").trim();
 
-    if (!nombreCombo.toLowerCase().startsWith("cotillones ")) {
-      return;
+    // No se utiliza el nombre del combo para identificar cotillones.
+    // Solo se agrupan documentos que tengan grupoCotillonId.
+    if (!data.grupoCotillonId) return;
+
+    const grupoId = data.grupoCotillonId;
+
+    if (!gruposCotillones.has(grupoId)) {
+      gruposCotillones.set(grupoId, []);
     }
 
-    if (!gruposCotillones.has(nombreCombo)) {
-      gruposCotillones.set(nombreCombo, []);
-    }
-
-    gruposCotillones.get(nombreCombo).push(docSnap);
+    gruposCotillones.get(grupoId).push(docSnap);
 
   });
 
-
   const gruposMostrados = new Set();
+
+  // ======================================================
+  // RECORRER PEDIDOS
+  // ======================================================
 
   documentos.forEach(docSnap => {
 
     const data = docSnap.data();
-    const nombreCombo = String(data.combo || "").trim();
 
     // ======================================================
     // COTILLONES GENERADOS
     // ======================================================
 
-    if (nombreCombo.toLowerCase().startsWith("cotillones ")) {
+    if (data.grupoCotillonId) {
 
-      if (gruposMostrados.has(nombreCombo)) return;
+      const grupoId = data.grupoCotillonId;
 
-      gruposMostrados.add(nombreCombo);
+      // Evitar repetir la fila principal del mismo cotillón.
+      if (gruposMostrados.has(grupoId)) return;
 
-      const grupoId = `cotillon-${contadorFilasCotillon++}`;
+      gruposMostrados.add(grupoId);
 
-      const documentosGrupo = gruposCotillones.get(nombreCombo) || [];
+      const documentosGrupo = gruposCotillones.get(grupoId) || [];
 
-      const primerDocumento = documentosGrupo[0];
-      const primerData = primerDocumento.data();
+if (!documentosGrupo.length) return;
+
+// Buscar el chofer guardado en las notas de los artículos seleccionados.
+const notaChofer = documentosGrupo
+  .map(doc => String(doc.data().notas || ""))
+  .find(nota => /chofer:\s*/i.test(nota)) || "";
+
+const choferCotillon =
+  notaChofer.match(/chofer:\s*(.*)/i)?.[1]?.trim() || "";
+
+const primerDocumento = documentosGrupo[0];
+const primerData = primerDocumento.data();
+
+      const tituloCotillon =
+        primerData.tituloCotillon || "Cotillón";
 
       const fecha = primerData.fecha instanceof Timestamp
         ? primerData.fecha.toDate().toLocaleDateString(
@@ -3179,11 +3201,14 @@ function renderizarPedidosEnTabla(documentos, tabla) {
           )
         : primerData.fecha || "";
 
+      // ==================================================
+      // FILA PRINCIPAL DEL COTILLÓN
+      // ==================================================
 
-      // Fila principal del cotillón
       const filaPrincipal = document.createElement("tr");
 
       filaPrincipal.className = "fila-titulo-cotillon";
+      filaPrincipal.dataset.grupoCotillon = grupoId;
 
       filaPrincipal.onclick = function () {
         toggleSeleccion(this);
@@ -3191,88 +3216,95 @@ function renderizarPedidosEnTabla(documentos, tabla) {
 
       filaPrincipal.innerHTML = `
 
-  <td>
-    <input
-      type="checkbox"
-      onclick="event.stopPropagation()"
-      onchange="toggleSeleccion(this.closest('tr'), true)"
-    >
-  </td>
+        <td>
+          <input
+            type="checkbox"
+            onclick="event.stopPropagation()"
+            onchange="toggleSeleccion(this.closest('tr'), true)"
+          >
+        </td>
 
-  <td>${primerData.salones || ""}</td>
+        <td>${primerData.salones || ""}</td>
 
-  <td class="text-center">${fecha}</td>
+        <td class="text-center">${fecha}</td>
 
-  <td style="position: relative; padding-left: 34px;">
+        <td style="position: relative; padding-left: 34px;">
 
-    <button
-      type="button"
-      class="btn btn-sm btn-link p-0"
-      data-cotillon-boton="${grupoId}"
-      aria-expanded="false"
-      title="Desplegar artículos"
-      style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%);"
-      onclick="event.stopPropagation(); toggleDesplegableCotillon('${grupoId}')"
-    >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="16"
-        height="16"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-      >
-        <path d="m9 18 6-6-6-6"/>
-      </svg>
-    </button>
+          <button
+            type="button"
+            class="btn btn-sm btn-link p-0"
+            data-cotillon-boton="${grupoId}"
+            aria-expanded="false"
+            title="Desplegar artículos"
+            style="position: absolute; left: 8px; top: 50%; transform: translateY(-50%);"
+            onclick="event.stopPropagation(); toggleDesplegableCotillon('${grupoId}')"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="m9 18 6-6-6-6"/>
+            </svg>
+          </button>
 
-    <strong>${nombreCombo}</strong>
+          <strong>${tituloCotillon}</strong>
 
-  </td>
 
-  <td class="text-center">${primerData.cantidadCotillones ?? 0}</td>
 
-  <td class="text-center"></td>
+        </td>
 
-  <td></td>
+        <td class="text-center">${primerData.cantidadCotillones ?? 0}</td>
 
-  <td style="text-align: left; padding-left: 8px; padding-right: 12px;">
-  <button
-    type="button"
-    class="btn btn-sm btn-danger"
-    title="Eliminar cotillón completo"
-    onclick="eliminarCotillonCompleto(this, event, '${grupoId}')"
-  >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="16"
-        height="16"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-      >
-        <path d="M3 6h18"/>
-        <path d="M8 6V4h8v2"/>
-        <path d="M19 6l-1 14H6L5 6"/>
-        <path d="M10 11v5"/>
-        <path d="M14 11v5"/>
-      </svg>
-    </button>
-  </td>
+       <td class="text-center"></td>
 
-  <td>${primerData.usuario || ""}</td>
+<td class="notas-cotillon">
+  ${choferCotillon ? `Chofer: ${choferCotillon}` : ""}
+</td>
 
-`;
+        <td style="text-align: left; padding-left: 8px; padding-right: 12px;">
+          <button
+            type="button"
+            class="btn btn-sm btn-danger"
+            title="Eliminar cotillón completo"
+            onclick="eliminarCotillonCompleto(this, event, '${grupoId}')"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M3 6h18"/>
+              <path d="M8 6V4h8v2"/>
+              <path d="M19 6l-1 14H6L5 6"/>
+              <path d="M10 11v5"/>
+              <path d="M14 11v5"/>
+            </svg>
+          </button>
+        </td>
+
+        <td>${primerData.usuario || ""}</td>
+
+      `;
+
       tabla.appendChild(filaPrincipal);
 
+      // ==================================================
+      // ARTÍCULOS DEL COTILLÓN
+      // ==================================================
 
-      // Artículos del cotillón: inicialmente ocultos
       documentosGrupo.forEach(documento => {
 
         const articuloData = documento.data();
@@ -3317,10 +3349,9 @@ function renderizarPedidosEnTabla(documentos, tabla) {
       return;
     }
 
-
     // ======================================================
-    // PEDIDOS NORMALES Y DEMÁS COMBOS
-    // SE MANTIENEN COMO ESTÁN
+    // PEDIDOS NORMALES Y COMBOS NORMALES
+    // SIEMPRE SE MUESTRAN COMO FILAS INDIVIDUALES
     // ======================================================
 
     const fecha = data.fecha instanceof Timestamp
@@ -3332,7 +3363,7 @@ function renderizarPedidosEnTabla(documentos, tabla) {
             year: "numeric"
           }
         )
-      : data.fecha;
+      : data.fecha || "";
 
     const fila = crearFila(
       data.articulo,
@@ -4334,48 +4365,35 @@ async function eliminarPedido(docId, fila, mostrarMensaje = true) {
 let guardandoCombo = false;
 
 
+
 async function guardarSeleccion() {
 
-  // Evitar doble ejecución
   if (guardandoCombo) return;
 
   guardandoCombo = true;
 
   const btnGuardar = document.getElementById("btnGuardarCombo");
 
-  if (btnGuardar) {
-    btnGuardar.disabled = true;
-  }
+  if (btnGuardar) btnGuardar.disabled = true;
 
   let tareas = [];
   let procesados = 0;
 
-  // =====================================================
-  // MOSTRAR BARRA DE PROGRESO
-  // =====================================================
-
   function mostrarProgreso() {
-
     Swal.fire({
       title: "Guardando pedidos...",
       html: `
         <div class="text-start mb-2">
-          <span id="textoProgresoPedidos">
-            Preparando artículos...
-          </span>
+          <span id="textoProgresoPedidos">Preparando artículos...</span>
         </div>
-
         <div class="progress" style="height: 22px; border-radius: 10px;">
           <div
             id="barraProgresoPedidos"
             class="progress-bar progress-bar-striped progress-bar-animated bg-success"
             role="progressbar"
             style="width: 0%; transition: width 0.3s;"
-          >
-            0%
-          </div>
+          >0%</div>
         </div>
-
         <div class="text-muted small mt-2" id="detalleProgresoPedidos">
           Preparando...
         </div>
@@ -4383,40 +4401,25 @@ async function guardarSeleccion() {
       allowOutsideClick: false,
       allowEscapeKey: false,
       showConfirmButton: false,
-      didOpen: () => {
-        Swal.showLoading();
-      }
+      didOpen: () => Swal.showLoading()
     });
-
   }
 
   function actualizarProgreso(porcentaje, texto, detalle) {
 
-    const barra = Swal.getHtmlContainer()?.querySelector(
-      "#barraProgresoPedidos"
-    );
+    const contenedor = Swal.getHtmlContainer();
 
-    const textoElemento = Swal.getHtmlContainer()?.querySelector(
-      "#textoProgresoPedidos"
-    );
-
-    const detalleElemento = Swal.getHtmlContainer()?.querySelector(
-      "#detalleProgresoPedidos"
-    );
+    const barra = contenedor?.querySelector("#barraProgresoPedidos");
+    const textoElemento = contenedor?.querySelector("#textoProgresoPedidos");
+    const detalleElemento = contenedor?.querySelector("#detalleProgresoPedidos");
 
     if (barra) {
       barra.style.width = `${porcentaje}%`;
       barra.textContent = `${porcentaje}%`;
     }
 
-    if (textoElemento) {
-      textoElemento.textContent = texto;
-    }
-
-    if (detalleElemento) {
-      detalleElemento.textContent = detalle;
-    }
-
+    if (textoElemento) textoElemento.textContent = texto;
+    if (detalleElemento) detalleElemento.textContent = detalle;
   }
 
   try {
@@ -4467,18 +4470,34 @@ async function guardarSeleccion() {
 
       if (!checkbox || !checkbox.checked) continue;
 
-      const comboNombre = checkbox.dataset.nombre;
+      const comboNombre = checkbox.dataset.nombre || "";
 
-      const esCotillon = comboNombre
-        ?.trim()
-        .toLowerCase()
-        .startsWith("cotillones ");
+// Solo las tarjetas creadas por el generador de cotillones
+// se identifican como cotillones generados.
+const esCotillon =
+  card.dataset.tipoCombo === "cotillon-generado";
+
+// El título se obtiene del encabezado identificado por el generador.
+const tituloCotillon = esCotillon
+  ? (card.dataset.tituloCotillon || "")
+  : "";
+
+// Obtener todas las filas de artículos.
+// No se excluye ninguna: todas son artículos reales.
+const rows = Array.from(card.getElementsByClassName("row"));
+
+      // Un identificador distinto para cada cotillón generado
+      const grupoCotillonId = esCotillon
+        ? (
+            typeof crypto !== "undefined" && crypto.randomUUID
+              ? crypto.randomUUID()
+              : `cotillon-${Date.now()}-${Math.random().toString(36).slice(2)}`
+          )
+        : null;
 
       const cantidadCotillones = esCotillon
         ? Number(combos[comboNombre]?.cantidadCotillones) || 0
         : 0;
-
-      const rows = card.getElementsByClassName("row");
 
       for (const row of rows) {
 
@@ -4511,7 +4530,10 @@ async function guardarSeleccion() {
           cajas,
           notas,
           comboNombre,
-          cantidadCotillones
+          cantidadCotillones,
+          esCotillon,
+          grupoCotillonId,
+          tituloCotillon
         });
 
       }
@@ -4535,7 +4557,6 @@ async function guardarSeleccion() {
 
     const stockDisponible = await obtenerStockTotal();
 
-    // Mostrar progreso
     mostrarProgreso();
 
     // =====================================================
@@ -4550,7 +4571,10 @@ async function guardarSeleccion() {
         cajas,
         notas,
         comboNombre,
-        cantidadCotillones
+        cantidadCotillones,
+        esCotillon,
+        grupoCotillonId,
+        tituloCotillon
       } = tarea;
 
       const existe = await existeArticulo(articulo);
@@ -4606,7 +4630,6 @@ async function guardarSeleccion() {
                 cajasAConvertir * unidadesPorCaja;
 
               stockEnSalonCajas -= cajasAConvertir;
-
             }
           }
         }
@@ -4620,7 +4643,6 @@ async function guardarSeleccion() {
           cajas > stockEnSalonCajas
         ) {
 
-          // Pausar la barra mientras se muestra el aviso
           Swal.close();
 
           await Swal.fire({
@@ -4635,7 +4657,6 @@ async function guardarSeleccion() {
             confirmButtonColor: "#3085d6"
           });
 
-          // Volver a mostrar la barra
           mostrarProgreso();
 
           procesados++;
@@ -4657,7 +4678,7 @@ async function guardarSeleccion() {
         // GUARDAR PEDIDO
         // =================================================
 
-        await addDoc(collection(db, "stock-pedidos"), {
+        const datosPedido = {
           articulo,
           unidades,
           cajas,
@@ -4668,7 +4689,18 @@ async function guardarSeleccion() {
           origen,
           combo: comboNombre,
           cantidadCotillones
-        });
+        };
+
+        // Asociar todos los artículos al mismo grupo
+        if (esCotillon) {
+          datosPedido.grupoCotillonId = grupoCotillonId;
+          datosPedido.tituloCotillon = tituloCotillon;
+        }
+
+        await addDoc(
+          collection(db, "stock-pedidos"),
+          datosPedido
+        );
 
         // =================================================
         // DESCONTAR STOCK
@@ -4684,9 +4716,9 @@ async function guardarSeleccion() {
       } else {
 
         // Artículo que no existe en stock:
-        // se guarda igualmente, como antes.
+        // se guarda igualmente.
 
-        await addDoc(collection(db, "stock-pedidos"), {
+        const datosPedido = {
           articulo,
           unidades,
           cajas,
@@ -4697,7 +4729,17 @@ async function guardarSeleccion() {
           origen,
           combo: comboNombre,
           cantidadCotillones
-        });
+        };
+
+        if (esCotillon) {
+          datosPedido.grupoCotillonId = grupoCotillonId;
+          datosPedido.tituloCotillon = tituloCotillon;
+        }
+
+        await addDoc(
+          collection(db, "stock-pedidos"),
+          datosPedido
+        );
 
       }
 
@@ -4743,7 +4785,6 @@ async function guardarSeleccion() {
       `${procesados} de ${tareas.length} artículos procesados.`
     );
 
-    // Cerrar progreso
     Swal.close();
 
     mostrarMensajeGuardado();
@@ -4762,10 +4803,8 @@ async function guardarSeleccion() {
 
   } finally {
 
-    // Liberar bloqueo
     guardandoCombo = false;
 
-    // Reactivar botón
     if (btnGuardar) {
       btnGuardar.disabled = false;
     }
@@ -7206,32 +7245,71 @@ async function confirmarYImprimirDesdeResumen() {
     console.error("Error obteniendo salón:", error);
   }
 
-  for (let fila of seleccionados) {
-    const docId = fila.getAttribute("data-id");
-    const celdas = fila.querySelectorAll("td");
-    const notasOriginales = celdas[6]?.innerText.trim() || "";
-    const nuevaNota = chofer ? `${notasOriginales} - Chofer: ${chofer}` : notasOriginales;
+ for (let fila of seleccionados) {
 
-    try {
-      await updateDoc(doc(db, "stock-pedidos", docId), { notas: nuevaNota });
-    } catch (error) {
-      console.error("Error actualizando notas:", error);
+  const grupoId = fila.dataset.grupoCotillon;
+
+  // Si es la fila principal de un cotillón,
+  // actualizar las notas de todos sus artículos.
+  if (grupoId) {
+
+    const filasArticulos = document.querySelectorAll(
+      `tr[data-cotillon-parent="${grupoId}"]`
+    );
+
+    for (const filaArticulo of filasArticulos) {
+
+      const docId = filaArticulo.getAttribute("data-id");
+      if (!docId) continue;
+
+      const celdasArticulo = filaArticulo.querySelectorAll("td");
+      const notasOriginales = celdasArticulo[6]?.innerText.trim() || "";
+
+      const notasSinChofer = notasOriginales
+        .replace(/\s*-\s*Chofer:\s*.*$/i, "")
+        .trim();
+
+      const nuevaNota = chofer
+        ? `${notasSinChofer} - Chofer: ${chofer}`
+        : notasOriginales;
+
+      await updateDoc(doc(db, "stock-pedidos", docId), {
+        notas: nuevaNota
+      });
+
+      celdasArticulo[6].innerText = nuevaNota;
     }
+
+    const celdaNotas = fila.querySelector(".notas-cotillon");
+    if (celdaNotas) {
+      celdaNotas.innerText = chofer ? `Chofer: ${chofer}` : "";
+    }
+
+    continue;
   }
 
- for (let fila of seleccionados) {
+  // Pedidos normales: conservar el guardado individual.
   const docId = fila.getAttribute("data-id");
+  if (!docId) continue;
+
   const celdas = fila.querySelectorAll("td");
   const notasOriginales = celdas[6]?.innerText.trim() || "";
-  const nuevaNota = chofer ? `${notasOriginales} - Chofer: ${chofer}` : notasOriginales;
 
-  try {
-    await updateDoc(doc(db, "stock-pedidos", docId), { notas: nuevaNota });
-    celdas[6].innerText = nuevaNota; // ✅ Actualizar visualmente la columna "Notas"
-  } catch (error) {
-    console.error("Error actualizando notas:", error);
-  }
+  const notasSinChofer = notasOriginales
+    .replace(/\s*-\s*Chofer:\s*.*$/i, "")
+    .trim();
+
+  const nuevaNota = chofer
+    ? `${notasSinChofer} - Chofer: ${chofer}`
+    : notasOriginales;
+
+  await updateDoc(doc(db, "stock-pedidos", docId), {
+    notas: nuevaNota
+  });
+
+  celdas[6].innerText = nuevaNota;
 }
+
 // ✅ Guardar cada artículo seleccionado en la colección transfEnv
 /* try {
   for (let fila of seleccionados) {
