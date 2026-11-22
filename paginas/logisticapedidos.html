@@ -1125,55 +1125,95 @@ html body #proyectorBoxPedidos #proyectorFlechaPedidos.proyector-arrow {
   Guardado correctamente.
 </div>
   
+
 <div class="modal fade" id="modalResumenImpresion" tabindex="-1" aria-labelledby="modalResumenLabel" aria-hidden="true">
   <div class="modal-dialog modal-lg">
     <div class="modal-content p-4 rounded-4">
+
       <div class="modal-header">
         <h5 class="modal-title" id="modalResumenLabel">Resumen de impresión</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
       </div>
+
       <div class="modal-body">
 
-        <!-- Datos del Chofer (más compactos) -->
+        <!-- Datos del Chofer -->
         <div class="mb-3 p-3 border rounded shadow-sm bg-light">
           <h6 class="mb-3">Datos del Chofer</h6>
+
           <div class="row g-2">
+
             <div class="col-md-4">
-              <input type="text" class="form-control form-control-sm" id="nombreChofer" placeholder="Nombre"  oninput="limpiarCamposChofer()" list="datalistChoferes"/>
-            <datalist id="datalistChoferes"></datalist>
+              <input type="text" class="form-control form-control-sm" id="nombreChofer" placeholder="Nombre" oninput="limpiarCamposChofer()" list="datalistChoferes"/>
+              <datalist id="datalistChoferes"></datalist>
             </div>
+
             <div class="col-md-2">
               <input type="text" class="form-control form-control-sm" id="dniChofer" placeholder="DNI" />
             </div>
+
             <div class="col-md-2">
               <input type="text" class="form-control form-control-sm" id="marcaVehiculo" placeholder="Marca" />
             </div>
+
             <div class="col-md-2">
               <input type="text" class="form-control form-control-sm" id="modeloVehiculo" placeholder="Modelo" />
             </div>
+
             <div class="col-md-2">
               <input type="text" class="form-control form-control-sm" id="patenteVehiculo" placeholder="Patente" />
             </div>
+
             <div class="col-md-2 mt-2">
               <input type="number" class="form-control form-control-sm" id="cantidadCopias" value="2" min="1" placeholder="Copias" />
             </div>
+
           </div>
         </div>
 
-        <!-- Lista de Artículos (más espacio) -->
+        <!-- OPCIÓN DE IMPRESIÓN CON REMITO -->
+        <div class="mb-3 p-3 border rounded shadow-sm bg-white">
+
+          <div class="form-check">
+            <input
+              class="form-check-input"
+              type="checkbox"
+              id="imprimirConRemito"
+              value="1"
+            >
+
+            <label class="form-check-label fw-bold" for="imprimirConRemito">
+              Imprimir con formato de remito JANOS
+            </label>
+          </div>
+
+          <small class="text-muted d-block mt-1">
+            Si activás esta opción, los artículos se imprimirán sobre el diseño del remito.
+          </small>
+
+        </div>
+
+        <!-- Lista de Artículos -->
         <div class="p-3 border rounded shadow-sm bg-white">
           <h6 class="mb-3">Artículos seleccionados</h6>
+
           <ul id="listaResumenArticulos" class="list-unstyled mb-0" style="max-height: 400px; overflow-y: auto;"></ul>
         </div>
 
       </div>
+
       <div class="modal-footer">
         <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-        <button class="btn btn-primary" onclick="confirmarYImprimirDesdeResumen()">🖨️ Confirmar e Imprimir</button>
+
+        <button class="btn btn-primary" onclick="confirmarYImprimirDesdeResumen()">
+          🖨️ Confirmar e Imprimir
+        </button>
       </div>
+
     </div>
   </div>
 </div>
+
 <!-- modal print preliminar -->
 
 <!-- Modal para Pedidos Pendientes -->
@@ -7193,6 +7233,7 @@ document.addEventListener("DOMContentLoaded", () => {
 //fin bandeja
 
 // modal para agregar datos del chofer
+
 let imprimiendoResumen = false;
 
 async function confirmarYImprimirDesdeResumen() {
@@ -7209,61 +7250,113 @@ async function confirmarYImprimirDesdeResumen() {
   }
 
   try {
-  const choferesGuardados = JSON.parse(localStorage.getItem("choferes") || "{}");
-  const seleccionados = document.querySelectorAll('tbody tr.seleccionado');
-  if (seleccionados.length === 0) return;
 
-  const chofer = document.getElementById("nombreChofer").value || "";
-  const dni = document.getElementById("dniChofer").value || "";
-  const marca = document.getElementById("marcaVehiculo").value || "";
-  const modelo = document.getElementById("modeloVehiculo").value || "";
-  const patente = document.getElementById("patenteVehiculo").value || "";
-  const copias = parseInt(document.getElementById("cantidadCopias").value) || 1;
+    const choferesGuardados = JSON.parse(localStorage.getItem("choferes") || "{}");
+    const seleccionados = document.querySelectorAll('tbody tr.seleccionado');
 
-  const primerFila = seleccionados[0].querySelectorAll('td');
-  const salonNombre = primerFila[1]?.innerText.trim() || "";
-  const fecha = primerFila[2]?.innerText || "";
+    if (seleccionados.length === 0) return;
 
-  let direccion = "", localidad = "", provincia = "", cp = "";
-
-  if (chofer && dni && marca && modelo && patente) {
-    choferesGuardados[chofer] = { dni, marca, modelo, patente };
-    localStorage.setItem("choferes", JSON.stringify(choferesGuardados));
-  }
-
-  try {
-    const q = query(collection(db, "salones"), where("nombre", "==", salonNombre));
-    const snapshot = await getDocs(q);
-    if (!snapshot.empty) {
-      const data = snapshot.docs[0].data();
-      direccion = data.direccion || "";
-      localidad = data.localidad || "";
-      provincia = data.provincia || "";
-      cp = data.cp || "";
-    }
-  } catch (error) {
-    console.error("Error obteniendo salón:", error);
-  }
-
- for (let fila of seleccionados) {
-
-  const grupoId = fila.dataset.grupoCotillon;
-
-  // Si es la fila principal de un cotillón,
-  // actualizar las notas de todos sus artículos.
-  if (grupoId) {
-
-    const filasArticulos = document.querySelectorAll(
-      `tr[data-cotillon-parent="${grupoId}"]`
+    const chofer = document.getElementById("nombreChofer").value || "";
+    const dni = document.getElementById("dniChofer").value || "";
+    const marca = document.getElementById("marcaVehiculo").value || "";
+    const modelo = document.getElementById("modeloVehiculo").value || "";
+    const patente = document.getElementById("patenteVehiculo").value || "";
+    const copias = Math.max(
+      1,
+      parseInt(document.getElementById("cantidadCopias").value) || 1
     );
 
-    for (const filaArticulo of filasArticulos) {
+    const imprimirConRemito =
+      document.getElementById("imprimirConRemito")?.checked || false;
 
-      const docId = filaArticulo.getAttribute("data-id");
+    const primerFila = seleccionados[0].querySelectorAll("td");
+
+    const salonNombre = primerFila[1]?.innerText.trim() || "";
+    const fecha = primerFila[2]?.innerText || "";
+
+    let direccion = "";
+    let localidad = "";
+    let provincia = "";
+    let cp = "";
+
+    if (chofer && dni && marca && modelo && patente) {
+      choferesGuardados[chofer] = { dni, marca, modelo, patente };
+      localStorage.setItem("choferes", JSON.stringify(choferesGuardados));
+    }
+
+    try {
+
+      const q = query(
+        collection(db, "salones"),
+        where("nombre", "==", salonNombre)
+      );
+
+      const snapshot = await getDocs(q);
+
+      if (!snapshot.empty) {
+        const data = snapshot.docs[0].data();
+
+        direccion = data.direccion || "";
+        localidad = data.localidad || "";
+        provincia = data.provincia || "";
+        cp = data.cp || "";
+      }
+
+    } catch (error) {
+      console.error("Error obteniendo salón:", error);
+    }
+
+    // =====================================================
+    // ACTUALIZAR NOTAS DE LOS PEDIDOS Y COTILLONES
+    // =====================================================
+
+    for (let fila of seleccionados) {
+
+      const grupoId = fila.dataset.grupoCotillon;
+
+      if (grupoId) {
+
+        const filasArticulos = document.querySelectorAll(
+          `tr[data-cotillon-parent="${grupoId}"]`
+        );
+
+        for (const filaArticulo of filasArticulos) {
+
+          const docId = filaArticulo.getAttribute("data-id");
+          if (!docId) continue;
+
+          const celdasArticulo = filaArticulo.querySelectorAll("td");
+          const notasOriginales = celdasArticulo[6]?.innerText.trim() || "";
+
+          const notasSinChofer = notasOriginales
+            .replace(/\s*-\s*Chofer:\s*.*$/i, "")
+            .trim();
+
+          const nuevaNota = chofer
+            ? `${notasSinChofer} - Chofer: ${chofer}`
+            : notasOriginales;
+
+          await updateDoc(doc(db, "stock-pedidos", docId), {
+            notas: nuevaNota
+          });
+
+          celdasArticulo[6].innerText = nuevaNota;
+        }
+
+        const celdaNotas = fila.querySelector(".notas-cotillon");
+
+        if (celdaNotas) {
+          celdaNotas.innerText = chofer ? `Chofer: ${chofer}` : "";
+        }
+
+        continue;
+      }
+
+      const docId = fila.getAttribute("data-id");
       if (!docId) continue;
 
-      const celdasArticulo = filaArticulo.querySelectorAll("td");
-      const notasOriginales = celdasArticulo[6]?.innerText.trim() || "";
+      const celdas = fila.querySelectorAll("td");
+      const notasOriginales = celdas[6]?.innerText.trim() || "";
 
       const notasSinChofer = notasOriginales
         .replace(/\s*-\s*Chofer:\s*.*$/i, "")
@@ -7277,304 +7370,791 @@ async function confirmarYImprimirDesdeResumen() {
         notas: nuevaNota
       });
 
-      celdasArticulo[6].innerText = nuevaNota;
+      celdas[6].innerText = nuevaNota;
     }
 
-    const celdaNotas = fila.querySelector(".notas-cotillon");
-    if (celdaNotas) {
-      celdaNotas.innerText = chofer ? `Chofer: ${chofer}` : "";
+    // =====================================================
+    // ALERTA
+    // =====================================================
+
+    const alerta = document.createElement("div");
+
+    alerta.className =
+      "alert alert-success position-fixed top-0 start-50 translate-middle-x mt-3 shadow rounded-3";
+
+    alerta.style.zIndex = 1050;
+    alerta.style.maxWidth = "300px";
+    alerta.textContent = "✅ Notas actualizadas.";
+
+    document.body.appendChild(alerta);
+
+    setTimeout(() => alerta.remove(), 3000);
+
+    // =====================================================
+    // PAGINACIÓN: 10 ARTÍCULOS POR PÁGINA
+    // =====================================================
+
+    const itemsPorPagina = 10;
+    const seleccionadosArray = Array.from(seleccionados);
+    const paginas = [];
+
+    for (let i = 0; i < seleccionadosArray.length; i += itemsPorPagina) {
+      paginas.push(seleccionadosArray.slice(i, i + itemsPorPagina));
     }
 
-    continue;
-  }
+    // =====================================================
+    // IMPRESIÓN EN IFRAME
+    // =====================================================
 
-  // Pedidos normales: conservar el guardado individual.
-  const docId = fila.getAttribute("data-id");
-  if (!docId) continue;
+    
+function imprimirEnIframe(contenido) {
 
-  const celdas = fila.querySelectorAll("td");
-  const notasOriginales = celdas[6]?.innerText.trim() || "";
+  return new Promise((resolve, reject) => {
 
-  const notasSinChofer = notasOriginales
-    .replace(/\s*-\s*Chofer:\s*.*$/i, "")
-    .trim();
+    const iframe = document.createElement("iframe");
 
-  const nuevaNota = chofer
-    ? `${notasSinChofer} - Chofer: ${chofer}`
-    : notasOriginales;
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "0";
 
-  await updateDoc(doc(db, "stock-pedidos", docId), {
-    notas: nuevaNota
-  });
-
-  celdas[6].innerText = nuevaNota;
-}
-
-// ✅ Guardar cada artículo seleccionado en la colección transfEnv
-/* try {
-  for (let fila of seleccionados) {
-    const celdas = fila.querySelectorAll("td");
-    const destino = celdas[1]?.innerText.trim() || "";
-    const fecha = celdas[2]?.innerText.trim() || "";
-    const articulo = celdas[3]?.innerText.trim() || "";
-    const unidades = parseInt(celdas[4]?.innerText.trim() || "0");
-    const cajas = parseInt(celdas[5]?.innerText.trim() || "0");
-    const notas = celdas[6]?.innerText.trim() || "";
-    const usuario = celdas[9]?.innerText.trim() || "";
-
-    await addDoc(collection(db, "transfEnv"), {
-      destino,
-      fecha,
-      articulo,
-      unidades,
-      cajas,
-      notas,
-      usuario,
-      chofer: chofer || ""
-    });
-  }
-
-  console.log("Artículos guardados en transfEnv correctamente.");
-} catch (error) {
-  console.error("Error guardando artículos en transfEnv:", error);
-} */
-// ✅ finaliza Guardar cada artículo seleccionado en la colección transfEnv
-
-  // ✅ Mostrar alerta
-  const alerta = document.createElement("div");
-  alerta.className = "alert alert-success position-fixed top-0 start-50 translate-middle-x mt-3 shadow rounded-3";
-  alerta.style.zIndex = 1050;
-  alerta.style.maxWidth = "300px";
-  alerta.textContent = "✅ Notas actualizadas.";
-  document.body.appendChild(alerta);
-  setTimeout(() => alerta.remove(), 3000);
-
-  // ✅ Dividir en páginas de 10 items
-  const itemsPorPagina = 10;
-  const seleccionadosArray = Array.from(seleccionados);
-  const paginas = [];
-  for (let i = 0; i < seleccionadosArray.length; i += itemsPorPagina) {
-    paginas.push(seleccionadosArray.slice(i, i + itemsPorPagina));
-  }
-
-  // ✅ Función para imprimir en iframe oculto con promesa
- function imprimirEnIframe(contenido) {
-  return new Promise((resolve) => {
-    const iframe = document.createElement('iframe');
-    iframe.style.position = 'fixed';
-    iframe.style.right = '0';
-    iframe.style.bottom = '0';
-    iframe.style.width = '0';
-    iframe.style.height = '0';
-    iframe.style.border = '0';
     document.body.appendChild(iframe);
 
     const doc = iframe.contentWindow.document;
+
+    // Si recibimos un documento HTML completo,
+    // lo escribimos directamente, sin envolverlo otra vez.
+    const esDocumentoCompleto =
+      /^\s*<!doctype html/i.test(contenido) ||
+      /^\s*<html[\s>]/i.test(contenido);
+
     doc.open();
-    doc.write(`
-      <html>
-        <head><title>Impresión</title></head>
-        <body style="margin: 0;">${contenido}</body>
-      </html>
-    `);
+
+    if (esDocumentoCompleto) {
+      doc.write(contenido);
+    } else {
+      doc.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="UTF-8">
+            <title>Impresión</title>
+          </head>
+          <body style="margin:0;">
+            ${contenido}
+          </body>
+        </html>
+      `);
+    }
+
     doc.close();
 
-    setTimeout(() => {
-      iframe.contentWindow.focus();
-      iframe.contentWindow.print();
+    // Esperar a que cargue el fondo del remito antes de imprimir.
+    const esperarImagenes = () => {
 
-      // Esperar un poco para no borrar el iframe antes de lanzar la impresión
+      const imagenes = Array.from(doc.images);
+
+      return Promise.all(
+        imagenes.map(img => {
+
+          if (img.complete) {
+            return Promise.resolve();
+          }
+
+          return new Promise(resolveImagen => {
+            img.onload = resolveImagen;
+            img.onerror = resolveImagen;
+          });
+
+        })
+      );
+    };
+
+    esperarImagenes().then(() => {
+
       setTimeout(() => {
-        document.body.removeChild(iframe);
-        resolve();
-      }, 1500);
-    }, 500); // pequeño delay para que cargue el contenido
+
+        try {
+
+          iframe.contentWindow.focus();
+          iframe.contentWindow.print();
+
+          setTimeout(() => {
+
+            if (iframe.parentNode) {
+              iframe.parentNode.removeChild(iframe);
+            }
+
+            resolve();
+
+          }, 1500);
+
+        } catch (error) {
+
+          if (iframe.parentNode) {
+            iframe.parentNode.removeChild(iframe);
+          }
+
+          reject(error);
+        }
+
+      }, 500);
+
+    });
+
   });
 }
 
-  // ✅ Generar contenido HTML por página (estructura original intacta)
-function generarContenidoPagina(paginaItems) {
-  // ✳️ Descomponer la fecha en día, mes y año
+    // =====================================================
+    // IMPRESIÓN ORIGINAL: NO SE MODIFICA SU DISEÑO
+    // =====================================================
+
+    function generarContenidoPagina(paginaItems) {
+
+      const [dia, mes, anio] = (fecha || "").split("/");
+
+      const dniTexto = String(dni || "").trim();
+
+      let contenido = `
+        <div style="
+          font-family:Arial,sans-serif;
+          padding:60px 40px;
+          position:relative;
+          min-height:100vh;
+          box-sizing:border-box;
+        ">
+
+          <div style="
+            position:absolute;
+            top:75px;
+            right:40px;
+            font-size:16px;
+          ">
+            <span style="display:inline-block;width:1cm;text-align:center;margin-right:0.5cm;">
+              ${dia || ""}
+            </span>
+
+            <span style="display:inline-block;width:1cm;text-align:center;margin-right:0.3cm;">
+              ${mes || ""}
+            </span>
+
+            <span style="display:inline-block;width:1cm;text-align:center;margin-left:0.6cm;">
+              ${anio || ""}
+            </span>
+          </div>
+
+          <div style="margin-top:170px;font-size:16px;margin-left:80px;">
+            ${salonNombre}
+          </div>
+
+          <div style="height:28px;"></div>
+
+          <div style="
+            margin-bottom:60px;
+            margin-top:-5px;
+            font-size:14px;
+            margin-left:85px;
+          ">
+            ${direccion}, ${localidad}, ${provincia} (${cp})
+          </div>
+      `;
+
+      const startY = 208 + 32 + 60 + 108 - 28;
+      const rowHeight = 37;
+      const maxArticulos = 10;
+
+      for (let i = 0; i < maxArticulos; i++) {
+
+        const fila = paginaItems[i];
+        if (!fila) continue;
+
+        const celdas = fila.querySelectorAll("td");
+
+        const articulo = celdas[3]?.innerText?.trim() || "";
+        const unidades = celdas[4]?.innerText?.trim() || "";
+        const cajas = celdas[5]?.innerText?.trim() || "";
+
+        let detalles = "";
+
+        if (unidades && unidades !== "0") {
+          detalles += `<strong>${unidades}</strong> unid.`;
+        }
+
+        if (cajas && cajas !== "0") {
+
+          const matchCaja = cajas.match(/\(([^)]+)\)/);
+
+          if (matchCaja) {
+
+            const cantidadCajas = cajas
+              .replace(matchCaja[0], "")
+              .trim();
+
+            const unidadesPorCaja = matchCaja[1];
+
+            detalles += `
+              ${detalles ? " " : ""}
+              <strong>${cantidadCajas}</strong>
+              caja${cantidadCajas !== "1" ? "s" : ""}
+              <span>(${unidadesPorCaja})</span>
+            `;
+
+          } else {
+
+            detalles += `
+              ${detalles ? " " : ""}
+              <strong>${cajas}</strong>
+              caja${cajas !== "1" ? "s" : ""}
+            `;
+          }
+        }
+
+        contenido += `
+          <div style="
+            position:absolute;
+            top:${startY + i * rowHeight}px;
+            left:20px;
+            display:flex;
+            gap:20px;
+          ">
+
+            <span style="
+              width:150px;
+              text-align:right;
+              margin-left:-55px;
+            ">
+              ${detalles}
+            </span>
+
+            <span style="flex:1;margin-left:8px;">
+              ${articulo}
+            </span>
+
+          </div>
+        `;
+      }
+
+      contenido += `
+        <div style="
+          position:absolute;
+          bottom:75px;
+          left:40px;
+          right:40px;
+          border-top:1px solid #ccc;
+          padding-top:12px;
+          font-size:14px;
+          display:flex;
+          justify-content:flex-end;
+        ">
+
+          <div style="text-align:right;">
+
+            <div style="
+              display:flex;
+              gap:10px;
+              justify-content:flex-end;
+              margin-top:-1px;
+            ">
+              <div>${modelo || "&nbsp;"}</div>
+              <div>${marca || "&nbsp;"}</div>
+              <div>${patente || "&nbsp;"}</div>
+            </div>
+
+            <div style="margin-top:41px;margin-right:80px;">
+              ${chofer || "&nbsp;"}
+            </div>
+
+            <div style="margin-top:48px;margin-right:80px;">
+              ${dni || "&nbsp;"}
+            </div>
+
+          </div>
+        </div>
+        </div>
+      `;
+
+      return contenido;
+    }
+
+    // =====================================================
+    // IMPRESIÓN CON REMITO JANOS
+    // =====================================================
+
+    function generarNumeroRemito() {
+      return String(Math.floor(Math.random() * 10000)).padStart(4, "0");
+    }
+
+    const numeroRemito = imprimirConRemito
+      ? generarNumeroRemito()
+      : "";
+
+const fondoRemito = new URL(
+  "../image/remito-janos-fondo.png",
+  window.location.href
+).href;
+
+    function escaparHTML(valor) {
+      return String(valor ?? "").replace(/[&<>"']/g, caracter => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      })[caracter]);
+    }
+
+    function obtenerCantidad(fila) {
+
+      const celdas = fila.querySelectorAll("td");
+
+      const unidades = celdas[4]?.innerText.trim() || "";
+      const cajas = celdas[5]?.innerText.trim() || "";
+
+      let partes = [];
+
+      if (unidades && unidades !== "0") {
+        partes.push(`${unidades} unid.`);
+      }
+
+      if (cajas && cajas !== "0") {
+
+        const matchCaja = cajas.match(/\(([^)]+)\)/);
+
+        if (matchCaja) {
+
+          const cantidadCajas = cajas
+            .replace(matchCaja[0], "")
+            .trim();
+
+          partes.push(
+            `${cantidadCajas} caja${cantidadCajas !== "1" ? "s" : ""} (${matchCaja[1]})`
+          );
+
+        } else {
+
+          partes.push(
+            `${cajas} caja${cajas !== "1" ? "s" : ""}`
+          );
+        }
+      }
+
+      return partes.join(" + ");
+    }
+
+    
+function generarRemito(paginaItems, tipoCopia = "ORIGINAL") {
+
   const [dia, mes, anio] = (fecha || "").split("/");
 
-  // top: 60px hoja A4 para fecha mas arriba
-  // agregas  "margin-top: -20px;" para achicar direccion en hoja C5. margin-left: 80px
+  const dniTexto = String(dni || "").trim();
 
-  let contenido = `
-    <div style="font-family: Arial, sans-serif; padding: 60px 40px; position: relative; min-height: 100vh; box-sizing: border-box;">
-      <!-- Fecha -->
-      <div style="position: absolute; top: 75px; right: 40px; font-size: 16px;"> 
-        <span style="display: inline-block; width: 1cm; text-align: center; margin-right: 0.5cm;">${dia || ""}</span>
-      <span style="display: inline-block; width: 1cm; text-align: center; margin-right: 0.3cm;">${mes || ""}</span>
-      <span style="display: inline-block; width: 1cm; text-align: center; margin-left: 0.6cm;">${anio || ""}</span>
-    </div>
+  let articulosHTML = "";
 
-      <!-- Salón -->
-      <div style="margin-top: 170px; font-size: 16px; margin-left: 80px;">${salonNombre}</div>
+  for (let i = 0; i < 10; i++) {
 
-      <!-- Dirección -->
-      <div style="height: 28px;"></div>
-      <div style="margin-bottom: 60px;  margin-top: -5px; font-size: 14px; margin-left: 85px;">
-        ${direccion}, ${localidad}, ${provincia} (${cp})
+    const fila = paginaItems[i];
+
+    if (!fila) continue;
+
+    const celdas = fila.querySelectorAll("td");
+
+    const articulo = celdas[3]?.innerText.trim() || "";
+    const cantidad = obtenerCantidad(fila);
+
+    const y = 34.55 + (i * 3.78);
+
+    articulosHTML += `
+      <div style="
+        position:absolute;
+        top:${y}%;
+        left:calc(3.5% + 1ch);
+        width:11%;
+        height:3.7%;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        text-align:center;
+        font-size:7pt;
+        font-weight:600;
+        overflow:hidden;
+      ">
+        ${escaparHTML(cantidad)}
       </div>
-  `;
 
-  // 🔹 Posición inicial de los artículos y altura de fila
-  const startY = 208 + 32 + 60 + 108 - 28; // . 8 para que articulos empiece un renglo +abajo
-  const rowHeight = 37;              // altura de fila en px (≈1.2cm) valor 40
-  const maxArticulos = 10;
-
- for (let i = 0; i < maxArticulos; i++) {
-  const fila = paginaItems[i];
-  if (!fila) continue;
-
-  const celdas = fila.querySelectorAll("td");
-  const articulo = celdas[3]?.innerText?.trim() || "";
-  const unidades = celdas[4]?.innerText?.trim() || "";
-  const cajas = celdas[5]?.innerText?.trim() || "";
-
-  // ==========================================
-  // CONSTRUIR TEXTO DE UNIDADES / CAJAS
-  // ==========================================
-
-  let detalles = "";
-
-  // Unidades
-  if (unidades && unidades !== "0") {
-    detalles += `<strong>${unidades}</strong> unid.`;
+      <div style="
+        position:absolute;
+        top:${y}%;
+        left:calc(14% + 3ch);
+        width:53%;
+        height:3.7%;
+        display:flex;
+        align-items:center;
+        padding-left:2%;
+        box-sizing:border-box;
+        font-size:8pt;
+        overflow:hidden;
+      ">
+        ${escaparHTML(articulo)}
+      </div>
+    `;
   }
 
-  // Cajas
-  if (cajas && cajas !== "0") {
+  const direccionCompleta = [
+    direccion,
+    localidad,
+    provincia,
+    cp
+  ].filter(Boolean).join(", ");
 
-    // Buscar "(600 c/u)" dentro del texto
-    const matchCaja = cajas.match(/\(([^)]+)\)/);
+  return `
+    <div class="remito">
 
-    if (matchCaja) {
+      <img class="fondo-remito" src="${fondoRemito}">
 
-      const cantidadCajas = cajas
-        .replace(matchCaja[0], "")
-        .trim();
+      <div class="numero-remito">
+        N° 00091 - 0000${numeroRemito}
+      </div>
 
-      const unidadesPorCaja = matchCaja[1];
+      <div class="fecha-remito">
+        <span>${escaparHTML(dia || "")}</span>
+        <span>${escaparHTML(mes || "")}</span>
+        <span>${escaparHTML(anio || "")}</span>
+      </div>
 
-      detalles += `
-        ${detalles ? " " : ""}
-        <strong>${cantidadCajas}</strong>
-        caja${cantidadCajas !== "1" ? "s" : ""}
-        <span>(${unidadesPorCaja})</span>
-      `;
+      <div class="salon-remito">
+        ${escaparHTML(salonNombre)}
+      </div>
 
-    } else {
+      <div class="direccion-remito">
+        ${escaparHTML(direccionCompleta)}
+      </div>
 
-      detalles += `
-        ${detalles ? " " : ""}
-        <strong>${cajas}</strong>
-        caja${cajas !== "1" ? "s" : ""}
-      `;
+      ${articulosHTML}
 
-    }
-  }
+      <div class="patente-remito">
+        ${escaparHTML(patente)}
+      </div>
 
-  // ==========================================
-  // MOSTRAR EN EL REMITO
-  // ==========================================
+      <div class="transportista-remito">
+        ${escaparHTML(chofer)}
+      </div>
 
-  contenido += `
-    <div style="
-      position: absolute;
-      top: ${startY + i * rowHeight}px;
-      left: 20px;
-      display: flex;
-      gap: 20px;
-    ">
-      <span style="
-        width: 150px;
-        text-align: right;
-        margin-left: -55px;
+      <div class="dni-remito">
+        ${escaparHTML(dniTexto)}
+      </div>
+
+      <div class="copia-remito" style="
+        left:calc(70% + ${dniTexto.length}ch);
+        top:calc(83.8% + 8em);
       ">
-        ${detalles}
-      </span>
+        ${escaparHTML(tipoCopia)}
+      </div>
 
-      <span style="
-        flex: 1;
-        margin-left: 8px;
-      ">
-        ${articulo}
-      </span>
     </div>
   `;
 }
-  // 🔹 Pie de página
-  // "margin-top: 48px;" para subir dni en hoja A4
-  // "margin-top: 49pc" para linea Chofer
-contenido += `
-  <div style="position: absolute; bottom: 75px; left: 40px; right: 40px; border-top: 1px solid #ccc; padding-top: 12px; font-size: 14px; display: flex; justify-content: flex-end;">
+
     
-    <div style="text-align: right;">
-      <!-- Primera línea: Marca, Modelo, Patente -->
-      <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: -1px;">
-        <div>${modelo || "&nbsp;"}</div>
-        <div>${marca || "&nbsp;"}</div>
-        <div>${patente || "&nbsp;"}</div>
+function generarHojaRemitos(remitos, formatoHorizontal = true) {
+
+  const orientacion = formatoHorizontal ? "landscape" : "portrait";
+  const anchoHoja = formatoHorizontal ? "297mm" : "210mm";
+  const altoHoja = formatoHorizontal ? "210mm" : "297mm";
+  const anchoRemito = formatoHorizontal ? "148.5mm" : "210mm";
+  const altoRemito = formatoHorizontal ? "210mm" : "297mm";
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+
+      <title>Remito JANOS</title>
+
+      <style>
+        @page {
+          size: A4 ${orientacion};
+          margin: 0;
+        }
+
+        * {
+          box-sizing: border-box;
+        }
+
+        html, body {
+          margin: 0 !important;
+          padding: 0 !important;
+          width: ${anchoHoja};
+          height: ${altoHoja};
+          font-family: Arial, sans-serif;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+
+        .hoja {
+          width: ${anchoHoja};
+          height: ${altoHoja};
+          display: flex;
+          flex-direction: row;
+          overflow: hidden;
+          page-break-after: always;
+          break-after: page;
+        }
+
+        .remito {
+          position: relative;
+          flex: 0 0 ${anchoRemito};
+          width: ${anchoRemito};
+          height: ${altoRemito};
+          overflow: hidden;
+          background: white;
+          page-break-inside: avoid;
+          break-inside: avoid;
+        }
+
+        .fondo-remito {
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 100%;
+          height: 100%;
+          object-fit: fill;
+          z-index: 0;
+        }
+
+        .numero-remito {
+          position: absolute;
+          left: calc(60% + 5ch);
+          top: calc(6.1% + 2em);
+          width: 27%;
+          text-align: left;
+          font-size: 8pt;
+          font-weight: bold;
+          z-index: 2;
+        }
+
+        .fecha-remito {
+          position: absolute;
+          left: 51%;
+          top: calc(8.8% + 4em);
+          width: 27%;
+          height: 2.8%;
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          align-items: center;
+          text-align: center;
+          font-size: 6pt;
+          z-index: 2;
+        }
+
+        .salon-remito {
+  position: absolute;
+  left: calc(14% + 2ch);
+  top: calc(24.4% - 0.5em);
+  width: 76%;
+  height: 2%;
+  font-size: 8pt;
+  z-index: 2;
+  overflow: hidden;
+}
+
+.direccion-remito {
+  position: absolute;
+  left: calc(14% + 2ch);
+  top: calc(27.3% - 0.5em);
+  width: 76%;
+  height: 2%;
+  font-size: 7pt;
+  z-index: 2;
+  overflow: hidden;
+}
+        .patente-remito {
+          position: absolute;
+          left: 70%;
+          top: 73.4%;
+          width: 24%;
+          font-size: 8pt;
+          z-index: 2;
+        }
+
+        .transportista-remito {
+          position: absolute;
+          left: 71%;
+          top: 76.7%;
+          width: 24%;
+          font-size: 8pt;
+          z-index: 2;
+        }
+
+        .dni-remito {
+          position: absolute;
+          left: 70%;
+          top: 83.8%;
+          width: 24%;
+          font-size: 8pt;
+          z-index: 2;
+        }
+
+        @media screen {
+          body {
+            background: #ddd;
+          }
+
+          .hoja {
+            margin: 10px auto;
+            background: white;
+          }
+        }
+
+        .copia-remito {
+  position: absolute;
+  font-size: 8pt;
+  font-weight: bold;
+  z-index: 2;
+  white-space: nowrap;
+}
+
+      </style>
+    </head>
+
+    <body>
+      <div class="hoja">
+        ${remitos.map(remito => remito || "").join("")}
       </div>
-
-      <!-- Segunda línea: Chofer baja 2 líneas -->
-     <div style="margin-top: 41px; margin-right: 80px;">${chofer || "&nbsp;"}</div>
-
-      <!-- Tercera línea: DNI baja 1 línea más abajo -->
-      <div style="margin-top: 48px; margin-right: 80px;">${dni || "&nbsp;"}</div>
-    </div>
-
-  </div>
-</div>
-`;
-
-  return contenido;
+    </body>
+    </html>
+  `;
 }
 
 
+    // =====================================================
+    // EJECUTAR IMPRESIÓN SEGÚN LA OPCIÓN ELEGIDA
+    // =====================================================
 
-  // ✅ Lógica para imprimir con espera entre copias
-  if (paginas.length === 1) {
-    for (let copia = 0; copia < copias; copia++) {
-      await imprimirEnIframe(generarContenidoPagina(paginas[0]));
+
+if (imprimirConRemito) {
+
+  for (let p = 0; p < paginas.length; p++) {
+
+    // UNA COPIA: ORIGINAL en hoja vertical
+    if (copias === 1) {
+
+      const remitoHTML = generarRemito(
+        paginas[p],
+        "ORIGINAL"
+      );
+
+      await imprimirEnIframe(
+        generarHojaRemitos([remitoHTML], true)
+      );
+
+      continue;
     }
+
+    // DOS O MÁS COPIAS: dos remitos por hoja horizontal
+    for (let i = 0; i < copias; i += 2) {
+
+      const ejemplares = [];
+
+      // Primera copia de toda la impresión
+      const tipoPrimera = (i === 0)
+        ? "ORIGINAL"
+        : "DUPLICADO";
+
+      ejemplares.push(
+        generarRemito(paginas[p], tipoPrimera)
+      );
+
+      // Segunda copia de esta hoja
+      if (i + 1 < copias) {
+
+        ejemplares.push(
+          generarRemito(paginas[p], "DUPLICADO")
+        );
+
+      }
+
+      await imprimirEnIframe(
+        generarHojaRemitos(ejemplares, true)
+      );
+
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+  }
+
+} else {
+
+  // IMPRESIÓN ORIGINAL SIN REMITO: NO MODIFICAR
+
+  if (paginas.length === 1) {
+
+    for (let copia = 0; copia < copias; copia++) {
+      await imprimirEnIframe(
+        generarContenidoPagina(paginas[0])
+      );
+    }
+
   } else {
+
     for (let p = 0; p < paginas.length; p++) {
+
       for (let copia = 0; copia < copias; copia++) {
-        await imprimirEnIframe(generarContenidoPagina(paginas[p]));
-        await new Promise(resolve => setTimeout(resolve, 500)); // espera corta entre copias
+
+        await imprimirEnIframe(
+          generarContenidoPagina(paginas[p])
+        );
+
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
     }
   }
+}
+    // =====================================================
+    // CERRAR MODAL Y LIMPIAR CAMPOS
+    // =====================================================
 
-  // ✅ Cerrar modal y limpiar campos
-  setTimeout(() => {
-    const modalEl = document.getElementById("modalResumenImpresion");
-    const modalInstance = bootstrap.Modal.getInstance(modalEl);
-    if (modalInstance) modalInstance.hide();
+    setTimeout(() => {
 
-    document.getElementById("nombreChofer").value = "";
-    document.getElementById("dniChofer").value = "";
-    document.getElementById("marcaVehiculo").value = "";
-    document.getElementById("modeloVehiculo").value = "";
-    document.getElementById("patenteVehiculo").value = "";
-    document.getElementById("cantidadCopias").value = "2";
-  }, 300);
+      const modalEl = document.getElementById("modalResumenImpresion");
+      const modalInstance = bootstrap.Modal.getInstance(modalEl);
 
-  
-  // ✅ Deseleccionar filas y desmarcar checkboxes
-document.querySelectorAll('tbody tr.seleccionado').forEach(fila => {
-  fila.classList.remove('seleccionado');
-  const checkbox = fila.querySelector('input[type="checkbox"]');
-  if (checkbox) checkbox.checked = false;
-});
+      if (modalInstance) modalInstance.hide();
 
-// ✅ Actualizar visibilidad del botón imprimir
-toggleBotonImprimir();
+      document.getElementById("nombreChofer").value = "";
+      document.getElementById("dniChofer").value = "";
+      document.getElementById("marcaVehiculo").value = "";
+      document.getElementById("modeloVehiculo").value = "";
+      document.getElementById("patenteVehiculo").value = "";
+      document.getElementById("cantidadCopias").value = "2";
 
-} finally {
+      const checkboxRemito = document.getElementById("imprimirConRemito");
+
+      if (checkboxRemito) {
+        checkboxRemito.checked = false;
+      }
+
+    }, 300);
+
+    // =====================================================
+    // DESELECCIONAR FILAS Y CHECKBOXES
+    // =====================================================
+
+    document.querySelectorAll("tbody tr.seleccionado").forEach(fila => {
+
+      fila.classList.remove("seleccionado");
+
+      const checkbox = fila.querySelector('input[type="checkbox"]');
+
+      if (checkbox) {
+        checkbox.checked = false;
+      }
+    });
+
+    toggleBotonImprimir();
+
+  } finally {
 
     imprimiendoResumen = false;
 
@@ -7584,7 +8164,6 @@ toggleBotonImprimir();
     }
   }
 }
-
 
 // Exponer
 window.confirmarYImprimirDesdeResumen = confirmarYImprimirDesdeResumen;
