@@ -874,6 +874,8 @@ html body #proyectorBoxPedidos #proyectorFlechaPedidos.proyector-arrow {
   position: relative;
   z-index: 3001 !important;
 }
+
+
   </style>
   
 </head>
@@ -1172,7 +1174,7 @@ html body #proyectorBoxPedidos #proyectorFlechaPedidos.proyector-arrow {
         </div>
 
         <!-- OPCIÓN DE IMPRESIÓN CON REMITO -->
-        <div class="mb-3 p-3 border rounded shadow-sm bg-white">
+        <div class="mb-3 p-3 border rounded shadow-sm" style="background-color: #eeeeee;">
 
           <div class="form-check">
             <input
@@ -5087,6 +5089,7 @@ window.agregarFilaPendiente = async function () {
 
   const contenedor = document.getElementById("contenedorPedidosPendientes");
   const fila = document.createElement("div");
+
   fila.classList.add("fila-pendiente", "d-flex", "gap-2", "mb-2");
 
   const datalistId = "lista-articulos-" + Math.random().toString(36).substring(7);
@@ -5098,12 +5101,37 @@ window.agregarFilaPendiente = async function () {
     </datalist>
     <input type="number" class="form-control input-unidades" placeholder="Unidades" style="width: 100px;">
     <input type="number" class="form-control input-caja-pack" placeholder="Caja/Pack" style="width: 100px;">
-    <button class="btn btn-danger" onclick="this.parentElement.remove()">🗑</button>
+    <button class="btn btn-danger" onclick="event.stopPropagation(); this.parentElement.remove()">🗑</button>
   `;
+
+  // Estilo visual de selección.
+  if (!document.getElementById("estiloSeleccionPendientes")) {
+    const estilo = document.createElement("style");
+    estilo.id = "estiloSeleccionPendientes";
+    estilo.textContent = `
+      .fila-pendiente {
+        cursor: pointer;
+        transition: background-color 0.15s ease;
+        border-radius: 6px;
+        padding: 4px;
+      }
+
+      .fila-pendiente.seleccionada {
+        background-color: #c8c8c8 !important;
+      }
+    `;
+    document.head.appendChild(estilo);
+  }
+
+  // Seleccionar o deseleccionar con un clic.
+  fila.addEventListener("click", function (event) {
+    if (event.target.closest("button")) return;
+
+    fila.classList.toggle("seleccionada");
+});
 
   contenedor.appendChild(fila);
 };
-
 // ✅ Guardar pedidos pendientes en LocalStorage con fecha
 
 
@@ -6294,6 +6322,43 @@ window.eliminarPedidoPendiente = async function () {
 
         const pedido = pedidoDoc.data();
 
+        // Detectar las filas seleccionadas en el modal.
+const filasPendientes = Array.from(
+    document.querySelectorAll(
+        "#contenedorPedidosPendientes .fila-pendiente"
+    )
+);
+
+const filasSeleccionadas = filasPendientes.filter(
+    fila => fila.classList.contains("seleccionada")
+);
+
+const haySeleccion = filasSeleccionadas.length > 0;
+
+const indicesSeleccionados = new Set(
+    filasSeleccionadas
+        .map(fila => {
+            const indice = fila.dataset.indiceArticulo;
+
+            // Usa el índice asignado al cargar desde Firestore.
+            // Si no existe, utiliza la posición de la fila.
+            return indice !== undefined && indice !== ""
+                ? Number(indice)
+                : filasPendientes.indexOf(fila);
+        })
+        .filter(indice =>
+            Number.isInteger(indice) &&
+            indice >= 0 &&
+            indice < pedido.articulos.length
+        )
+);
+
+if (haySeleccion && indicesSeleccionados.size === 0) {
+    throw new Error(
+        "No se pudieron identificar los artículos seleccionados. Cerrá y volvé a abrir el pedido pendiente."
+    );
+}
+
         // Evitar procesar dos veces una devolución.
         if (pedido.estadoEliminacion === "en-proceso") {
             throw new Error(
@@ -6453,21 +6518,42 @@ window.actualizarDatalistPedidos = async function () {
 };
 
 // Cargar artículos del pedido seleccionado desde Firestore.
+// ======================================================
+// CARGAR PEDIDO PENDIENTE
+// ======================================================
+
 async function cargarPedidoPendiente(titulo) {
-    if (cargandoPedidoPendiente) return;
 
     const contenedor = document.getElementById(
         "contenedorPedidosPendientes"
     );
 
+    const inputTitulo = document.getElementById(
+        "tituloPedidoPendiente"
+    );
+
+    if (!contenedor) return;
+
+    // Identificador para evitar que una consulta anterior
+    // sobrescriba una selección más reciente.
+    const solicitud = (
+        window.solicitudCargaPedidoPendiente || 0
+    ) + 1;
+
+    window.solicitudCargaPedidoPendiente = solicitud;
+
+    // Limpiar siempre antes de comenzar una nueva búsqueda.
+    contenedor.innerHTML = "";
+
     if (!titulo) {
-        contenedor.innerHTML = "";
+        cargandoPedidoPendiente = false;
         return;
     }
 
     cargandoPedidoPendiente = true;
 
     try {
+
         const origen = sessionStorage.getItem("salon") || "";
 
         const consulta = query(
@@ -6479,64 +6565,198 @@ async function cargarPedidoPendiente(titulo) {
 
         const snapshot = await getDocs(consulta);
 
+        // Si mientras esperábamos se eligió otro pedido,
+        // descartamos esta respuesta.
+        if (
+            solicitud !== window.solicitudCargaPedidoPendiente ||
+            inputTitulo?.value.trim() !== titulo
+        ) {
+            return;
+        }
+
         if (snapshot.empty) {
             contenedor.innerHTML = "";
             return;
         }
 
+        if (snapshot.docs.length > 1) {
+            throw new Error(
+                "Hay más de un pedido pendiente con ese título y origen."
+            );
+        }
+
         const reserva = snapshot.docs[0].data();
 
-        contenedor.innerHTML = "";
+        if (!Array.isArray(reserva.articulos)) {
+            contenedor.innerHTML = "";
+            return;
+        }
 
-        for (const item of reserva.articulos || []) {
+        for (const [indice, item] of reserva.articulos.entries()) {
+
+            if (
+                solicitud !== window.solicitudCargaPedidoPendiente
+            ) {
+                return;
+            }
+
+            // Identificar las filas existentes antes de agregar una nueva.
+            const filasAnteriores = new Set(
+                contenedor.querySelectorAll(".fila-pendiente")
+            );
+
             await agregarFilaPendiente();
 
-            const filas = contenedor.querySelectorAll(".fila-pendiente");
-            const fila = filas[filas.length - 1];
+            // Encontrar exclusivamente la fila recién creada.
+            const fila = Array.from(
+                contenedor.querySelectorAll(".fila-pendiente")
+            ).find(f => !filasAnteriores.has(f));
 
-            fila.querySelector(".input-articulo").value = item.articulo;
-            fila.querySelector(".input-unidades").value = item.unidades;
-            fila.querySelector(".input-caja-pack").value = item.cajas;
+            // Si cambió el pedido durante la creación de la fila,
+            // eliminar solamente esa fila y abandonar la carga.
+            if (
+                solicitud !== window.solicitudCargaPedidoPendiente
+            ) {
+                fila?.remove();
+                return;
+            }
+
+            if (!fila) continue;
+
+            fila.dataset.indiceArticulo = indice;
+
+            fila.querySelector(".input-articulo").value =
+                item.articulo || "";
+
+            fila.querySelector(".input-unidades").value =
+                item.unidades ?? 0;
+
+            fila.querySelector(".input-caja-pack").value =
+                item.cajas ?? 0;
         }
 
     } catch (error) {
-        console.error("Error cargando pedido pendiente:", error);
 
-        Swal.fire({
-            icon: "error",
-            text: "No se pudo cargar el pedido pendiente."
-        });
+        if (
+            solicitud === window.solicitudCargaPedidoPendiente
+        ) {
+            console.error(
+                "Error cargando pedido pendiente:",
+                error
+            );
+
+            contenedor.innerHTML = "";
+
+            Swal.fire({
+                icon: "error",
+                title: "Error",
+                text: error.message ||
+                    "No se pudo cargar el pedido pendiente."
+            });
+        }
 
     } finally {
-        cargandoPedidoPendiente = false;
+
+        if (
+            solicitud === window.solicitudCargaPedidoPendiente
+        ) {
+            cargandoPedidoPendiente = false;
+        }
     }
 }
 
-// Cargar al seleccionar un título del datalist.
+
+// ======================================================
+// AL SELECCIONAR UN PEDIDO
+// ======================================================
+
 document.getElementById("tituloPedidoPendiente")
     ?.addEventListener("change", function () {
+
         clearTimeout(temporizadorCargaPendiente);
+
         cargarPedidoPendiente(this.value.trim());
     });
 
-// Si se borra el título, limpiar los artículos.
+
+// ======================================================
+// AL MODIFICAR O BORRAR EL TÍTULO
+// ======================================================
+
 document.getElementById("tituloPedidoPendiente")
     ?.addEventListener("input", function () {
-        if (!this.value.trim()) {
-            clearTimeout(temporizadorCargaPendiente);
 
-            document.getElementById(
-                "contenedorPedidosPendientes"
-            ).innerHTML = "";
+        // Invalidar cualquier consulta anterior.
+        window.solicitudCargaPedidoPendiente =
+            (window.solicitudCargaPedidoPendiente || 0) + 1;
+
+        clearTimeout(temporizadorCargaPendiente);
+
+        // Limpiar las filas anteriores mientras se escribe.
+        const contenedor = document.getElementById(
+            "contenedorPedidosPendientes"
+        );
+
+        if (contenedor) {
+            contenedor.innerHTML = "";
         }
+
+        cargandoPedidoPendiente = false;
     });
 
-// Inicializar datalist.
+
+// ======================================================
+// LIMPIAR AL ABRIR EL MODAL
+// ======================================================
+
+const modalPendientes = document.getElementById(
+    "modalPedidosPendientes"
+);
+
+if (
+    modalPendientes &&
+    !modalPendientes.dataset.limpiezaInicializada
+) {
+
+    modalPendientes.dataset.limpiezaInicializada = "true";
+
+    modalPendientes.addEventListener("show.bs.modal", function () {
+
+        // Invalidar cargas que hayan quedado en curso.
+        window.solicitudCargaPedidoPendiente =
+            (window.solicitudCargaPedidoPendiente || 0) + 1;
+
+        clearTimeout(temporizadorCargaPendiente);
+
+        const inputTitulo = document.getElementById(
+            "tituloPedidoPendiente"
+        );
+
+        const contenedor = document.getElementById(
+            "contenedorPedidosPendientes"
+        );
+
+        if (inputTitulo) {
+            inputTitulo.value = "";
+        }
+
+        if (contenedor) {
+            contenedor.innerHTML = "";
+        }
+
+        cargandoPedidoPendiente = false;
+    });
+}
+
+
+// ======================================================
+// INICIALIZAR DATALIST
+// ======================================================
+
 document.addEventListener(
     "DOMContentLoaded",
     actualizarDatalistPedidos
 );
-
 
 window.enviarPedidoATabla = async function () {
     if (window.enviandoPedidoPendiente) return;
@@ -6672,6 +6892,33 @@ try {
 
     const pedido = pedidoDoc.data();
 
+    // Detectar selección de artículos en el modal.
+const filasPendientes = Array.from(
+    document.querySelectorAll(
+        "#contenedorPedidosPendientes .fila-pendiente"
+    )
+);
+
+const filasSeleccionadas = filasPendientes.filter(
+    fila => fila.classList.contains("seleccionada")
+);
+
+const haySeleccion = filasSeleccionadas.length > 0;
+
+const indicesSeleccionados = new Set(
+    filasSeleccionadas.map(fila => {
+        const indice = fila.dataset.indiceArticulo;
+
+        return indice !== undefined && indice !== ""
+            ? Number(indice)
+            : filasPendientes.indexOf(fila);
+    })
+);
+
+if (haySeleccion && indicesSeleccionados.size === 0) {
+    throw new Error("No se pudieron identificar los artículos seleccionados.");
+}
+
     actualizarPorcentaje(10);
 
     if (!Array.isArray(pedido.articulos) || pedido.articulos.length === 0) {
@@ -6716,15 +6963,35 @@ try {
 
     actualizarPorcentaje(30);
 
-    const totalArticulos = pedido.articulos.length;
-    let articulosProcesados = 0;
+    // Preparar únicamente los artículos que se van a procesar.
+const articulosAProcesar = pedido.articulos
+    .map((item, indice) => ({ item, indice }))
+    .filter(registro =>
+        !haySeleccion || indicesSeleccionados.has(registro.indice)
+    );
 
-    const articulosPendientes = [];
-    let cantidadesEnviadas = 0;
+const totalArticulos = articulosAProcesar.length;
+
+let articulosProcesados = 0;
+let cantidadesEnviadas = 0;
+
+// Guardar los pendientes conservando su posición original.
+const pendientesPorIndice = new Map();
+
+// Los artículos no seleccionados permanecen intactos.
+if (haySeleccion) {
+    pedido.articulos.forEach((item, indice) => {
+        if (!indicesSeleccionados.has(indice)) {
+            pendientesPorIndice.set(indice, item);
+        }
+    });
+}
 
     envioIniciado = true;
 
-    for (const item of pedido.articulos) {
+    for (const registro of articulosAProcesar) {
+    const item = registro.item;
+    const indiceOriginal = registro.indice;
         const articulo = String(item.articulo || "").trim();
 
         if (!articulo) {
@@ -6978,15 +7245,15 @@ try {
             unidadesPendientes > 0 ||
             cajasPendientes > 0
         ) {
-            articulosPendientes.push({
-                ...item,
-                unidades: unidadesPendientes,
-                cajas: cajasPendientes,
-                unidadesReservadas: 0,
-                cajasReservadas: 0,
-                unidadesPendientes,
-                cajasPendientes
-            });
+            pendientesPorIndice.set(indiceOriginal, {
+    ...item,
+    unidades: unidadesPendientes,
+    cajas: cajasPendientes,
+    unidadesReservadas: 0,
+    cajasReservadas: 0,
+    unidadesPendientes,
+    cajasPendientes
+});
         }
 
         articulosProcesados++;
@@ -6997,6 +7264,13 @@ try {
             )
         );
     }
+
+    // Reconstruir los pendientes respetando el orden original.
+const articulosPendientes = Array.from(
+    pendientesPorIndice.entries()
+)
+    .sort((a, b) => a[0] - b[0])
+    .map(([indice, item]) => item);
 
     if (articulosPendientes.length === 0) {
         await deleteDoc(pedidoDoc.ref);
@@ -7019,16 +7293,16 @@ try {
 
     actualizarPorcentaje(100);
 
-    // Limpiar el formulario.
-    document.getElementById("tituloPedidoPendiente").value = "";
+   // Limpiar el formulario.
+document.getElementById("tituloPedidoPendiente").value = "";
 
-    const contenedor = document.getElementById(
-        "contenedorPedidoPendiente"
-    );
+const contenedor = document.getElementById(
+    "contenedorPedidosPendientes"
+);
 
-    if (contenedor) {
-        contenedor.innerHTML = "";
-    }
+if (contenedor) {
+    contenedor.innerHTML = "";
+}
 
     // Cerrar el modal de pedidos pendientes.
     const modalElement = document.getElementById("modalPedidosPendientes");
