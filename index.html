@@ -3473,6 +3473,45 @@ window.importarEventosCotillon = async function () {
     // 2. CREAR UNA NUEVA VERSION TEMPORAL
     // =====================================================
 
+    // =====================================================
+    // 2. CREAR UNA NUEVA VERSION TEMPORAL
+    // =====================================================
+
+    // ============================================
+    // VALIDAR NÚMEROS DE EVENTO DUPLICADOS
+    // ============================================
+
+    const eventosPorNumero = {};
+
+    eventosParaGuardar.forEach(evento => {
+      const numero = String(evento.id).trim();
+
+      if (!eventosPorNumero[numero]) {
+        eventosPorNumero[numero] = 0;
+      }
+
+      eventosPorNumero[numero]++;
+    });
+
+    const eventosDuplicados = Object.entries(eventosPorNumero)
+      .filter(([numero, cantidad]) => cantidad > 1)
+      .map(([numero]) => numero);
+
+    if (eventosDuplicados.length > 0) {
+      console.warn("Eventos duplicados:", eventosDuplicados);
+
+      resultado.textContent =
+        "No se pudo importar la planilla. Se encontraron " +
+        eventosDuplicados.length +
+        " números de evento duplicados: " +
+        eventosDuplicados.join(", ") +
+        ". Corregí la planilla y volvé a importarla.";
+
+      resultado.className = "mt-3 alert alert-warning";
+
+      return;
+    }
+
     const nuevaVersion = Date.now().toString();
 
     const coleccionTemporal = collection(

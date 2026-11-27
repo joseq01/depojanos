@@ -2053,8 +2053,12 @@ window.elegirEventosCotillon = async function (nombreComboActual) {
     return;
   }
 
-  const eventosOriginales = datosCombo.eventosCotillon;
-  const composicion = datosCombo.composicionCotillon;
+// Mantener disponibles todos los eventos para futuras selecciones
+const eventosOriginales =
+  datosCombo.eventosCotillonOriginales ||
+  datosCombo.eventosCotillon;
+
+const composicion = datosCombo.composicionCotillon;
 
   function fechaCorta(fecha) {
     const partes = String(fecha).split("-");
@@ -2255,15 +2259,17 @@ window.elegirEventosCotillon = async function (nombreComboActual) {
 
   delete combos[nombreComboActual];
 
-  combos[nuevoNombre] = productosGenerados;
+combos[nuevoNombre] = productosGenerados;
 
-  combos[nuevoNombre].cantidadCotillones = cantidadCotillones;
+combos[nuevoNombre].cantidadCotillones = cantidadCotillones;
 
-  // Conservamos TODOS los eventos originales para poder
-  // volver a seleccionar cualquiera de ellos.
-  combos[nuevoNombre].eventosCotillon = eventosOriginales;
+// Guardar la selección actual
+combos[nuevoNombre].eventosCotillon = eventosSeleccionados;
 
-  combos[nuevoNombre].composicionCotillon = composicion;
+// Conservar todos los eventos para futuras selecciones
+combos[nuevoNombre].eventosCotillonOriginales = eventosOriginales;
+
+combos[nuevoNombre].composicionCotillon = composicion;
 
   // =====================================================
   // ACTUALIZAR NOMBRE DE LA TARJETA
@@ -2272,6 +2278,9 @@ window.elegirEventosCotillon = async function (nombreComboActual) {
   const checkbox = card.querySelector(".combo-checkbox");
 
   checkbox.dataset.nombre = nuevoNombre;
+
+  // Actualizar también el título que se guarda en Firestore
+card.dataset.tituloCotillon = nuevoNombre;
 
   const titulo = card.querySelector(".fw-bold span");
 
@@ -2696,7 +2705,7 @@ function reproducirBipError() {
 
 //fin lector de barras
 
-// ✅ modificacion 17-5
+
 // ✅ modificacion 17-5
 let agregandoArticulo = false;
 
