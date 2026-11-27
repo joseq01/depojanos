@@ -1003,6 +1003,18 @@ footer {
   </div>
 </div>
 
+<div class="col-auto">
+  <label for="areaArticulo" class="form-label">Sector</label>
+  <input
+    type="text"
+    id="areaArticulo"
+    class="form-control"
+    placeholder="Sector"
+    style="width: 100px;"
+    autocomplete="off"
+  />
+</div>
+
         <div class="col-auto align-self-end">
           <button class="btn btn-sm btn-primary" onclick="agregarArticulo()">Agregar</button>
           <button id="botonAgregarCombos" class="btn btn-sm btn-warning">Agregar Combos</button>
@@ -1590,27 +1602,48 @@ let nombresArticulosCache = []; // solo nombres para datalist y includes
 
 async function cargarArticulosDesdeFirestore() {
   const cache = sessionStorage.getItem("articulosOficialesCache");
+
   if (cache) {
-    articulosCache = JSON.parse(cache);
-    nombresArticulosCache = articulosCache.map(a => a.articulo?.trim().toLowerCase());
-    console.log("✅ Artículos cargados desde cache (ingreso)");
-    llenarDatalistArticulos();
-    return;
+    const articulosGuardados = JSON.parse(cache);
+
+    // Si la caché es vieja, volver a consultar Firestore
+    const cacheActualizada = articulosGuardados.every(a =>
+      a.id !== undefined && a.area !== undefined
+    );
+
+    if (cacheActualizada) {
+      articulosCache = articulosGuardados;
+      nombresArticulosCache = articulosCache.map(a =>
+        a.articulo?.trim().toLowerCase()
+      );
+
+      console.log("✅ Artículos cargados desde cache (ingreso)");
+      llenarDatalistArticulos();
+      return;
+    }
   }
 
   const snapshot = await getDocs(collection(db, "stock-articulos"));
-  articulosCache = snapshot.docs.map(doc => {
-    const data = doc.data();
+
+  articulosCache = snapshot.docs.map(docSnap => {
+    const data = docSnap.data();
+
     return {
+      id: docSnap.id,
       articulo: data.articulo?.trim().toLowerCase() || "",
       categoria: data.categoria || "",
-      unixcajapack: data.unixcajapack || 0
+      unixcajapack: data.unixcajapack || 0,
+      area: data.area || ""
     };
   });
 
   nombresArticulosCache = articulosCache.map(a => a.articulo);
 
-  sessionStorage.setItem("articulosOficialesCache", JSON.stringify(articulosCache));
+  sessionStorage.setItem(
+    "articulosOficialesCache",
+    JSON.stringify(articulosCache)
+  );
+
   console.log("📦 Artículos cargados desde Firestore y cacheados (ingreso)");
   llenarDatalistArticulos();
 }
@@ -1639,8 +1672,52 @@ function llenarDatalistArticulos() {
   });
 }
 
+// Completar automáticamente el Sector al elegir un artículo
+document.getElementById("articulo")?.addEventListener("change", async function () {
+  const nombreArticulo = this.value.trim().toLowerCase();
+  const campoArea = document.getElementById("areaArticulo");
+
+  if (!campoArea) return;
+
+  if (!nombreArticulo) {
+    campoArea.value = "";
+    return;
+  }
+
+  if (articulosCache.length === 0) {
+    await cargarArticulosDesdeFirestore();
+  }
+
+  const encontrado = articulosCache.find(a =>
+    a.articulo === nombreArticulo
+  );
+
+  campoArea.value = encontrado?.area || "";
+});
+
 document.addEventListener("DOMContentLoaded", () => {
   cargarArticulosDesdeFirestore();
+});
+
+// Limpiar Sector cuando se borra el artículo
+document.getElementById("articulo")?.addEventListener("input", function () {
+  if (!this.value.trim()) {
+    document.getElementById("areaArticulo").value = "";
+  }
+});
+
+// MAYÚSCULAS Y REEMPLAZAR CADA ESPACIO POR UN SOLO " - "
+document.getElementById("areaArticulo")?.addEventListener("input", function (e) {
+  const posicion = this.selectionStart;
+  const valor = this.value;
+
+  if (e.inputType === "insertText" && e.data === " ") {
+    this.value = valor.slice(0, posicion - 1) + " - " + valor.slice(posicion);
+    this.setSelectionRange(posicion + 2, posicion + 2);
+    return;
+  }
+
+  this.value = valor.toUpperCase();
 });
 
 //lector de barras
@@ -1839,6 +1916,7 @@ async function agregarArticulo() {
   try {
 
     const articulo = document.getElementById("articulo").value.trim();
+    const areaArticulo = document.getElementById("areaArticulo").value.trim();
     const unidades = parseInt(document.getElementById("unidades").value) || 0;
     const cajas = parseInt(document.getElementById("cajas").value) || 0;
     const rotas = parseInt(document.getElementById("rotas").value) || 0;
@@ -1942,6 +2020,64 @@ if (
     // ❌ Stock insuficiente
     if (!actualizado) return;
 
+ // ==========================================
+// ACTUALIZAR SECTOR SOLO SI CAMBIÓ
+// ==========================================
+
+if (articulosCache.length === 0) {
+  await cargarArticulosDesdeFirestore();
+}
+
+const articuloEncontrado = articulosCache.find(a =>
+  a.articulo === articulo.toLowerCase()
+);
+
+if (articuloEncontrado && articuloEncontrado.id) {
+
+  const areaAnterior = articuloEncontrado.area || "";
+
+  // Solo escribir en Firestore si el Sector cambió
+  if (areaArticulo !== areaAnterior) {
+
+    await updateDoc(
+      doc(db, "stock-articulos", articuloEncontrado.id),
+      {
+        area: areaArticulo
+      }
+    );
+
+    // Actualizar caché de Ingresos
+    articuloEncontrado.area = areaArticulo;
+
+    sessionStorage.setItem(
+      "articulosOficialesCache",
+      JSON.stringify(articulosCache)
+    );
+
+    // Actualizar caché que utiliza la página Stock
+    const cacheStock = sessionStorage.getItem("articulosCache");
+
+    if (cacheStock) {
+      const listaStock = JSON.parse(cacheStock);
+
+      const articuloStock = listaStock.find(a =>
+        a.articulo?.trim().toLowerCase() === articulo.toLowerCase()
+      );
+
+      if (articuloStock) {
+        articuloStock.area = areaArticulo;
+      }
+
+      sessionStorage.setItem(
+        "articulosCache",
+        JSON.stringify(listaStock)
+      );
+    }
+
+    console.log("✅ Sector actualizado en Firestore y ambas cachés");
+  }
+}
+
     // ✅ Guardar ingreso
     const docRef = await addDoc(collection(db, "stock-ingreso"), {
       articulo,
@@ -2026,6 +2162,7 @@ if (
 
     // ✅ Limpiar formulario
     document.getElementById("articulo").value = "";
+    document.getElementById("areaArticulo").value = "";
     document.getElementById("unidades").value = "";
     document.getElementById("cajas").value = "";
     document.getElementById("notas").value = "";
